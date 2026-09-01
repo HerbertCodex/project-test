@@ -187,6 +187,24 @@ celui qui les a écrites.
 **clôt** l'issue au lieu de la supprimer — ce que son nom ne laisse pas deviner,
 et ce qui a fait croire à un premier échec.
 
+**Précision constatée le même jour, et elle complique le contournement.** « Le
+lecteur qui fait autorité » n'est pas le même selon qui demande :
+
+| Qui lit | Ce qui fait autorité pour lui |
+| --- | --- |
+| `sudocode issue show` | `cache.db` |
+| `readIssueTracker`, donc toute la pipeline | `.sudocode/issues.jsonl` |
+
+Un lien posé peut donc être **présent en base et absent pour la pipeline** tant
+que l'export n'a pas tourné — et l'export abandonne lui aussi. Constaté sur
+`i-1a3m depends-on i-20xj` : trois `link` abandonnés, `issue show` le montrant
+en base, la pipeline ne le voyant pas, et un `sudocode export` réussi suffisant à
+réconcilier les deux.
+
+**Le contournement complet est donc :** poser l'écriture, forcer `sudocode
+export`, relire par `readIssueTracker`, et ne réessayer l'écriture que si elle
+est absente **des deux**.
+
 ## F5 — La proposition approuvée vit dans un répertoire que le cadre exige d'ignorer
 
 **Constatée le 2026-09-01, en écrivant le round 2 de la troisième spec.**
