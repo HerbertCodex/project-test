@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-19 files, src, test.
+24 files, src, test.
 
 ## src/adapters/
 
@@ -32,7 +32,27 @@ runtime, and re-exports through an index.
 
 - `AppService` — service
 
+## src/application/borrow/
+
+### src/application/borrow/borrow.usecase.ts
+
+- `MembershipExpired` — class — Refus : l'adhésion a expiré.
+- `BorrowCeilingReached` — class — Refus : l'adhérent a déjà autant d'emprunts que le règlement l'autorise.
+- `BlockedByDebt` — class — Refus : les impayés dépassent le seuil qui suspend les droits.
+- `CopySetAsideForAnother` — class — Refus : cet exemplaire attend quelqu'un d'autre.
+- `UnknownParty` — class — Refus : l'exemplaire ou l'adhérent n'existe pas.
+- `BorrowRequest` — interface — Ce qu'un emprunt demande.
+- `BorrowUseCase` — class — Prêter un exemplaire, ou refuser en disant pourquoi.
+
 ## src/application/ports/
+
+### src/application/ports/circulation-store.port.ts
+
+- `CirculationStore` — interface — Le port de lecture et d'écriture de la circulation.
+
+### src/application/ports/loan-policy.port.ts
+
+- `LoanPolicy` — interface — Les seuils dont les cas d'usage ont besoin, déclarés par eux.
 
 ### src/application/ports/notification-sender.port.ts
 
@@ -90,6 +110,12 @@ runtime, and re-exports through an index.
 
 - `AppController (e2e)` — test harness
 
+## test/application/borrow/
+
+### test/application/borrow/borrow.usecase.spec.ts
+
+- `Emprunter un exemplaire` — test harness
+
 ## test/domain/
 
 ### test/domain/availability.spec.ts
@@ -121,3 +147,9 @@ runtime, and re-exports through an index.
 ### test/infrastructure/notification/notification-sender.spec.ts
 
 - `Port de notification` — test harness
+
+## test/support/
+
+### test/support/sources.ts
+
+- `sourcesUnder` — function — Les fichiers TypeScript sous une racine, récursivement.

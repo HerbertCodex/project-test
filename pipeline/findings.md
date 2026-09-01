@@ -123,3 +123,42 @@ est un job que les gens cessent de lire »*.
 **Ce n'est pas contournable côté projet.** `deferredGates` appartient au cœur,
 qu'on ne modifie pas. Les deux seules issues sont dans `pipeline.config.json`,
 donc chez l'opérateur : élargir la portée d'un gate, ou accepter le rouge.
+
+## F4 — `scripts/comment-policy.mjs` lit un littéral d'expression régulière comme un commentaire
+
+**Constaté le 2026-09-01, sur du code que le gate a refusé à tort.**
+
+Ce code, parfaitement légitime, a été refusé :
+
+```ts
+.replace(/\/\*[\s\S]*?\*\//g, ' ')
+```
+
+Le gate a rapporté `narration — « g, ' ') »`. Il lit le `/*` du littéral comme
+l'ouverture d'un commentaire de bloc.
+
+**La cause.** `scripts/comment-policy.mjs` parcourt les jetons avec
+`ts.createScanner`, et le scanner de TypeScript ne distingue pas seul une
+division d'un littéral d'expression régulière : il faut le lui demander par
+`reScanSlashToken()` selon le contexte. Sans ça, tout `/` ouvre potentiellement
+un commentaire.
+
+**Ce que ça coûte.** Un faux positif sur du code juste. Et c'est la catégorie de
+défaut la plus chère pour un gate : quelqu'un finit par contourner en réécrivant
+un code correct pour plaire à l'outil, ce que j'ai failli faire.
+
+**Contournement employé ici**, et il se défend tout seul :
+
+```ts
+const BLOCK_COMMENT = new RegExp('/\\*[\\s\\S]*?\\*/', 'g');
+```
+
+**Le vrai correctif appartient à l'opérateur** : `scripts/` est refusé à
+l'implémenteur par `file_policy`, et à raison — c'est l'outillage qui juge le
+code, pas l'inverse. Il consiste à traiter le jeton `SlashToken` avec
+`reScanSlashToken` quand le contexte autorise une expression régulière.
+
+**Ce que ce gate a quand même bien fait le même jour** : refuser trois vraies
+narrations dans les issues précédentes. Un outil qui a un faux positif n'est pas
+un outil inutile — il est un outil dont on connaît la limite, et c'est pour ça
+qu'elle est écrite ici.
