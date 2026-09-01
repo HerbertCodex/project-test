@@ -9,6 +9,10 @@ import {
 
 /**
  * Les fichiers TypeScript sous une racine.
+ *
+ * @param root - la racine à parcourir
+ * @param found - accumulateur
+ * @returns les chemins des sources
  */
 function sourcesUnder(root: string, found: string[] = []): string[] {
   for (const entry of readdirSync(root)) {
@@ -19,18 +23,51 @@ function sourcesUnder(root: string, found: string[] = []): string[] {
   return found;
 }
 
+/**
+ * Ce qu'un fichier laisse fuir de la politique.
+ *
+ * Les valeurs cherchées sont les quatre distinctives. 5 et 8 sont exclus
+ * volontairement : trop courants pour distinguer un seuil d'un nombre
+ * ordinaire, et un test qui crie au loup finit supprimé.
+ *
+ * @param path - le fichier lu
+ * @returns une ligne par fuite constatée
+ */
+function leaksIn(path: string): string[] {
+  const text = readFileSync(path, 'utf8');
+  const found: string[] = [];
+  if (/CirculationPolicy|DEFAULT_POLICY/.test(text))
+    found.push(`${path}: importe la politique`);
+  for (const value of ['23', '43', '45', '50']) {
+    const literal = new RegExp(`(?<![\\w.])${value}(?![\\w.])`);
+    if (literal.test(text)) found.push(`${path}: porte le litteral ${value}`);
+  }
+  return found;
+}
+
 describe('Politique de circulation', () => {
+  const incoherent = {
+    ...DEFAULT_POLICY,
+    lateFeePerDay: 0,
+    debtBlockThreshold: 50,
+  };
+
   it('porte les huit seuils arretes au round 2', () => {
-    expect(DEFAULT_POLICY).toEqual({
-      loanPeriodDays: 23,
-      renewalLimit: 5,
-      borrowCeiling: 43,
-      holdCeiling: 43,
-      lostAfterDays: 45,
-      debtBlockThreshold: 50,
-      holdPickupDays: 8,
-      lateFeePerDay: 0.2,
-    });
+    const byKey = (left: [string, unknown], right: [string, unknown]): number =>
+      left[0].localeCompare(right[0]);
+    const expected: [string, number][] = [
+      ['borrowCeiling', 43],
+      ['debtBlockThreshold', 50],
+      ['holdCeiling', 43],
+      ['holdPickupDays', 8],
+      ['lateFeePerDay', 0.2],
+      ['loanPeriodDays', 23],
+      ['lostAfterDays', 45],
+      ['renewalLimit', 5],
+    ];
+    expect(Object.entries(DEFAULT_POLICY).sort(byKey)).toEqual(
+      expected.sort(byKey),
+    );
   });
 
   it('lit les seuils depuis l environnement, defaut sinon', () => {
@@ -38,13 +75,17 @@ describe('Politique de circulation', () => {
     expect(loadPolicy({}).loanPeriodDays).toBe(DEFAULT_POLICY.loanPeriodDays);
   });
 
+  it('refuse une valeur qui n est pas un nombre', () => {
+    expect(() => loadPolicy({ BORROW_CEILING: 'beaucoup' })).toThrow(
+      IncoherentPolicy,
+    );
+  });
+
   it('REFUSE un bareme nul avec un seuil de blocage non nul', () => {
-    const incoherent = { ...DEFAULT_POLICY, lateFeePerDay: 0, debtBlockThreshold: 50 };
     expect(() => assertCoherent(incoherent)).toThrow(IncoherentPolicy);
   });
 
   it('nomme les deux cles dans le message du refus', () => {
-    const incoherent = { ...DEFAULT_POLICY, lateFeePerDay: 0, debtBlockThreshold: 50 };
     let message = '';
     try {
       assertCoherent(incoherent);
@@ -56,28 +97,26 @@ describe('Politique de circulation', () => {
   });
 
   it('accepte un bareme nul quand le seuil de blocage est nul aussi', () => {
-    const noFines = { ...DEFAULT_POLICY, lateFeePerDay: 0, debtBlockThreshold: 0 };
-    expect(() => assertCoherent(noFines)).not.toThrow();
+    expect(() =>
+      assertCoherent({
+        ...DEFAULT_POLICY,
+        lateFeePerDay: 0,
+        debtBlockThreshold: 0,
+      }),
+    ).not.toThrow();
   });
 
   it('refuse au chargement, pas seulement a la verification', () => {
-    expect(() => loadPolicy({ LATE_FEE_PER_DAY: '0' })).toThrow(IncoherentPolicy);
+    expect(() => loadPolicy({ LATE_FEE_PER_DAY: '0' })).toThrow(
+      IncoherentPolicy,
+    );
   });
 
   it('ne laisse aucun seuil fuir dans le domaine ni l application', () => {
-    const distinctive = ['23', '43', '45', '50'];
-    const leaks: string[] = [];
-    for (const root of ['src/domain', 'src/application']) {
-      for (const path of sourcesUnder(root)) {
-        const text = readFileSync(path, 'utf8');
-        if (/CirculationPolicy|DEFAULT_POLICY/.test(text)) leaks.push(`${path}: importe la politique`);
-        for (const value of distinctive) {
-          if (new RegExp(`(?<![\\w.])${value}(?![\\w.])`).test(text)) {
-            leaks.push(`${path}: porte le litteral ${value}`);
-          }
-        }
-      }
-    }
+    const roots = ['src/domain', 'src/application'];
+    const leaks = roots.flatMap((root) =>
+      sourcesUnder(root).flatMap((path) => leaksIn(path)),
+    );
     expect(leaks).toEqual([]);
   });
 });
