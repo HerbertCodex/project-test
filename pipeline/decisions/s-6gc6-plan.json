@@ -1,0 +1,171 @@
+{
+ "schema_version": 1,
+ "mode": "spec_plan",
+ "agent": "product",
+ "produced_at": "2026-09-01T21:50:24.000Z",
+ "scope": {
+  "spec_id": "s-6gc6"
+ },
+ "basis": {
+  "record_hash": "a71e488a8d3d88834fb4a8dc7b619ad128f8ef50561deeac26629857bb994335",
+  "pipeline_version": 1
+ },
+ "outcome": "awaiting_operator_decision",
+ "approved_proposal": {
+  "path": "pipeline/decisions/s-6gc6-proposition-approuvee-round2.json",
+  "digest_sha256": "8bf02c8fc810f431423dbb7fcb92ffd860e310c6a7158fde517838ef15ae0b51",
+  "approved_at": "2026-09-01T21:50:24.000Z",
+  "round": 2
+ },
+ "issues": [
+  {
+   "id": "i-63xa",
+   "title": "Déclarer le schéma en tables, la migration et l'index unique partiel",
+   "file_reservations": [
+    "src/infrastructure/persistence/schema/**",
+    "src/infrastructure/persistence/drizzle.config.ts",
+    "src/infrastructure/persistence/migrations/**",
+    "test/infrastructure/persistence/schema/**",
+    "src/infrastructure/persistence/schema/copies.ts"
+   ],
+   "acceptance_criteria": [
+    "Le fichier `src/infrastructure/persistence/schema/copies.ts` existe et déclare les tables exemplaires, adhérents, prêts et réservations. La configuration Drizzle vit sous `src/infrastructure/persistence/`, pas à la racine : `file_policy` refuse la racine à l'implémenteur, et ça a été vérifié avant d'écrire ce plan.",
+    "Une migration versionnée existe sous `src/infrastructure/persistence/migrations/` et un test l'applique à une base neuve puis vérifie que les quatre tables existent. Un schéma qui ne vit que dans la tête du dernier développeur n'est pas persistant.",
+    "L'index unique PARTIEL sur copy_id là où returned_at est nul existe dans la migration. Un test l'exerce directement en SQL : deux insertions de prêts ouverts sur le même exemplaire, la seconde est refusée par la base.",
+    "Le même test montre que la contrainte laisse passer un second prêt quand le premier porte une date de retour. Sans cette moitié, la contrainte pourrait interdire tout second prêt et le test resterait vert."
+   ]
+  },
+  {
+   "id": "i-7f84",
+   "title": "Implémenter les sept ports sur Drizzle, sans les modifier",
+   "file_reservations": [
+    "src/infrastructure/persistence/repositories/**",
+    "test/infrastructure/persistence/repositories/**"
+   ],
+   "acceptance_criteria": [
+    "Les sept ports ont chacun une implémentation Drizzle, et `git diff` sur `src/application/ports/` est VIDE à la clôture. Si un port devait changer, c'est le port qu'il faut corriger, pas la règle — et le diff vide est ce qui le prouve.",
+    "Chaque implémentation a un test qui l'exerce contre une base SQLite réelle, pas un double : c'est tout l'objet de cette issue.",
+    "`node scripts/architecture-check.mjs` sort 0 : les implémentations sont dans infrastructure et ne sont importées que par le câblage."
+   ]
+  },
+  {
+   "id": "i-2fp6",
+   "title": "Traduire la violation de contrainte en CopyAlreadyOnLoan et le prouver sous entrelacement",
+   "file_reservations": [
+    "src/infrastructure/persistence/repositories/**",
+    "test/infrastructure/persistence/repositories/**"
+   ],
+   "acceptance_criteria": [
+    "Une violation de l'index unique partiel remonte comme `CopyAlreadyOnLoan`, jamais comme une erreur du pilote SQLite. Un test insère un prêt puis en tente un second et vérifie le TYPE de l'erreur reçue.",
+    "Deux emprunts ENTRELACÉS du même exemplaire — les deux lisent les prêts, puis les deux insèrent — n'aboutissent qu'une fois, et le second reçoit `CopyAlreadyOnLoan`. C'est le refus fondateur tenu dans les faits et non plus dans le raisonnement.",
+    "Casse délibérée exigée à la clôture : retirer la traduction fait échouer le test d'entrelacement avec une erreur de pilote. Un gate vert sans cette preuve ne distingue pas une traduction d'une absence de concurrence."
+   ]
+  },
+  {
+   "id": "i-mo1z",
+   "title": "Écrire un prêt et sa dette dans la même transaction",
+   "file_reservations": [
+    "src/infrastructure/persistence/transactions/**",
+    "test/infrastructure/persistence/transactions/**"
+   ],
+   "acceptance_criteria": [
+    "Un retour en retard écrit le prêt fermé ET la dette dans une seule transaction. Un test fait échouer l'écriture de la dette et vérifie que le prêt n'est PAS fermé.",
+    "Le cas nominal écrit les deux : le test lit la base après coup, il ne se fie pas au retour de la fonction.",
+    "La transaction vit dans l'adaptateur. `src/application/` et `src/domain/` ne contiennent aucune occurrence de `transaction` ni de `db` : un test lit les sources et le refuse."
+   ]
+  },
+  {
+   "id": "i-9rsv",
+   "title": "La table de correspondance refus vers code HTTP, vérifiée à la compilation",
+   "file_reservations": [
+    "src/adapters/http/errors/**",
+    "test/adapters/http/errors/**",
+    "src/adapters/http/errors/refusal-map.ts"
+   ],
+   "acceptance_criteria": [
+    "Le fichier `src/adapters/http/errors/refusal-map.ts` associe chaque refus métier à son code : 409 pour un conflit d'état, 403 pour un droit suspendu, 422 pour une demande impossible, 404 pour un inconnu.",
+    "La table est EXHAUSTIVE au sens du compilateur : ajouter un refus au domaine sans l'y ajouter fait échouer `npx tsc --noEmit`. Une vérification au démarrage se découvre en production ; à la compilation, elle se découvre en écrivant le refus.",
+    "Casse délibérée exigée : introduire un refus non cartographié fait sortir `check` en 1, et le message nomme le refus manquant.",
+    "Aucun refus métier ne produit 500. Un test parcourt la table et vérifie qu'aucune valeur n'est dans la plage 5xx."
+   ]
+  },
+  {
+   "id": "i-34xn",
+   "title": "Exposer emprunter et rendre, avec la validation de saisie à la frontière",
+   "file_reservations": [
+    "src/adapters/http/circulation/**",
+    "src/app.module.ts",
+    "test/adapters/http/circulation/**"
+   ],
+   "acceptance_criteria": [
+    "Deux routes existent et répondent : emprunter et rendre. Un test e2e les appelle par HTTP contre l'application Nest et vérifie le corps de la réponse — le prêt créé, la dette constatée — pas un accusé vide.",
+    "Une saisie mal formée est refusée AVANT d'atteindre le cas d'usage, avec le nom du champ fautif. Un test envoie un corps invalide et vérifie que le cas d'usage n'a pas été appelé.",
+    "Chaque refus métier ressort avec le code de la table : un test provoque un exemplaire déjà sorti et attend 409, un adhérent bloqué et attend 403.",
+    "`node scripts/architecture-check.mjs` sort 0, et aucun fichier de `src/application/` ni `src/domain/` n'importe `@nestjs/common` — le test qui l'interdit reste vert."
+   ]
+  },
+  {
+   "id": "i-7el4",
+   "title": "Exposer prolonger et réserver",
+   "file_reservations": [
+    "src/adapters/http/renewal/**",
+    "src/adapters/http/holds/**",
+    "test/adapters/http/renewal/**",
+    "test/adapters/http/holds/**"
+   ],
+   "acceptance_criteria": [
+    "Deux routes de plus, appelées par HTTP dans un test e2e, avec leur corps de réponse vérifié.",
+    "La prolongation refusée parce qu'un autre adhérent attend ressort en 403, et un test le prouve de bout en bout.",
+    "La réservation d'un titre entièrement disponible ressort en 409."
+   ]
+  },
+  {
+   "id": "i-o0hv",
+   "title": "Exposer expirer une réservation et déclarer un prêt perdu",
+   "file_reservations": [
+    "src/adapters/http/maintenance/**",
+    "test/adapters/http/maintenance/**"
+   ],
+   "acceptance_criteria": [
+    "Deux routes appelables exposent les deux opérations, et un test e2e les exerce.",
+    "Aucun ordonnanceur n'est livré : un test lit les sources de `src/adapters/http/maintenance/` et n'y trouve ni `setInterval`, ni `setTimeout`, ni `cron`.",
+    "Expirer une réservation dont le délai n'est pas dépassé ne change rien et répond sans erreur."
+   ]
+  },
+  {
+   "id": "i-20xj",
+   "title": "Un test de bout en bout qui emprunte puis rend contre une vraie base",
+   "file_reservations": [
+    "test/smoke/**",
+    "test/smoke/circulation.e2e-spec.ts"
+   ],
+   "acceptance_criteria": [
+    "`test/smoke/circulation.e2e-spec.ts` démarre l'application, emprunte un exemplaire, le rend, et vérifie que l'exemplaire redevient empruntable — contre un fichier SQLite réel, pas une base en mémoire.",
+    "Le test échoue si l'application démarre mais refuse l'opération. C'est le cas que le cœur documente : treize gates verts pendant que chaque formulaire répondait 403.",
+    "ÉTAPE OPÉRATEUR DÉCLARÉE D'AVANCE : repointer `scripts/smoke.mjs` sur ce parcours. `file_policy` refuse `scripts/` à l'implémenteur, vérifié avant d'écrire ce plan, et ce critère ne l'exige donc pas."
+   ]
+  },
+  {
+   "id": "i-1a3m",
+   "title": "Supprimer AppController et AppService, et étendre le test anti-NestJS",
+   "file_reservations": [
+    "src/adapters/app.controller.ts",
+    "src/adapters/app.controller.spec.ts",
+    "src/application/app.service.ts",
+    "src/app.module.ts",
+    "test/app.e2e-spec.ts",
+    "test/application/**"
+   ],
+   "acceptance_criteria": [
+    "`src/adapters/app.controller.ts`, son spec et `src/application/app.service.ts` n'existent plus, et `src/app.module.ts` ne les référence plus.",
+    "`test/app.e2e-spec.ts` n'existe plus : ce qu'il prouvait est prouvé par le parcours métier de i-20xj.",
+    "Le test qui interdit `@nestjs/common` porte désormais sur TOUTE la couche `src/application/`, et non plus sur les seuls répertoires que i-699g avait pu couvrir. Casse délibérée exigée : ajouter l'import dans n'importe quel fichier de cette couche le fait échouer.",
+    "Les dix-neuf gates sortent 0 après la suppression, `smoke` compris."
+   ]
+  }
+ ],
+ "context": {
+  "heading": "## Context for Implementer",
+  "body": "Dix issues. DEUX DÉMARRABLES tout de suite, sans dépendance et sans réservation qui se croise : i-63xa (le schéma) et i-9rsv (la table de correspondance).\n\nCE QUI CHANGE DANS LA RÉDACTION DES CRITÈRES, et c'est la leçon de s-6y4w : chaque critère EXIGE l'artefact au lieu de le décrire. Le trou de l'adaptateur venait d'un critère dont la moitié vérifiable ne demandait que l'absence de HTTP dans le domaine pendant que la prose parlait d'un adaptateur. Ici, quand un critère nomme un fichier, il exige qu'il existe.\n\nTROIS CRITÈRES EXIGENT UNE CASSE DÉLIBÉRÉE à la clôture — i-2fp6, i-9rsv, i-1a3m. Ce ne sont pas des vérifications de confort : sans elles, un gate vert ne distingue pas une protection d'une absence de menace.\n\nDEUX FRONTIÈRES ONT ÉTÉ VÉRIFIÉES AVANT D'ÉCRIRE CE PLAN, plutôt que découvertes par verify-scope : la configuration Drizzle ne peut pas vivre à la racine, que file_policy refuse à l'implémenteur, donc elle vit sous src/infrastructure/persistence/ ; et scripts/smoke.mjs est refusé à l'implémenteur, donc i-20xj livre le parcours de test et le repointage du smoke est déclaré comme étape opérateur.\n\nL'ORDRE N'EST PAS LIBRE POUR i-1a3m : supprimer le scaffold retire la seule route du produit. Elle dépend de i-20xj pour cette raison."
+ }
+}
