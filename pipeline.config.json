@@ -122,9 +122,11 @@
   },
   "dead_code": {
     "roots": [
-      "src"
+      "src",
+      "test"
     ],
-    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$"
+    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$",
+    "roots_note": "test/ compte comme citation depuis le 2026-09-01 (décision opérateur, trouvaille F3). Relâchement assumé : un export prouvé par un test mais jamais utilisé en production passe désormais. En échange le gate reste lisible pendant toute une spec, au lieu d'être rouge par construction tant que les issues consommatrices ne sont pas écrites. Il continue de refuser un export que RIEN ne cite, ce qui est son objet réel. Vérifié par casse délibérée le jour de la décision."
   },
   "sast": {
     "roots": [

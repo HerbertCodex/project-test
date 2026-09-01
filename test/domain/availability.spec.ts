@@ -3,6 +3,7 @@ import {
   availabilityOf,
   assertLendable,
   CopyAlreadyOnLoan,
+  type Availability,
 } from '../../src/domain/availability.js';
 import { aLoan } from './builders.js';
 
@@ -12,7 +13,8 @@ describe('Disponibilite derivee des prets', () => {
     aLoan({ returnedAt: new Date('2026-01-10T10:00:00Z') });
 
   it('un exemplaire sans pret ouvert est disponible', () => {
-    expect(availabilityOf(copy.id, [])).toBe('available');
+    const state: Availability = availabilityOf(copy.id, []);
+    expect(state).toBe('available');
   });
 
   it('un exemplaire portant un pret ouvert est sorti', () => {
