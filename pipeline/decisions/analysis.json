@@ -1,5 +1,5 @@
 {
-  "product": "API métier NestJS : un service HTTP qui possède ses propres données et refuse des opérations pour des raisons venant du métier, pas seulement du format.",
+  "product": "API de gestion de bibliothèque : prêt, prolongation, retour et réservation d'exemplaires. Le service possède ses propres données et refuse des opérations pour des raisons venant du métier.",
   "declared_by": "operator",
   "declared_at": "2026-09-01",
   "business_rules": [
@@ -9,13 +9,29 @@
     }
   ],
   "integrations": [
-    { "name": "intégration externe remplaçable n°1 (déclarée par l'opérateur, non encore nommée)", "replaceable": true },
-    { "name": "intégration externe remplaçable n°2 (déclarée par l'opérateur, non encore nommée)", "replaceable": true }
+    {
+      "name": "Envoi d'e-mails / notifications transactionnelles",
+      "replaceable": true
+    },
+    {
+      "name": "Paiement (encaissement des dettes)",
+      "replaceable": true
+    },
+    {
+      "name": "Stockage de fichiers",
+      "replaceable": true
+    },
+    {
+      "name": "Fournisseur d'identité",
+      "replaceable": true
+    }
   ],
   "concurrent_workers": "few",
   "owns_data": true,
   "validations": [
     "Authentification et données personnelles : déclarées présentes, donc portées en human_review_paths.",
     "Base de données propre au service : c'est ce qui fait de ce dépôt un backend et non une interface web."
-  ]
+  ],
+  "corrected_at": "2026-09-01",
+  "correction_note": "Les intégrations étaient déclarées en nombre (deux) et non nommées. L'opérateur en a nommé quatre. La conclusion architecturale ne change pas — le catalogue recommandait déjà hexagonal à partir de deux — elle est seulement mieux fondée. Les business_rules restent volontairement non énumérées ICI : elles sont désormais écrites, sourcées, dans la proposition de spec s-6y4w, qui est leur place."
 }
