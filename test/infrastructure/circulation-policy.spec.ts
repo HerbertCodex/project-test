@@ -1,27 +1,11 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { sourcesUnder } from '../support/sources.js';
 import {
   DEFAULT_POLICY,
   IncoherentPolicy,
   assertCoherent,
   loadPolicy,
 } from '../../src/infrastructure/config/circulation-policy.js';
-
-/**
- * Les fichiers TypeScript sous une racine.
- *
- * @param root - la racine à parcourir
- * @param found - accumulateur
- * @returns les chemins des sources
- */
-function sourcesUnder(root: string, found: string[] = []): string[] {
-  for (const entry of readdirSync(root)) {
-    const path = join(root, entry);
-    if (statSync(path).isDirectory()) sourcesUnder(path, found);
-    else if (path.endsWith('.ts')) found.push(path);
-  }
-  return found;
-}
 
 /**
  * Ce qu'un fichier laisse fuir de la politique.
@@ -34,7 +18,11 @@ function sourcesUnder(root: string, found: string[] = []): string[] {
  * @returns une ligne par fuite constatée
  */
 function leaksIn(path: string): string[] {
-  const text = readFileSync(path, 'utf8');
+  const BLOCK_COMMENT = new RegExp('/\\*[\\s\\S]*?\\*/', 'g');
+  const LINE_COMMENT = new RegExp('//[^\\n]*', 'g');
+  const text = readFileSync(path, 'utf8')
+    .replace(BLOCK_COMMENT, ' ')
+    .replace(LINE_COMMENT, ' ');
   const found: string[] = [];
   if (/CirculationPolicy|DEFAULT_POLICY/.test(text))
     found.push(`${path}: importe la politique`);
