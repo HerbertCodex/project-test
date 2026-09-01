@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-13 files, src, test.
+14 files, src, test.
 
 ## src/adapters/
 
@@ -70,6 +70,12 @@ runtime, and re-exports through an index.
 ### test/domain/availability.spec.ts
 
 - `Disponibilite derivee des prets` — test harness
+
+### test/domain/builders.ts
+
+- `START` — const — Les dates de référence des scénarios de prêt.
+- `DUE` — const — Échéance par défaut : START + 23 jours, la durée de prêt configurée.
+- `aLoan` — function — Construit un prêt de test, ouvert par défaut.
 
 ### test/domain/loan.spec.ts
 
