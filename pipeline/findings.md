@@ -162,3 +162,47 @@ code, pas l'inverse. Il consiste à traiter le jeton `SlashToken` avec
 narrations dans les issues précédentes. Un outil qui a un faux positif n'est pas
 un outil inutile — il est un outil dont on connaît la limite, et c'est pour ça
 qu'elle est écrite ici.
+
+## F5 — La proposition approuvée vit dans un répertoire que le cadre exige d'ignorer
+
+**Constatée le 2026-09-01, en écrivant le round 2 de la troisième spec.**
+
+Deux exigences du cœur se contredisent.
+
+**La première.** `apply-profile` refuse de rendre tant que `handoffs_dir` n'est
+pas ignoré par git — vérifié, c'est ce qui a bloqué l'installation jusqu'à
+l'ajout de la ligne. Sa raison est bonne :
+
+> *« un passage de relais committé atterrit dans le diff, où verify-scope le
+> signale et où un relecteur le lit comme du travail. »*
+
+**La seconde.** Un `spec_plan` porte `approved_proposal { path, digest_sha256 }`,
+et `validate-handoff` **relit le fichier pour recalculer son empreinte**. C'est
+le mécanisme qui empêche un plan de dériver d'une proposition modifiée après
+approbation — et le document le présente comme le cas qui compte le plus :
+« sans lui, on pourrait faire approuver un prêt de quatorze jours et en planifier
+trente ».
+
+**Ensemble** : le document dont tout le plan dérive, et dont l'empreinte fait
+foi, est rangé là où le cadre interdit de le versionner.
+
+**Mesuré sur ce dépôt** : `pipeline/handoffs/s-6y4w-proposal-round2.json` est
+référencé par le plan de la spec la plus importante livrée à ce jour, avec son
+digest, et `git ls-files` ne le connaît pas. Sur une machine neuve, un checkout
+propre ou un runner de CI, revalider ce plan répondrait
+`approved_proposal.path not found`. Personne ne s'en est aperçu parce que la CI
+ne valide aucun passage de relais.
+
+**Ce que ça coûte** : la provenance d'une spec livrée est invérifiable après
+coup. Le verrou existe, il tient pendant la session qui écrit le plan, et il
+disparaît dès qu'on change de machine.
+
+**Contournement retenu pour la suite**, et il ne coûte rien : la proposition
+APPROUVÉE est copiée dans `pipeline/decisions/`, qui est versionné, et
+`approved_proposal.path` y pointe. Un round intermédiaire reste un passage de
+relais ordinaire et reste ignoré ; seule celle que l'opérateur a approuvée
+devient une décision, ce qu'elle est de toute façon.
+
+**Ce qui appartient au cœur** : décider si `approved_proposal` doit pointer
+ailleurs que dans `handoffs_dir`, ou si le digest doit être conservé dans le
+store plutôt que recalculé depuis un fichier. Ce n'est pas au projet de trancher.
