@@ -36,3 +36,11 @@ export interface HoldPolicy {
   /** Délai de retrait d'une réservation mise à disposition, en jours. */
   readonly holdPickupDays: number;
 }
+
+/**
+ * Les seuils dont la bascule en « perdu » a besoin.
+ */
+export interface LossPolicy {
+  /** Retard au-delà duquel un prêt bascule en « perdu », en jours. */
+  readonly lostAfterDays: number;
+}

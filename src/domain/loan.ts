@@ -15,6 +15,7 @@ export class Loan {
   readonly startedAt: Date;
   readonly dueAt: Date;
   readonly returnedAt: Date | null;
+  readonly lostAt: Date | null;
 
   /**
    * Les cinq champs passent par un objet plutôt que par cinq paramètres.
@@ -33,12 +34,14 @@ export class Loan {
     startedAt: Date;
     dueAt: Date;
     returnedAt?: Date | null;
+    lostAt?: Date | null;
   }) {
     this.copyId = loan.copyId;
     this.memberId = loan.memberId;
     this.startedAt = loan.startedAt;
     this.dueAt = loan.dueAt;
     this.returnedAt = loan.returnedAt ?? null;
+    this.lostAt = loan.lostAt ?? null;
   }
 
   /**
@@ -63,5 +66,62 @@ export class Loan {
     const milliseconds = now.getTime() - this.dueAt.getTime();
     if (milliseconds <= 0) return 0;
     return Math.floor(milliseconds / 86_400_000);
+  }
+
+  /**
+   * Dit si le retard dépasse le délai au-delà duquel on cesse d'attendre.
+   *
+   * Le délai est passé en argument : c'est du règlement, pas du domaine.
+   *
+   * @param now - la date à laquelle on juge
+   * @param lostAfterDays - le délai configuré
+   * @returns true si le prêt devrait basculer en perdu
+   */
+  isLostAt(now: Date, lostAfterDays: number): boolean {
+    return this.isOpen() && this.daysOverdueAt(now) > lostAfterDays;
+  }
+
+  /**
+   * @returns true si le prêt a été déclaré perdu
+   */
+  isLost(): boolean {
+    return this.lostAt !== null;
+  }
+
+  /**
+   * Déclare le prêt perdu, sans effacer ce qui précède.
+   *
+   * L'échéance et la date de sortie sont conservées : une dette qu'on ne peut
+   * pas expliquer à l'adhérent est une dette qu'on finit par annuler.
+   *
+   * @param at - la date de la bascule
+   * @returns le prêt, désormais perdu
+   */
+  declareLostAt(at: Date): Loan {
+    return new Loan({
+      copyId: this.copyId,
+      memberId: this.memberId,
+      startedAt: this.startedAt,
+      dueAt: this.dueAt,
+      returnedAt: this.returnedAt,
+      lostAt: at,
+    });
+  }
+
+  /**
+   * Dit si ce prêt peut encore être prolongé.
+   *
+   * Le prédicat vit ici plutôt que dans le cas d'usage de prolongation, parce
+   * que deux issues le référencent — celle de la perte et celle de la
+   * prolongation — et qu'une règle énoncée à deux endroits finit par diverger.
+   *
+   * Ce qu'il ne dit PAS : si le titre est réservé par quelqu'un d'autre. Cette
+   * condition-là dépend de la file, que le prêt ne connaît pas, et elle reste
+   * au cas d'usage.
+   *
+   * @returns true si ni rendu ni perdu
+   */
+  canBeRenewed(): boolean {
+    return this.isOpen() && !this.isLost();
   }
 }
