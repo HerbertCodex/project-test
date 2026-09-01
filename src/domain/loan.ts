@@ -16,6 +16,7 @@ export class Loan {
   readonly dueAt: Date;
   readonly returnedAt: Date | null;
   readonly lostAt: Date | null;
+  readonly renewals: number;
 
   /**
    * Les cinq champs passent par un objet plutôt que par cinq paramètres.
@@ -35,6 +36,7 @@ export class Loan {
     dueAt: Date;
     returnedAt?: Date | null;
     lostAt?: Date | null;
+    renewals?: number;
   }) {
     this.copyId = loan.copyId;
     this.memberId = loan.memberId;
@@ -42,6 +44,7 @@ export class Loan {
     this.dueAt = loan.dueAt;
     this.returnedAt = loan.returnedAt ?? null;
     this.lostAt = loan.lostAt ?? null;
+    this.renewals = loan.renewals ?? 0;
   }
 
   /**
@@ -105,6 +108,7 @@ export class Loan {
       dueAt: this.dueAt,
       returnedAt: this.returnedAt,
       lostAt: at,
+      renewals: this.renewals,
     });
   }
 
@@ -123,5 +127,31 @@ export class Loan {
    */
   canBeRenewed(): boolean {
     return this.isOpen() && !this.isLost();
+  }
+
+  /**
+   * Prolonge le prêt à partir d'aujourd'hui.
+   *
+   * L'échéance repart de la date du jour et NON de l'ancienne échéance : sur
+   * un prêt déjà en retard, repartir de l'échéance dépassée ne rendrait rien
+   * à l'adhérent.
+   *
+   * Le compteur avance, il ne se remet jamais à zéro — sinon un adhérent
+   * garderait un titre indéfiniment en prolongeant sans fin.
+   *
+   * @param now - la date de la prolongation
+   * @param loanPeriodDays - la durée de prêt configurée
+   * @returns le prêt prolongé
+   */
+  renewFrom(now: Date, loanPeriodDays: number): Loan {
+    return new Loan({
+      copyId: this.copyId,
+      memberId: this.memberId,
+      startedAt: this.startedAt,
+      dueAt: new Date(now.getTime() + loanPeriodDays * 86_400_000),
+      returnedAt: this.returnedAt,
+      lostAt: this.lostAt,
+      renewals: this.renewals + 1,
+    });
   }
 }
