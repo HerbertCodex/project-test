@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-6 files, src, test.
+44 files, src, test.
 
 ## src/adapters/
 
@@ -32,6 +32,156 @@ runtime, and re-exports through an index.
 
 - `AppService` — service
 
+## src/application/borrow/
+
+### src/application/borrow/borrow.usecase.ts
+
+- `MembershipExpired` — class — Refus : l'adhésion a expiré.
+- `BorrowCeilingReached` — class — Refus : l'adhérent a déjà autant d'emprunts que le règlement l'autorise.
+- `BlockedByDebt` — class — Refus : les impayés dépassent le seuil qui suspend les droits.
+- `CopySetAsideForAnother` — class — Refus : cet exemplaire attend quelqu'un d'autre.
+- `UnknownParty` — class — Refus : l'exemplaire ou l'adhérent n'existe pas.
+- `BorrowRequest` — interface — Ce qu'un emprunt demande.
+- `BorrowUseCase` — class — Prêter un exemplaire, ou refuser en disant pourquoi.
+
+## src/application/hold/expire/
+
+### src/application/hold/expire/expire-holds.usecase.ts
+
+- `ExpiryOutcome` — interface — Ce que l'expiration produit.
+- `ExpireHoldsUseCase` — class — Expirer les réservations que personne n'est venu retirer.
+
+## src/application/hold/
+
+### src/application/hold/place-hold.usecase.ts
+
+- `AlreadyHoldsACopy` — class — Refus : l'adhérent a déjà un exemplaire de ce titre entre les mains.
+- `HoldCeilingReached` — class — Refus : l'adhérent a déjà autant de réservations que le règlement l'autorise.
+- `BlockedByDebtForHold` — class — Refus : les impayés suspendent aussi le droit de réserver.
+- `NothingToReserve` — class — Refus : le titre est sur l'étagère, il n'y a rien à attendre.
+- `UnknownMember` — class — Refus : l'adhérent n'existe pas.
+- `PlaceHoldRequest` — interface — Ce qu'une réservation demande.
+- `PlaceHoldUseCase` — class — Poser une réservation sur un titre, ou refuser en disant pourquoi.
+
+### src/application/hold/serve-next.ts
+
+- `HoldServing` — interface — La seule chose dont servir la file a besoin d'un magasin.
+- `QueueServer` — class — Mettre un exemplaire de côté pour une réservation, et prévenir l'adhérent.
+
+## src/application/loss/
+
+### src/application/loss/declare-loss.usecase.ts
+
+- `LossOutcome` — interface — Ce que la bascule produit.
+- `DeclareLossUseCase` — class — Cesser d'attendre un document qui ne reviendra pas.
+
+## src/application/ports/
+
+### src/application/ports/borrow-store.port.ts
+
+- `BorrowStore` — interface — Ce que l'emprunt a besoin de lire et d'écrire, et rien de plus.
+
+### src/application/ports/expire-hold-store.port.ts
+
+- `ExpireHoldStore` — interface — Ce que l'expiration a besoin de lire et d'écrire, et rien de plus.
+
+### src/application/ports/hold-store.port.ts
+
+- `HoldStore` — interface — Ce que poser une réservation a besoin de lire et d'écrire, et rien de plus.
+
+### src/application/ports/loan-policy.port.ts
+
+- `LoanPolicy` — interface — Les seuils dont les cas d'usage ont besoin, déclarés par eux.
+- `HoldPolicy` — interface — Les seuils dont la réservation a besoin.
+- `LossPolicy` — interface — Les seuils dont la bascule en « perdu » a besoin.
+
+### src/application/ports/loss-store.port.ts
+
+- `LossStore` — interface — Ce que la bascule en « perdu » a besoin de lire et d'écrire, et rien de plus.
+
+### src/application/ports/member-reader.port.ts
+
+- `MemberReader` — interface — Lire un adhérent.
+
+### src/application/ports/notification-sender.port.ts
+
+- `HoldAvailableNotice` — interface — Ce que la bibliothèque a besoin de dire à un adhérent quand sa réservation devient disponible.
+- `NotificationSender` — interface — Le port sortant de notification.
+
+### src/application/ports/renew-store.port.ts
+
+- `RenewStore` — interface — Ce que la prolongation a besoin de lire et d'écrire, et rien de plus.
+
+### src/application/ports/return-store.port.ts
+
+- `ReturnStore` — interface — Ce que le retour a besoin de lire et d'écrire, et rien de plus.
+
+## src/application/renew/
+
+### src/application/renew/renew.usecase.ts
+
+- `TitleIsHeldByAnother` — class — Refus : quelqu'un d'autre attend ce titre.
+- `RenewalLimitReached` — class — Refus : le plafond de prolongations est atteint.
+- `LoanCannotBeRenewed` — class — Refus : ce prêt n'est plus prolongeable — rendu, ou déclaré perdu.
+- `BlockedByDebtForRenewal` — class — Refus : les impayés suspendent aussi le droit de prolonger.
+- `NothingToRenew` — class — Refus : l'exemplaire n'est pas en prêt, ou l'adhérent n'existe pas.
+- `RenewRequest` — interface — Ce qu'une prolongation demande.
+- `RenewUseCase` — class — Prolonger un prêt, ou refuser en disant pourquoi.
+
+## src/application/return/
+
+### src/application/return/return.usecase.ts
+
+- `CopyNotOnLoan` — class — Refus : cet exemplaire n'est pas sorti.
+- `ReturnRequest` — interface — Ce qu'un retour demande.
+- `ReturnOutcome` — interface — Ce qu'un retour produit.
+- `ReturnUseCase` — class — Rendre un exemplaire, constater ce qui est dû, et servir la file.
+
+## src/domain/
+
+### src/domain/availability.ts
+
+- `Availability` — type — Ce qu'un exemplaire peut être, du point de vue du prêt.
+- `CopyAlreadyOnLoan` — class — Refus : l'exemplaire porte déjà un prêt ouvert.
+- `availabilityOf` — function — Dérive la disponibilité d'un exemplaire de ses prêts.
+- `assertLendable` — function — Refuse de prêter un exemplaire déjà sorti.
+
+### src/domain/copy.ts
+
+- `Copy` — class — Un exemplaire physique, rattaché à un titre.
+
+### src/domain/hold.ts
+
+- `Hold` — class — Une réservation : une place dans la file d'attente d'un TITRE.
+- `queueFor` — function — La file d'un titre, dans l'ordre d'arrivée.
+- `firstWaiting` — function — La première réservation d'un titre qui attend encore.
+
+### src/domain/loan.ts
+
+- `Loan` — class — Un prêt : l'accord daté entre un adhérent et un exemplaire.
+
+### src/domain/member.ts
+
+- `Member` — class — Un adhérent : un porteur de droits, que ses dettes suspendent.
+
+## src/infrastructure/config/
+
+### src/infrastructure/config/circulation-policy.ts
+
+- `CirculationPolicy` — interface — Les seuils de circulation, et rien d'autre.
+- `DEFAULT_POLICY` — const — Les valeurs par défaut, arrêtées par l'opérateur au round 2 de la spec.
+- `IncoherentPolicy` — class — Refus : deux seuils qui, ensemble, éteignent un refus du domaine.
+- `assertCoherent` — function — Refuse une combinaison de seuils qui supprime un refus sans le dire.
+- `loadPolicy` — function — Lit les seuils depuis l'environnement, et refuse une politique incohérente.
+
+## src/infrastructure/notification/
+
+### src/infrastructure/notification/logging-notification-sender.ts
+
+- `WriteLine` — type — Ce à quoi on écrit.
+- `LoggingNotificationSender` — class — L'adaptateur livré : il écrit dans le journal, et rien d'autre.
+- `forgiving` — function — Enveloppe un expéditeur pour qu'il tienne le contrat « ne lève jamais ».
+
 ## src/
 
 ### src/main.ts
@@ -43,3 +193,88 @@ runtime, and re-exports through an index.
 ### test/app.e2e-spec.ts
 
 - `AppController (e2e)` — test harness
+
+## test/application/borrow/
+
+### test/application/borrow/borrow.usecase.spec.ts
+
+- `Emprunter un exemplaire` — test harness
+
+## test/application/hold/expire/
+
+### test/application/hold/expire/expire-hold.usecase.spec.ts
+
+- `Expirer une reservation non retiree` — test harness
+
+## test/application/hold/
+
+### test/application/hold/place-hold.usecase.spec.ts
+
+- `Reserver un titre` — test harness
+- `Un exemplaire mis de cote n est plus empruntable par un autre` — test harness
+
+## test/application/loss/
+
+### test/application/loss/declare-loss.usecase.spec.ts
+
+- `Basculer un pret trop en retard vers perdu` — test harness
+
+## test/application/renew/
+
+### test/application/renew/renew.usecase.spec.ts
+
+- `Prolonger un pret` — test harness
+
+## test/application/return/
+
+### test/application/return/return.usecase.spec.ts
+
+- `Rendre un exemplaire` — test harness
+- `Servir la file a la restitution` — test harness
+- `Rendre un exemplaire declare perdu` — test harness
+
+## test/domain/
+
+### test/domain/availability.spec.ts
+
+- `Disponibilite derivee des prets` — test harness
+
+### test/domain/builders.ts
+
+- `START` — const — Les dates de référence des scénarios de prêt.
+- `DUE` — const — Échéance par défaut : START + 23 jours, la durée de prêt configurée.
+- `aLoan` — function — Construit un prêt de test, ouvert par défaut.
+
+### test/domain/hold.spec.ts
+
+- `Hold` — test harness
+
+### test/domain/loan.spec.ts
+
+- `Loan` — test harness
+
+### test/domain/loss.spec.ts
+
+- `Un pret bascule en perdu` — test harness
+
+### test/domain/member.spec.ts
+
+- `Member` — test harness
+
+## test/infrastructure/
+
+### test/infrastructure/circulation-policy.spec.ts
+
+- `Politique de circulation` — test harness
+
+## test/infrastructure/notification/
+
+### test/infrastructure/notification/notification-sender.spec.ts
+
+- `Port de notification` — test harness
+
+## test/support/
+
+### test/support/sources.ts
+
+- `sourcesUnder` — function — Les fichiers TypeScript sous une racine, récursivement.
