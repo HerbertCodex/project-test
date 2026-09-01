@@ -1,0 +1,275 @@
+{
+  "profile": "api-nestjs",
+  "language": "fr",
+  "profiles_dir": "pipeline/profiles",
+  "architecture": {
+    "id": "hexagonal",
+    "project_type": "backend",
+    "composition_root": [
+      "src/main.ts",
+      "src/app.module.ts"
+    ],
+    "unzoned_legacy": [
+      "src/app.controller.ts",
+      "src/app.service.ts",
+      "src/app.controller.spec.ts"
+    ],
+    "unzoned_legacy_note": "Le scaffold « Hello World » livré par Nest, antérieur à la décision 0003. Il n'est PAS réparti dans les couches : il est exempté nommément pour que le gate morde sur tout fichier nouveau dès aujourd'hui, plutôt que d'être désactivé en attendant une refonte. Retirer ces lignes est le travail de la première issue qui touche ces fichiers."
+  },
+  "commands": {
+    "check": "npx tsc --noEmit -p tsconfig.json",
+    "lint": "npx oxlint --type-aware --deny-warnings src test",
+    "format": "npx prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "build": "npm run build",
+    "test_unit": "npx vitest run",
+    "test_e2e": "npx vitest run --config ./vitest.config.e2e.ts",
+    "coverage": "npx vitest run --coverage",
+    "smoke": "node scripts/smoke.mjs",
+    "architecture": "node scripts/architecture-check.mjs",
+    "design_limits": "node scripts/design-limits.mjs",
+    "comment_policy": "node scripts/comment-policy.mjs",
+    "secrets_scan": "node scripts/secrets-scan.mjs",
+    "duplication": "node agent-pipeline/scripts/duplication.mjs",
+    "dead_code": "node agent-pipeline/scripts/dead-code.mjs",
+    "sast": "node agent-pipeline/scripts/sast.mjs",
+    "audit": "npm audit --audit-level=high",
+    "tracker_sync": "node agent-pipeline/scripts/tracker-sync.mjs",
+    "project_map": "node scripts/project-map.mjs --check",
+    "map_coverage": "node agent-pipeline/scripts/map-coverage.mjs"
+  },
+  "closure_gates": [
+    "coverage",
+    "test_e2e",
+    "smoke",
+    "audit",
+    "duplication",
+    "dead_code",
+    "map_coverage"
+  ],
+  "workflow": {
+    "max_transitions_per_run": 4,
+    "gates": {
+      "low": [
+        "check",
+        "lint",
+        "test_unit"
+      ],
+      "normal": [
+        "check",
+        "lint",
+        "format",
+        "build",
+        "test_unit",
+        "architecture",
+        "design_limits",
+        "comment_policy",
+        "secrets_scan",
+        "sast",
+        "tracker_sync"
+      ],
+      "high": "all"
+    }
+  },
+  "risk": {
+    "high": [
+      "src/domain/**",
+      "src/adapters/**/auth/**",
+      "src/infrastructure/persistence/migrations/**"
+    ],
+    "low": [
+      "docs/**",
+      "docs/stack/**"
+    ]
+  },
+  "human_review_paths": [
+    "src/**/auth/**",
+    "src/**/*auth*",
+    "src/**/*token*",
+    "src/**/*password*",
+    "src/infrastructure/persistence/migrations/**",
+    ".github/workflows/**",
+    "pipeline.config.json"
+  ],
+  "project_map": {
+    "out": "docs/project-map.md",
+    "roots": [
+      "src",
+      "test"
+    ],
+    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$",
+    "extensions": [
+      ".ts",
+      ".mts"
+    ],
+    "regenerate": "node scripts/project-map.mjs"
+  },
+  "duplication": {
+    "roots": [
+      "src",
+      "test"
+    ],
+    "min_lines": 6,
+    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$"
+  },
+  "doc_policy": {
+    "roots": [
+      "src"
+    ],
+    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$|\\.(spec|e2e-spec)\\.ts$"
+  },
+  "comment_policy": {
+    "roots": [
+      "src",
+      "test"
+    ],
+    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$"
+  },
+  "dead_code": {
+    "roots": [
+      "src"
+    ],
+    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$"
+  },
+  "sast": {
+    "roots": [
+      "src",
+      "test"
+    ],
+    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$"
+  },
+  "secrets_scan": {
+    "roots": [
+      "src",
+      "test",
+      "scripts",
+      "pipeline",
+      "docs",
+      ".github"
+    ],
+    "skip": "(^|/)(dist|coverage|node_modules|\\.git)/|package-lock\\.json$|^pipeline/(skills|briefs|agents|runs|handoffs)/",
+    "skip_note": "pipeline/skills, briefs et agents sont des cibles GÉNÉRÉES : des copies du cœur, écrites par apply-profile et sync-briefs. Les balayer faisait remonter l'exemple « ❌ à ne pas faire » du support de sécurité du framework comme un secret de ce projet. Ce qui reste balayé de pipeline/ — store, decisions, project-context.md — est ce que ce dépôt écrit vraiment."
+  },
+  "file_policy": {
+    "orchestrator": {
+      "allow": [
+        "pipeline/store/**",
+        "pipeline/handoffs/**",
+        "docs/project-map.md",
+        ".sudocode/**"
+      ],
+      "deny": [
+        "src/**",
+        "test/**",
+        "scripts/**",
+        "agent-pipeline/**",
+        "pipeline.config.json"
+      ]
+    },
+    "product": {
+      "allow": [
+        ".sudocode/**",
+        "pipeline/decisions/**",
+        "pipeline/store/**",
+        "pipeline/handoffs/**"
+      ],
+      "deny": [
+        "src/**",
+        "test/**",
+        "scripts/**",
+        "agent-pipeline/**",
+        "pipeline.config.json",
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".github/**",
+        "package.json",
+        "package-lock.json"
+      ]
+    },
+    "implementer": {
+      "allow": [
+        "src/**",
+        "test/**",
+        "docs/stack/**",
+        "pipeline/handoffs/**"
+      ],
+      "deny": [
+        "package.json",
+        "package-lock.json",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "nest-cli.json",
+        "vitest.config.ts",
+        "vitest.config.e2e.ts",
+        "oxlint.json",
+        "oxlint.design-limits.json",
+        "scripts/**",
+        "pipeline.config.json",
+        "pipeline/store/**",
+        "pipeline/decisions/**",
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".github/**",
+        "agent-pipeline/**",
+        "docs/project-map.md"
+      ]
+    },
+    "qa": {
+      "allow": [
+        "pipeline/handoffs/**"
+      ],
+      "deny": [
+        "**"
+      ]
+    }
+  },
+  "docs_dirs": [
+    "agent-pipeline/docs",
+    "docs/stack"
+  ],
+  "briefs_dir": "pipeline/briefs",
+  "prompts_dir": "pipeline/agents",
+  "skills_dir": "pipeline/skills",
+  "rules_path": "pipeline/rules.json",
+  "project_context": "pipeline/project-context.md",
+  "store_dir": "pipeline/store",
+  "decisions_dir": "pipeline/decisions",
+  "pages_dir": "pipeline/pages",
+  "handoffs_dir": "pipeline/handoffs",
+  "findings_path": "pipeline/findings.md",
+  "issue_tracker": {
+    "provider": "sudocode",
+    "enabled": true,
+    "root": ".sudocode",
+    "issues_file": "issues.jsonl",
+    "specs_file": "specs.jsonl",
+    "command": "sudocode",
+    "args": [],
+    "managed_tag": "agent-pipeline",
+    "status_map": {
+      "planned": "open",
+      "in_progress": "in_progress",
+      "ready_for_qa": "needs_review",
+      "qa_in_progress": "needs_review",
+      "closed": "closed",
+      "blocked_*": "blocked",
+      "operator_escalation": "blocked"
+    }
+  },
+  "agent_runtime": {
+    "prompt_adapter": "claude-code",
+    "interactive_input": false,
+    "runs_dir": "pipeline/runs",
+    "progress_interval_seconds": 20
+  },
+  "ci": {
+    "provider": "github",
+    "install": "npm ci",
+    "runtime_setup": {
+      "uses": "actions/setup-node@v6",
+      "with": {
+        "node-version": "24",
+        "cache": "npm"
+      }
+    }
+  }
+}

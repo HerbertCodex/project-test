@@ -1,0 +1,21 @@
+{
+  "product": "API métier NestJS : un service HTTP qui possède ses propres données et refuse des opérations pour des raisons venant du métier, pas seulement du format.",
+  "declared_by": "operator",
+  "declared_at": "2026-09-01",
+  "business_rules": [
+    {
+      "rule": "Le produit porte des refus métier réels — un professionnel du domaine les comprend sans qu'on parle d'informatique — mais l'opérateur les a déclarés en nombre (domaine mince, entre 1 et 7) sans les énumérer.",
+      "why_it_matters": "Le nombre décide du verdict de clean et onion. Il est ici déclaré, pas inventé : énumérer des refus que personne n'a écrits produirait un domaine de fiction, et c'est le domaine qui juge l'architecture."
+    }
+  ],
+  "integrations": [
+    { "name": "intégration externe remplaçable n°1 (déclarée par l'opérateur, non encore nommée)", "replaceable": true },
+    { "name": "intégration externe remplaçable n°2 (déclarée par l'opérateur, non encore nommée)", "replaceable": true }
+  ],
+  "concurrent_workers": "few",
+  "owns_data": true,
+  "validations": [
+    "Authentification et données personnelles : déclarées présentes, donc portées en human_review_paths.",
+    "Base de données propre au service : c'est ce qui fait de ce dépôt un backend et non une interface web."
+  ]
+}

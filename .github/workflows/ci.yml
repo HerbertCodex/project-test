@@ -1,0 +1,104 @@
+name: ci
+
+# Chaque cle de `commands` devient une etape ci-dessous, `secrets_scan` compris :
+# ce template ne nomme donc aucun outil, et le scan de secrets est celui que le
+# projet a declare. `fetch-depth: 0` lui laisse l'historique complet s'il en veut.
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: gates (api-nestjs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: install
+        run: npm ci
+
+      - name: check
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: lint
+        run: npx oxlint --type-aware --deny-warnings src test
+
+      - name: format
+        run: npx prettier --check "src/**/*.ts" "test/**/*.ts"
+
+      - name: build
+        run: npm run build
+
+      - name: test-unit
+        run: npx vitest run
+
+      - name: test-e2e
+        run: npx vitest run --config ./vitest.config.e2e.ts
+
+      - name: coverage
+        run: npx vitest run --coverage
+
+      - name: smoke
+        run: node scripts/smoke.mjs
+
+      - name: architecture
+        run: node scripts/architecture-check.mjs
+
+      - name: design-limits
+        run: node scripts/design-limits.mjs
+
+      - name: comment-policy
+        run: node scripts/comment-policy.mjs
+
+      - name: secrets-scan
+        run: node scripts/secrets-scan.mjs
+
+      - name: duplication
+        run: node agent-pipeline/scripts/duplication.mjs
+
+      - name: dead-code
+        run: node agent-pipeline/scripts/dead-code.mjs
+
+      - name: sast
+        run: node agent-pipeline/scripts/sast.mjs
+
+      - name: audit
+        run: npm audit --audit-level=high
+
+      - name: tracker-sync
+        run: node agent-pipeline/scripts/tracker-sync.mjs
+
+      - name: project-map
+        if: ${{ github.event_name == 'pull_request' }}
+        run: node scripts/project-map.mjs --check
+
+      - name: map-coverage
+        if: ${{ github.event_name == 'pull_request' }}
+        run: node agent-pipeline/scripts/map-coverage.mjs
+
+      - name: core-tests
+        run: node --test "agent-pipeline/test/**/*.test.mjs"
+
+      - name: briefs-sync
+        run: node agent-pipeline/scripts/sync-briefs.mjs --check
+
+      - name: profile-sync
+        run: node agent-pipeline/scripts/apply-profile.mjs --check
+
+      - name: store-invariants
+        run: node agent-pipeline/scripts/store-verify.mjs

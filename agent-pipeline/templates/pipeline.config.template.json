@@ -1,0 +1,67 @@
+{
+  "profiles_dir": "pipeline/profiles",
+  "commands": {
+    "dead_code": "node agent-pipeline/scripts/dead-code.mjs",
+    "doc_lint": "node agent-pipeline/scripts/doc-lint.mjs",
+    "sast": "node agent-pipeline/scripts/sast.mjs",
+    "duplication": "node agent-pipeline/scripts/duplication.mjs",
+    "tracker_sync": "node agent-pipeline/scripts/tracker-sync.mjs",
+    "project_map": "node agent-pipeline/scripts/project-map.mjs --check",
+    "map_coverage": "node agent-pipeline/scripts/map-coverage.mjs"
+  },
+  "project_map": {
+    "out": "docs/project-map.md",
+    "roots": [
+      "src"
+    ],
+    "regenerate": "node agent-pipeline/scripts/project-map.mjs"
+  },
+  "docs_dirs": [
+    "agent-pipeline/docs"
+  ],
+  "briefs_dir": "pipeline/briefs",
+  "prompts_dir": "pipeline/agents",
+  "skills_dir": "pipeline/skills",
+  "rules_path": "pipeline/rules.json",
+  "project_context": "pipeline/project-context.md",
+  "store_dir": "pipeline/store",
+  "issue_tracker": {
+    "provider": "sudocode",
+    "enabled": true,
+    "root": ".sudocode",
+    "issues_file": "issues.jsonl",
+    "specs_file": "specs.jsonl",
+    "command": "sudocode",
+    "args": [],
+    "managed_tag": "agent-pipeline",
+    "status_map": {
+      "planned": "open",
+      "in_progress": "in_progress",
+      "ready_for_qa": "needs_review",
+      "qa_in_progress": "needs_review",
+      "closed": "closed",
+      "blocked_*": "blocked",
+      "operator_escalation": "blocked"
+    }
+  },
+  "handoffs_dir": "pipeline/handoffs",
+  "agent_runtime": {
+    "prompt_adapter": "portable",
+    "interactive_input": false,
+    "runs_dir": "pipeline/runs",
+    "progress_interval_seconds": 20
+  },
+  "workflow": {
+    "max_transitions_per_run": 4,
+    "gates": {
+      "low": ["check", "lint", "test_unit"],
+      "normal": ["check", "lint", "test_unit", "smoke"],
+      "high": "all"
+    }
+  },
+  "findings_path": "pipeline/findings.md",
+  "pages_dir": "pipeline/pages",
+  "ci": {
+    "provider": "none"
+  }
+}
