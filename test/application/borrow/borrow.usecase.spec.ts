@@ -5,7 +5,7 @@ import { Loan } from '../../../src/domain/loan.js';
 import { Member } from '../../../src/domain/member.js';
 import { CopyAlreadyOnLoan } from '../../../src/domain/availability.js';
 import { DEFAULT_POLICY } from '../../../src/infrastructure/config/circulation-policy.js';
-import type { CirculationStore } from '../../../src/application/ports/circulation-store.port.js';
+import type { BorrowStore } from '../../../src/application/ports/borrow-store.port.js';
 import {
   BorrowUseCase,
   UnknownParty,
@@ -22,9 +22,7 @@ const request: BorrowRequest = { copyId: 'c1', memberId: 'm1', now: NOW };
 /**
  * Un magasin en mémoire, réglable par scénario.
  */
-function storeWith(
-  overrides: Partial<CirculationStore> = {},
-): CirculationStore {
+function storeWith(overrides: Partial<BorrowStore> = {}): BorrowStore {
   return {
     copyById: () => Promise.resolve(new Copy('c1', 't1')),
     memberById: () =>
@@ -38,7 +36,7 @@ function storeWith(
 }
 
 describe('Emprunter un exemplaire', () => {
-  const borrow = (store: CirculationStore): BorrowUseCase =>
+  const borrow = (store: BorrowStore): BorrowUseCase =>
     new BorrowUseCase(store, DEFAULT_POLICY);
 
   it('cree un pret dont l echeance est la date du jour plus la duree configuree', async () => {

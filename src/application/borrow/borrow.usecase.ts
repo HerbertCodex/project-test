@@ -1,6 +1,6 @@
 import { Loan } from '../../domain/loan.js';
 import { assertLendable } from '../../domain/availability.js';
-import type { CirculationStore } from '../ports/circulation-store.port.js';
+import type { BorrowStore } from '../ports/borrow-store.port.js';
 import type { LoanPolicy } from '../ports/loan-policy.port.js';
 
 /**
@@ -94,11 +94,11 @@ export interface BorrowRequest {
  */
 export class BorrowUseCase {
   /**
-   * @param store - le port de lecture et d'écriture
-   * @param policy - les seuils du règlement
+   * @param store - le port d'emprunt : exemplaire, adhérent, prêts ouverts, mise de côté
+   * @param policy - la durée de prêt, le plafond d'emprunts et le seuil d'impayés
    */
   constructor(
-    private readonly store: CirculationStore,
+    private readonly store: BorrowStore,
     private readonly policy: LoanPolicy,
   ) {}
 

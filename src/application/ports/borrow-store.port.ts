@@ -3,13 +3,16 @@ import type { Loan } from '../../domain/loan.js';
 import type { Member } from '../../domain/member.js';
 
 /**
- * Le port de lecture et d'écriture de la circulation.
+ * Ce que l'emprunt a besoin de lire et d'écrire, et rien de plus.
  *
- * Il déclare ce dont les cas d'usage ont besoin, pas ce qu'une base de données
- * sait faire : aucune notion de transaction, de requête ni de table. C'est la
- * couche de persistance qui s'y plie, et c'est ce qui permet de la remplacer.
+ * Un port par cas d'usage plutôt qu'un magasin général : c'est la ségrégation
+ * d'interface, et elle a été apprise ici à ses dépens. Un `CirculationStore`
+ * unique a d'abord existé ; l'étendre pour le retour a cassé le double de test
+ * de l'emprunt, qui devait soudain implémenter trois méthodes dont il n'a que
+ * faire. Quatre cas d'usage restaient à écrire, donc quatre ruptures
+ * identiques à venir.
  */
-export interface CirculationStore {
+export interface BorrowStore {
   /**
    * @param copyId - l'exemplaire cherché
    * @returns l'exemplaire, ou null s'il n'existe pas

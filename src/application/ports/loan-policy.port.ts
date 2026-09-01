@@ -18,4 +18,6 @@ export interface LoanPolicy {
   readonly borrowCeiling: number;
   /** Impayés au-delà desquels les droits sont suspendus. */
   readonly debtBlockThreshold: number;
+  /** Montant dû par jour de retard. Zéro désactive les amendes. */
+  readonly lateFeePerDay: number;
 }
