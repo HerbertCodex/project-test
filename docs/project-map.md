@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-27 files, src, test.
+33 files, src, test.
 
 ## src/adapters/
 
@@ -44,15 +44,36 @@ runtime, and re-exports through an index.
 - `BorrowRequest` — interface — Ce qu'un emprunt demande.
 - `BorrowUseCase` — class — Prêter un exemplaire, ou refuser en disant pourquoi.
 
+## src/application/hold/
+
+### src/application/hold/place-hold.usecase.ts
+
+- `AlreadyHoldsACopy` — class — Refus : l'adhérent a déjà un exemplaire de ce titre entre les mains.
+- `HoldCeilingReached` — class — Refus : l'adhérent a déjà autant de réservations que le règlement l'autorise.
+- `BlockedByDebtForHold` — class — Refus : les impayés suspendent aussi le droit de réserver.
+- `NothingToReserve` — class — Refus : le titre est sur l'étagère, il n'y a rien à attendre.
+- `UnknownMember` — class — Refus : l'adhérent n'existe pas.
+- `PlaceHoldRequest` — interface — Ce qu'une réservation demande.
+- `PlaceHoldUseCase` — class — Poser une réservation sur un titre, ou refuser en disant pourquoi.
+
 ## src/application/ports/
 
 ### src/application/ports/borrow-store.port.ts
 
 - `BorrowStore` — interface — Ce que l'emprunt a besoin de lire et d'écrire, et rien de plus.
 
+### src/application/ports/hold-store.port.ts
+
+- `HoldStore` — interface — Ce que poser une réservation a besoin de lire et d'écrire, et rien de plus.
+
 ### src/application/ports/loan-policy.port.ts
 
 - `LoanPolicy` — interface — Les seuils dont les cas d'usage ont besoin, déclarés par eux.
+- `HoldPolicy` — interface — Les seuils dont la réservation a besoin.
+
+### src/application/ports/member-reader.port.ts
+
+- `MemberReader` — interface — Lire un adhérent.
 
 ### src/application/ports/notification-sender.port.ts
 
@@ -69,8 +90,8 @@ runtime, and re-exports through an index.
 
 - `CopyNotOnLoan` — class — Refus : cet exemplaire n'est pas sorti.
 - `ReturnRequest` — interface — Ce qu'un retour demande.
-- `ReturnOutcome` — interface — Ce qu'un retour produit : le prêt fermé, et ce qui reste dû.
-- `ReturnUseCase` — class — Rendre un exemplaire, et constater ce qui est dû.
+- `ReturnOutcome` — interface — Ce qu'un retour produit.
+- `ReturnUseCase` — class — Rendre un exemplaire, constater ce qui est dû, et servir la file.
 
 ## src/domain/
 
@@ -84,6 +105,12 @@ runtime, and re-exports through an index.
 ### src/domain/copy.ts
 
 - `Copy` — class — Un exemplaire physique, rattaché à un titre.
+
+### src/domain/hold.ts
+
+- `Hold` — class — Une réservation : une place dans la file d'attente d'un TITRE.
+- `queueFor` — function — La file d'un titre, dans l'ordre d'arrivée.
+- `firstWaiting` — function — La première réservation d'un titre qui attend encore.
 
 ### src/domain/loan.ts
 
@@ -129,11 +156,19 @@ runtime, and re-exports through an index.
 
 - `Emprunter un exemplaire` — test harness
 
+## test/application/hold/
+
+### test/application/hold/place-hold.usecase.spec.ts
+
+- `Reserver un titre` — test harness
+- `Un exemplaire mis de cote n est plus empruntable par un autre` — test harness
+
 ## test/application/return/
 
 ### test/application/return/return.usecase.spec.ts
 
 - `Rendre un exemplaire` — test harness
+- `Servir la file a la restitution` — test harness
 
 ## test/domain/
 
@@ -146,6 +181,10 @@ runtime, and re-exports through an index.
 - `START` — const — Les dates de référence des scénarios de prêt.
 - `DUE` — const — Échéance par défaut : START + 23 jours, la durée de prêt configurée.
 - `aLoan` — function — Construit un prêt de test, ouvert par défaut.
+
+### test/domain/hold.spec.ts
+
+- `Hold` — test harness
 
 ### test/domain/loan.spec.ts
 
