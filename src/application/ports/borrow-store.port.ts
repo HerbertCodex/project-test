@@ -1,6 +1,6 @@
 import type { Copy } from '../../domain/copy.js';
 import type { Loan } from '../../domain/loan.js';
-import type { Member } from '../../domain/member.js';
+import type { MemberReader } from './member-reader.port.js';
 
 /**
  * Ce que l'emprunt a besoin de lire et d'écrire, et rien de plus.
@@ -12,18 +12,12 @@ import type { Member } from '../../domain/member.js';
  * faire. Quatre cas d'usage restaient à écrire, donc quatre ruptures
  * identiques à venir.
  */
-export interface BorrowStore {
+export interface BorrowStore extends MemberReader {
   /**
    * @param copyId - l'exemplaire cherché
    * @returns l'exemplaire, ou null s'il n'existe pas
    */
   copyById(copyId: string): Promise<Copy | null>;
-
-  /**
-   * @param memberId - l'adhérent cherché
-   * @returns l'adhérent, ou null s'il n'existe pas
-   */
-  memberById(memberId: string): Promise<Member | null>;
 
   /**
    * @param copyId - l'exemplaire interrogé

@@ -27,12 +27,18 @@ describe('Hold', () => {
 
   it('la file est servie dans l ordre d arrivee', () => {
     const holds = [waiting('m3', T2), waiting('m1', T0), waiting('m2', T1)];
-    expect(queueFor('t1', holds).map((hold) => hold.memberId)).toEqual(['m1', 'm2', 'm3']);
+    expect(queueFor('t1', holds).map((hold) => hold.memberId)).toEqual([
+      'm1',
+      'm2',
+      'm3',
+    ]);
   });
 
   it('ne melange pas les files de deux titres', () => {
     const other = new Hold({ titleId: 't2', memberId: 'mx', placedAt: T0 });
-    expect(queueFor('t1', [other, waiting('m1', T1)]).map((h) => h.memberId)).toEqual(['m1']);
+    expect(
+      queueFor('t1', [other, waiting('m1', T1)]).map((h) => h.memberId),
+    ).toEqual(['m1']);
   });
 
   it('le premier en attente ignore celles qui sont deja pretes', () => {

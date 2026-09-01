@@ -1,13 +1,15 @@
+import { firstWaiting } from '../../domain/hold.js';
 import { Loan } from '../../domain/loan.js';
+import type { HoldPolicy, LoanPolicy } from '../ports/loan-policy.port.js';
+import type { NotificationSender } from '../ports/notification-sender.port.js';
 import type { ReturnStore } from '../ports/return-store.port.js';
-import type { LoanPolicy } from '../ports/loan-policy.port.js';
 
 /**
  * Refus : cet exemplaire n'est pas sorti.
  *
  * Ce n'est pas une opération neutre qu'on pourrait ignorer : rendre un
- * exemplaire que personne n'a emprunté est le signe d'une erreur de saisie,
- * et l'avaler laisserait un guichet croire qu'il a rangé un document.
+ * exemplaire que personne n'a emprunté est le signe d'une erreur de saisie, et
+ * l'avaler laisserait un guichet croire qu'il a rangé un document.
  */
 export class CopyNotOnLoan extends Error {
   /**
@@ -30,37 +32,44 @@ export interface ReturnRequest {
 }
 
 /**
- * Ce qu'un retour produit : le prêt fermé, et ce qui reste dû.
+ * Ce qu'un retour produit.
  */
 export interface ReturnOutcome {
   /** Le prêt, portant désormais sa date de retour. */
   loan: Loan;
   /** La dette de retard constatée, zéro si le retour est dans les temps. */
   debt: number;
+  /**
+   * L'adhérent pour qui l'exemplaire vient d'être mis de côté, ou null s'il
+   * redevient simplement empruntable.
+   */
+  setAsideFor: string | null;
 }
 
 /**
- * Rendre un exemplaire, et constater ce qui est dû.
+ * Rendre un exemplaire, constater ce qui est dû, et servir la file.
  *
  * Le système CONSTATE la dette et ne l'encaisse jamais — décision 2 de
- * l'opérateur. Aucun moyen de paiement n'apparaît ici, et un test lit ces
- * sources pour s'en assurer.
+ * l'opérateur, rendue structurelle par `ReturnStore`, dont aucune méthode
+ * n'encaisse.
  */
 export class ReturnUseCase {
   /**
-   * @param store - le port de retour : trouver le prêt, le fermer, constater la dette
-   * @param policy - le barème de retard
+   * @param store - le port de retour : trouver le prêt, le fermer, constater la dette, servir la file
+   * @param policy - le barème de retard et le délai de retrait
+   * @param notifier - le port par lequel on prévient le suivant de la file
    */
   constructor(
     private readonly store: ReturnStore,
-    private readonly policy: LoanPolicy,
+    private readonly policy: LoanPolicy & HoldPolicy,
+    private readonly notifier: NotificationSender,
   ) {}
 
   /**
    * Exécute le retour.
    *
    * @param request - l'exemplaire rendu et la date du retour
-   * @returns le prêt fermé et la dette constatée
+   * @returns le prêt fermé, la dette constatée et l'adhérent servi le cas échéant
    * @throws {CopyNotOnLoan} si l'exemplaire n'est pas sorti
    */
   async execute(request: ReturnRequest): Promise<ReturnOutcome> {
@@ -80,6 +89,43 @@ export class ReturnUseCase {
     const debt = open.daysOverdueAt(now) * this.policy.lateFeePerDay;
     if (debt > 0) await this.store.addDebt(open.memberId, debt);
 
-    return { loan: closed, debt };
+    return {
+      loan: closed,
+      debt,
+      setAsideFor: await this.serveQueue(copyId, now),
+    };
+  }
+
+  /**
+   * Sert la file du titre, si quelqu'un attend.
+   *
+   * L'exemplaire rendu ne redevient empruntable que si personne n'attend. Sinon
+   * il est mis de côté NOMINATIVEMENT pour le premier de la file : sans ça, la
+   * file ne serait qu'un souhait et le titre repartirait avec le premier qui
+   * passe.
+   *
+   * La notification part après la mise de côté, et son échec ne peut pas faire
+   * échouer le retour — c'est le contrat du port, tenu par `forgiving`.
+   *
+   * @param copyId - l'exemplaire rendu
+   * @param now - la date du retour, d'où court le délai de retrait
+   * @returns l'adhérent servi, ou null si personne n'attendait
+   */
+  private async serveQueue(copyId: string, now: Date): Promise<string | null> {
+    const titleId = await this.store.titleOfCopy(copyId);
+    const next = firstWaiting(titleId, await this.store.waitingHolds(titleId));
+    if (next === null) return null;
+
+    const pickupBy = new Date(
+      now.getTime() + this.policy.holdPickupDays * 86_400_000,
+    );
+    await this.store.setAsideForHold(next, copyId, pickupBy);
+    await this.notifier.holdAvailable({
+      memberId: next.memberId,
+      titleId,
+      copyId,
+      pickupBy,
+    });
+    return next.memberId;
   }
 }

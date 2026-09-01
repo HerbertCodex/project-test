@@ -21,3 +21,18 @@ export interface LoanPolicy {
   /** Montant dû par jour de retard. Zéro désactive les amendes. */
   readonly lateFeePerDay: number;
 }
+
+/**
+ * Les seuils dont la réservation a besoin.
+ *
+ * Séparé de `LoanPolicy` pour la même raison que les magasins sont séparés :
+ * un cas d'usage déclare ce qu'il lit, et rien d'autre.
+ */
+export interface HoldPolicy {
+  /** Réservations simultanées autorisées par adhérent. */
+  readonly holdCeiling: number;
+  /** Impayés au-delà desquels les droits sont suspendus. */
+  readonly debtBlockThreshold: number;
+  /** Délai de retrait d'une réservation mise à disposition, en jours. */
+  readonly holdPickupDays: number;
+}

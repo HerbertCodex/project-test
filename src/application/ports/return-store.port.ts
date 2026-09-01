@@ -1,3 +1,4 @@
+import type { Hold } from '../../domain/hold.js';
 import type { Loan } from '../../domain/loan.js';
 
 /**
@@ -34,4 +35,32 @@ export interface ReturnStore {
    * @param amount - le montant à ajouter au solde
    */
   addDebt(memberId: string, amount: number): Promise<void>;
+
+  /**
+   * Le titre dont un exemplaire est un exemplaire.
+   *
+   * Nécessaire parce qu'on réserve un TITRE : c'est lui qui porte la file, pas
+   * l'exemplaire qu'on vient de rendre.
+   *
+   * @param copyId - l'exemplaire rendu
+   * @returns l'identifiant de son titre
+   */
+  titleOfCopy(copyId: string): Promise<string>;
+
+  /**
+   * Les réservations d'un titre qui attendent encore.
+   *
+   * @param titleId - le titre interrogé
+   * @returns les réservations en attente, ordre indifférent — le domaine trie
+   */
+  waitingHolds(titleId: string): Promise<Hold[]>;
+
+  /**
+   * Met un exemplaire de côté pour une réservation.
+   *
+   * @param hold - la réservation servie
+   * @param copyId - l'exemplaire qui lui est affecté
+   * @param pickupBy - la date limite de retrait
+   */
+  setAsideForHold(hold: Hold, copyId: string, pickupBy: Date): Promise<void>;
 }
