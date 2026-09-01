@@ -9,11 +9,8 @@
       "src/main.ts",
       "src/app.module.ts"
     ],
-    "unzoned_legacy": [
-      "src/app.controller.ts",
-      "src/app.controller.spec.ts"
-    ],
-    "unzoned_legacy_note": "Le scaffold « Hello World » livré par Nest, antérieur à la décision 0003. Ces fichiers ne sont PAS répartis dans les couches : ils sont exemptés nommément pour que le gate morde sur tout fichier nouveau, plutôt que d'être désactivé en attendant une refonte. src/app.service.ts en est sorti par l'issue i-2emk, qui l'a déplacé sous src/application/. Chaque entrée restante est du travail que la spec s-2sce doit encore faire disparaître."
+    "unzoned_legacy": [],
+    "unzoned_legacy_note": "VIDE, et c'est l'état visé : plus aucun fichier de src/ n'échappe au gate architecture. La liste exemptait le scaffold « Hello World » de Nest, antérieur à la décision 0003, pour que le gate morde sur tout fichier nouveau au lieu d'être désactivé en attendant une refonte. La spec s-2sce l'a vidée : i-2emk a déplacé le service sous src/application/, i-3vqx le contrôleur et son spec sous src/adapters/. Y rajouter une entrée est un aveu à écrire, pas une commodité : une exemption rend un import vers ce fichier INVISIBLE au gate, ce qui a été mesuré sur i-3vqx (même import, ancien chemin exit 0, nouveau chemin exit 1)."
   },
   "commands": {
     "check": "npx tsc --noEmit -p tsconfig.json",
