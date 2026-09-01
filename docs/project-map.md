@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-33 files, src, test.
+37 files, src, test.
 
 ## src/adapters/
 
@@ -56,6 +56,13 @@ runtime, and re-exports through an index.
 - `PlaceHoldRequest` — interface — Ce qu'une réservation demande.
 - `PlaceHoldUseCase` — class — Poser une réservation sur un titre, ou refuser en disant pourquoi.
 
+## src/application/loss/
+
+### src/application/loss/declare-loss.usecase.ts
+
+- `LossOutcome` — interface — Ce que la bascule produit.
+- `DeclareLossUseCase` — class — Cesser d'attendre un document qui ne reviendra pas.
+
 ## src/application/ports/
 
 ### src/application/ports/borrow-store.port.ts
@@ -70,6 +77,11 @@ runtime, and re-exports through an index.
 
 - `LoanPolicy` — interface — Les seuils dont les cas d'usage ont besoin, déclarés par eux.
 - `HoldPolicy` — interface — Les seuils dont la réservation a besoin.
+- `LossPolicy` — interface — Les seuils dont la bascule en « perdu » a besoin.
+
+### src/application/ports/loss-store.port.ts
+
+- `LossStore` — interface — Ce que la bascule en « perdu » a besoin de lire et d'écrire, et rien de plus.
 
 ### src/application/ports/member-reader.port.ts
 
@@ -163,12 +175,19 @@ runtime, and re-exports through an index.
 - `Reserver un titre` — test harness
 - `Un exemplaire mis de cote n est plus empruntable par un autre` — test harness
 
+## test/application/loss/
+
+### test/application/loss/declare-loss.usecase.spec.ts
+
+- `Basculer un pret trop en retard vers perdu` — test harness
+
 ## test/application/return/
 
 ### test/application/return/return.usecase.spec.ts
 
 - `Rendre un exemplaire` — test harness
 - `Servir la file a la restitution` — test harness
+- `Rendre un exemplaire declare perdu` — test harness
 
 ## test/domain/
 
@@ -189,6 +208,10 @@ runtime, and re-exports through an index.
 ### test/domain/loan.spec.ts
 
 - `Loan` — test harness
+
+### test/domain/loss.spec.ts
+
+- `Un pret bascule en perdu` — test harness
 
 ### test/domain/member.spec.ts
 
