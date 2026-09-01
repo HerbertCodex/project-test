@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-37 files, src, test.
+44 files, src, test.
 
 ## src/adapters/
 
@@ -44,6 +44,13 @@ runtime, and re-exports through an index.
 - `BorrowRequest` — interface — Ce qu'un emprunt demande.
 - `BorrowUseCase` — class — Prêter un exemplaire, ou refuser en disant pourquoi.
 
+## src/application/hold/expire/
+
+### src/application/hold/expire/expire-holds.usecase.ts
+
+- `ExpiryOutcome` — interface — Ce que l'expiration produit.
+- `ExpireHoldsUseCase` — class — Expirer les réservations que personne n'est venu retirer.
+
 ## src/application/hold/
 
 ### src/application/hold/place-hold.usecase.ts
@@ -55,6 +62,11 @@ runtime, and re-exports through an index.
 - `UnknownMember` — class — Refus : l'adhérent n'existe pas.
 - `PlaceHoldRequest` — interface — Ce qu'une réservation demande.
 - `PlaceHoldUseCase` — class — Poser une réservation sur un titre, ou refuser en disant pourquoi.
+
+### src/application/hold/serve-next.ts
+
+- `HoldServing` — interface — La seule chose dont servir la file a besoin d'un magasin.
+- `QueueServer` — class — Mettre un exemplaire de côté pour une réservation, et prévenir l'adhérent.
 
 ## src/application/loss/
 
@@ -68,6 +80,10 @@ runtime, and re-exports through an index.
 ### src/application/ports/borrow-store.port.ts
 
 - `BorrowStore` — interface — Ce que l'emprunt a besoin de lire et d'écrire, et rien de plus.
+
+### src/application/ports/expire-hold-store.port.ts
+
+- `ExpireHoldStore` — interface — Ce que l'expiration a besoin de lire et d'écrire, et rien de plus.
 
 ### src/application/ports/hold-store.port.ts
 
@@ -92,9 +108,25 @@ runtime, and re-exports through an index.
 - `HoldAvailableNotice` — interface — Ce que la bibliothèque a besoin de dire à un adhérent quand sa réservation devient disponible.
 - `NotificationSender` — interface — Le port sortant de notification.
 
+### src/application/ports/renew-store.port.ts
+
+- `RenewStore` — interface — Ce que la prolongation a besoin de lire et d'écrire, et rien de plus.
+
 ### src/application/ports/return-store.port.ts
 
 - `ReturnStore` — interface — Ce que le retour a besoin de lire et d'écrire, et rien de plus.
+
+## src/application/renew/
+
+### src/application/renew/renew.usecase.ts
+
+- `TitleIsHeldByAnother` — class — Refus : quelqu'un d'autre attend ce titre.
+- `RenewalLimitReached` — class — Refus : le plafond de prolongations est atteint.
+- `LoanCannotBeRenewed` — class — Refus : ce prêt n'est plus prolongeable — rendu, ou déclaré perdu.
+- `BlockedByDebtForRenewal` — class — Refus : les impayés suspendent aussi le droit de prolonger.
+- `NothingToRenew` — class — Refus : l'exemplaire n'est pas en prêt, ou l'adhérent n'existe pas.
+- `RenewRequest` — interface — Ce qu'une prolongation demande.
+- `RenewUseCase` — class — Prolonger un prêt, ou refuser en disant pourquoi.
 
 ## src/application/return/
 
@@ -168,6 +200,12 @@ runtime, and re-exports through an index.
 
 - `Emprunter un exemplaire` — test harness
 
+## test/application/hold/expire/
+
+### test/application/hold/expire/expire-hold.usecase.spec.ts
+
+- `Expirer une reservation non retiree` — test harness
+
 ## test/application/hold/
 
 ### test/application/hold/place-hold.usecase.spec.ts
@@ -180,6 +218,12 @@ runtime, and re-exports through an index.
 ### test/application/loss/declare-loss.usecase.spec.ts
 
 - `Basculer un pret trop en retard vers perdu` — test harness
+
+## test/application/renew/
+
+### test/application/renew/renew.usecase.spec.ts
+
+- `Prolonger un pret` — test harness
 
 ## test/application/return/
 
