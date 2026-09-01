@@ -11,10 +11,9 @@
     ],
     "unzoned_legacy": [
       "src/app.controller.ts",
-      "src/app.service.ts",
       "src/app.controller.spec.ts"
     ],
-    "unzoned_legacy_note": "Le scaffold « Hello World » livré par Nest, antérieur à la décision 0003. Il n'est PAS réparti dans les couches : il est exempté nommément pour que le gate morde sur tout fichier nouveau dès aujourd'hui, plutôt que d'être désactivé en attendant une refonte. Retirer ces lignes est le travail de la première issue qui touche ces fichiers."
+    "unzoned_legacy_note": "Le scaffold « Hello World » livré par Nest, antérieur à la décision 0003. Ces fichiers ne sont PAS répartis dans les couches : ils sont exemptés nommément pour que le gate morde sur tout fichier nouveau, plutôt que d'être désactivé en attendant une refonte. src/app.service.ts en est sorti par l'issue i-2emk, qui l'a déplacé sous src/application/. Chaque entrée restante est du travail que la spec s-2sce doit encore faire disparaître."
   },
   "commands": {
     "check": "npx tsc --noEmit -p tsconfig.json",

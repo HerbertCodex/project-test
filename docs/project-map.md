@@ -24,9 +24,13 @@ runtime, and re-exports through an index.
 
 - `AppModule` — module
 
-### src/app.service.ts
+## src/application/
+
+### src/application/app.service.ts
 
 - `AppService` — service
+
+## src/
 
 ### src/main.ts
 
