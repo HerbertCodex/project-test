@@ -9,16 +9,18 @@ runtime, and re-exports through an index.
 
 6 files, src, test.
 
-## src/
+## src/adapters/
 
-### src/app.controller.spec.ts
+### src/adapters/app.controller.spec.ts
 
 - `AppController` — test harness
 - `root` — test harness
 
-### src/app.controller.ts
+### src/adapters/app.controller.ts
 
 - `AppController` — controller — GET /
+
+## src/
 
 ### src/app.module.ts
 
