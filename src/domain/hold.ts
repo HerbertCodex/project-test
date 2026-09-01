@@ -49,6 +49,20 @@ export class Hold {
   }
 
   /**
+   * Dit si le délai de retrait est dépassé.
+   *
+   * Une réservation qui attend encore n'expire pas : le délai ne court qu'à
+   * partir du moment où l'exemplaire est mis de côté. Sans cette distinction,
+   * une place dans la file expirerait avant d'avoir été servie.
+   *
+   * @param now - la date à laquelle on juge
+   * @returns true si l'exemplaire attend depuis trop longtemps
+   */
+  isUncollectedAt(now: Date): boolean {
+    return this.pickupBy !== null && now.getTime() > this.pickupBy.getTime();
+  }
+
+  /**
    * Met un exemplaire de côté pour cette réservation.
    *
    * @param copyId - l'exemplaire rendu qui la satisfait

@@ -1,4 +1,5 @@
 import { firstWaiting } from '../../domain/hold.js';
+import { QueueServer } from '../hold/serve-next.js';
 import { Loan } from '../../domain/loan.js';
 import type { HoldPolicy, LoanPolicy } from '../ports/loan-policy.port.js';
 import type { NotificationSender } from '../ports/notification-sender.port.js';
@@ -56,6 +57,8 @@ export interface ReturnOutcome {
  * n'encaisse.
  */
 export class ReturnUseCase {
+  private readonly queue: QueueServer;
+
   /**
    * @param store - le port de retour : trouver le prêt, le fermer, constater la dette, servir la file
    * @param policy - le barème de retard et le délai de retrait
@@ -65,7 +68,9 @@ export class ReturnUseCase {
     private readonly store: ReturnStore,
     private readonly policy: LoanPolicy & HoldPolicy,
     private readonly notifier: NotificationSender,
-  ) {}
+  ) {
+    this.queue = new QueueServer(store, notifier, policy.holdPickupDays);
+  }
 
   /**
    * Exécute le retour.
@@ -126,16 +131,6 @@ export class ReturnUseCase {
     const next = firstWaiting(titleId, await this.store.waitingHolds(titleId));
     if (next === null) return null;
 
-    const pickupBy = new Date(
-      now.getTime() + this.policy.holdPickupDays * 86_400_000,
-    );
-    await this.store.setAsideForHold(next, copyId, pickupBy);
-    await this.notifier.holdAvailable({
-      memberId: next.memberId,
-      titleId,
-      copyId,
-      pickupBy,
-    });
-    return next.memberId;
+    return this.queue.serve(next, copyId, now);
   }
 }
