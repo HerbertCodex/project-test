@@ -1,6 +1,10 @@
 import { Copy } from '../../src/domain/copy.js';
 import { Loan } from '../../src/domain/loan.js';
-import { availabilityOf, assertLendable, CopyAlreadyOnLoan } from '../../src/domain/availability.js';
+import {
+  availabilityOf,
+  assertLendable,
+  CopyAlreadyOnLoan,
+} from '../../src/domain/availability.js';
 
 describe('Disponibilite derivee des prets', () => {
   const copy = new Copy('c1', 't1');
@@ -12,11 +16,26 @@ describe('Disponibilite derivee des prets', () => {
   });
 
   it('un exemplaire portant un pret ouvert est sorti', () => {
-    expect(availabilityOf(copy.id, [new Loan('c1', 'm1', start, due)])).toBe('on_loan');
+    expect(
+      availabilityOf(copy.id, [
+        new Loan({
+          copyId: 'c1',
+          memberId: 'm1',
+          startedAt: start,
+          dueAt: due,
+        }),
+      ]),
+    ).toBe('on_loan');
   });
 
   it('un exemplaire dont le pret est ferme redevient disponible', () => {
-    const closed = new Loan('c1', 'm1', start, due, new Date('2026-01-10T10:00:00Z'));
+    const closed = new Loan({
+      copyId: 'c1',
+      memberId: 'm1',
+      startedAt: start,
+      dueAt: due,
+      returnedAt: new Date('2026-01-10T10:00:00Z'),
+    });
     expect(availabilityOf(copy.id, [closed])).toBe('available');
   });
 
@@ -26,12 +45,22 @@ describe('Disponibilite derivee des prets', () => {
   });
 
   it('refuse un second pret ouvert sur le meme exemplaire', () => {
-    const open = [new Loan('c1', 'm1', start, due)];
+    const open = [
+      new Loan({ copyId: 'c1', memberId: 'm1', startedAt: start, dueAt: due }),
+    ];
     expect(() => assertLendable('c1', open)).toThrow(CopyAlreadyOnLoan);
   });
 
   it('autorise le pret quand le precedent est rendu', () => {
-    const closed = [new Loan('c1', 'm1', start, due, new Date('2026-01-10T10:00:00Z'))];
+    const closed = [
+      new Loan({
+        copyId: 'c1',
+        memberId: 'm1',
+        startedAt: start,
+        dueAt: due,
+        returnedAt: new Date('2026-01-10T10:00:00Z'),
+      }),
+    ];
     expect(() => assertLendable('c1', closed)).not.toThrow();
   });
 });
