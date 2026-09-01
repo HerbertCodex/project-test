@@ -38,6 +38,7 @@ function storeWith(overrides: Partial<ReturnStore> = {}): {
     titleOfCopy: () => Promise.resolve('t1'),
     waitingHolds: () => Promise.resolve([]),
     setAsideForHold: () => Promise.resolve(),
+    clearReplacementDebt: () => Promise.resolve(),
     openLoanOfCopy: () =>
       Promise.resolve(
         new Loan({ copyId: 'c1', memberId: 'm1', startedAt: OUT, dueAt: DUE }),
@@ -204,5 +205,53 @@ describe('Servir la file a la restitution', () => {
     });
     const outcome = await returning(store);
     expect(outcome.setAsideFor).toBeNull();
+  });
+});
+
+describe('Rendre un exemplaire declare perdu', () => {
+  const lostLoan = new Loan({
+    copyId: 'c1',
+    memberId: 'm1',
+    startedAt: new Date('2026-01-01T10:00:00Z'),
+    dueAt: new Date('2026-01-24T10:00:00Z'),
+    lostAt: new Date('2026-03-15T10:00:00Z'),
+  });
+
+  it('le reactive et solde la dette de remplacement', async () => {
+    const cleared: string[] = [];
+    const { store } = storeWith({
+      openLoanOfCopy: () => Promise.resolve(lostLoan),
+      clearReplacementDebt: (memberId: string) => {
+        cleared.push(memberId);
+        return Promise.resolve();
+      },
+    });
+    const outcome = await returning(store);
+
+    expect(outcome.reactivated).toBe(true);
+    expect(cleared).toEqual(['m1']);
+  });
+
+  it('ne solde rien quand le pret n etait pas perdu', async () => {
+    const cleared: string[] = [];
+    const { store } = storeWith({
+      clearReplacementDebt: (memberId: string) => {
+        cleared.push(memberId);
+        return Promise.resolve();
+      },
+    });
+    const outcome = await returning(store);
+
+    expect(outcome.reactivated).toBe(false);
+    expect(cleared).toEqual([]);
+  });
+
+  it('constate quand meme l amende de retard, distincte du remplacement', async () => {
+    const { store, debts } = storeWith({
+      openLoanOfCopy: () => Promise.resolve(lostLoan),
+    });
+    const outcome = await returning(store);
+    expect(outcome.debt).toBeGreaterThan(0);
+    expect(debts[0].memberId).toBe('m1');
   });
 });
