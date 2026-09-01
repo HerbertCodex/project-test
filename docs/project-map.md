@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-16 files, src, test.
+19 files, src, test.
 
 ## src/adapters/
 
@@ -31,6 +31,13 @@ runtime, and re-exports through an index.
 ### src/application/app.service.ts
 
 - `AppService` — service
+
+## src/application/ports/
+
+### src/application/ports/notification-sender.port.ts
+
+- `HoldAvailableNotice` — interface — Ce que la bibliothèque a besoin de dire à un adhérent quand sa réservation devient disponible.
+- `NotificationSender` — interface — Le port sortant de notification.
 
 ## src/domain/
 
@@ -62,6 +69,14 @@ runtime, and re-exports through an index.
 - `IncoherentPolicy` — class — Refus : deux seuils qui, ensemble, éteignent un refus du domaine.
 - `assertCoherent` — function — Refuse une combinaison de seuils qui supprime un refus sans le dire.
 - `loadPolicy` — function — Lit les seuils depuis l'environnement, et refuse une politique incohérente.
+
+## src/infrastructure/notification/
+
+### src/infrastructure/notification/logging-notification-sender.ts
+
+- `WriteLine` — type — Ce à quoi on écrit.
+- `LoggingNotificationSender` — class — L'adaptateur livré : il écrit dans le journal, et rien d'autre.
+- `forgiving` — function — Enveloppe un expéditeur pour qu'il tienne le contrat « ne lève jamais ».
 
 ## src/
 
@@ -100,3 +115,9 @@ runtime, and re-exports through an index.
 ### test/infrastructure/circulation-policy.spec.ts
 
 - `Politique de circulation` — test harness
+
+## test/infrastructure/notification/
+
+### test/infrastructure/notification/notification-sender.spec.ts
+
+- `Port de notification` — test harness
