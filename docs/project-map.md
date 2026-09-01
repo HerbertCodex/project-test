@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-14 files, src, test.
+16 files, src, test.
 
 ## src/adapters/
 
@@ -53,6 +53,16 @@ runtime, and re-exports through an index.
 
 - `Member` — class — Un adhérent : un porteur de droits, que ses dettes suspendent.
 
+## src/infrastructure/config/
+
+### src/infrastructure/config/circulation-policy.ts
+
+- `CirculationPolicy` — interface — Les seuils de circulation, et rien d'autre.
+- `DEFAULT_POLICY` — const — Les valeurs par défaut, arrêtées par l'opérateur au round 2 de la spec.
+- `IncoherentPolicy` — class — Refus : deux seuils qui, ensemble, éteignent un refus du domaine.
+- `assertCoherent` — function — Refuse une combinaison de seuils qui supprime un refus sans le dire.
+- `loadPolicy` — function — Lit les seuils depuis l'environnement, et refuse une politique incohérente.
+
 ## src/
 
 ### src/main.ts
@@ -84,3 +94,9 @@ runtime, and re-exports through an index.
 ### test/domain/member.spec.ts
 
 - `Member` — test harness
+
+## test/infrastructure/
+
+### test/infrastructure/circulation-policy.spec.ts
+
+- `Politique de circulation` — test harness
