@@ -71,3 +71,54 @@ est la même, son fondement est plus solide.
 
 Cinq décisions attendent dans la proposition. La première commande les autres :
 **les seuils sont-ils de la configuration ou du code ?**
+
+---
+
+## Round 2 du 2026-09-01 — les cinq décisions sont prises, le périmètre est arrêté
+
+| # | Décision | Réponse |
+| --- | --- | --- |
+| 1 | Seuils : configuration ou code ? | **Configuration**, défauts = moyenne des seuils relevés |
+| 2 | Amendes | **Constater la dette, ne jamais encaisser** |
+| 3 | Intégrations dans la spec | **Un seul port**, `NotificationSender`, adaptateur de journalisation |
+| 4 | Appelants | **Guichet d'abord** ; libre-service adhérent en spec 2 |
+| 5 | Réservation | **Exemplaire mis de côté nominativement**, avec expiration |
+
+### Les seuils par défaut, et leur arithmétique
+
+| Seuil | Défaut | Calcul |
+| --- | --- | --- |
+| Durée de prêt | 23 j | moyenne de 21,21,21,21,21,28,42,5 |
+| Prolongations | 5 | moyenne de 10,5,5,4,2,2 |
+| Plafond d'emprunts | 43 | moyenne de 5,50,75 |
+| Plafond de réservations | 43 | **aucune source**, dérivé du plafond d'emprunts |
+| Délai « perdu » | 45 j | moyenne de 29,60 |
+| Seuil d'impayés | 50 | **source unique** (Oakland), pas une moyenne |
+| Retrait d'une réservation | 8 j | moyenne de 6,7,7,7,7,13 |
+
+Trois réserves écrites plutôt que tues : le **plafond d'emprunts** est le chiffre
+le plus distordu par la moyenne (43 contre 63 en ne gardant que les
+bibliothèques publiques — le 5 vient d'une bibliothèque de droit) ; le **plafond
+de réservations** n'est mesuré nulle part ; le **seuil d'impayés** repose sur une
+seule source.
+
+### Deux conflits sortis par la confrontation des réponses
+
+La confrontation est exigée dès qu'un round répond à deux décisions ou plus. Elle
+a trouvé ce qu'une relecture séparée n'aurait pas vu.
+
+**Décisions 3 × 4 — arbitré par l'opérateur.** Un seul port sans fournisseur
+d'identité, mais du libre-service adhérent — qui exige l'identité pour distinguer
+« interdit » de « interdit à VOUS ». Résolu en calendrier et non en destination :
+guichet d'abord, libre-service en **spec 2**. Le domaine du prêt sera prouvé
+avant qu'on lui ajoute l'autorisation.
+
+**Décisions 1 × 2 — conséquence technique, pas un choix de plus.** Barème de
+retard configurable + seuil de blocage à 50 : un barème réglé à **zéro** ne
+produit aucune dette, le seuil n'est jamais atteint, et le refus « bloqué pour
+impayés » est **éteint en silence**. Chaque réponse est défendable seule.
+Ensemble, elles suppriment un refus sans que rien ne le dise.
+
+Le périmètre porte donc une règle de cohérence : **la configuration refuse au
+démarrage un barème nul accompagné d'un seuil de blocage non nul.** Un refus
+qu'on éteint doit l'être par une déclaration, pas par un chiffre.
