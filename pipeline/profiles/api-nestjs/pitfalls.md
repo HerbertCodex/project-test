@@ -66,3 +66,30 @@ document interdit.
 - **Un `--force-with-lease` sur `main`**, autorisé par l'opérateur, pour ajouter
   la ligne `direct:` au commit d'installation. Le dépôt avait un seul commit et
   aucun autre lecteur.
+
+## Une substitution de texte sur un fichier que Prettier vient de reformater ne trouve rien
+
+**Payé trois fois le 2026-09-01, sur trois issues différentes.**
+
+Le motif est toujours le même. J'écris une substitution `python` qui cherche
+une chaîne exacte, `prettier --write` est passé entre-temps et a coupé la ligne
+en plusieurs, la substitution **ne matche rien** — et elle échoue en silence
+parce que rien ne vérifie qu'elle a atterri.
+
+Ce que ça a coûté à chaque fois : un gate rouge sur une correction que je
+croyais faite. `no-unused-vars` sur un import ajouté dont l'usage n'a jamais
+été écrit, deux fois. La première, le hook `pre-commit` l'a attrapée ; les deux
+suivantes, la batterie.
+
+**Deux parades, et la seconde est la bonne :**
+
+- `assert old in s` avant d'écrire. C'est ce que font les substitutions de ce
+  dépôt qui ont marché, et l'absence de cette assertion est exactement ce qui
+  distingue une correction d'une illusion de correction.
+- Lire le fichier juste avant de le modifier, plutôt que de se fier à ce qu'on
+  y a mis dix minutes plus tôt. Un formateur automatique est un autre auteur.
+
+C'est la même leçon que la trouvaille F2 sur le store de Sudocode : **une
+correction qu'on n'a pas vérifiée par le lecteur qui fait autorité n'est pas une
+correction.** Elle s'est présentée deux fois sous deux visages différents avant
+d'être écrite ici.

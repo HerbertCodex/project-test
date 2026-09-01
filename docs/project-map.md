@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-24 files, src, test.
+27 files, src, test.
 
 ## src/adapters/
 
@@ -46,9 +46,9 @@ runtime, and re-exports through an index.
 
 ## src/application/ports/
 
-### src/application/ports/circulation-store.port.ts
+### src/application/ports/borrow-store.port.ts
 
-- `CirculationStore` — interface — Le port de lecture et d'écriture de la circulation.
+- `BorrowStore` — interface — Ce que l'emprunt a besoin de lire et d'écrire, et rien de plus.
 
 ### src/application/ports/loan-policy.port.ts
 
@@ -58,6 +58,19 @@ runtime, and re-exports through an index.
 
 - `HoldAvailableNotice` — interface — Ce que la bibliothèque a besoin de dire à un adhérent quand sa réservation devient disponible.
 - `NotificationSender` — interface — Le port sortant de notification.
+
+### src/application/ports/return-store.port.ts
+
+- `ReturnStore` — interface — Ce que le retour a besoin de lire et d'écrire, et rien de plus.
+
+## src/application/return/
+
+### src/application/return/return.usecase.ts
+
+- `CopyNotOnLoan` — class — Refus : cet exemplaire n'est pas sorti.
+- `ReturnRequest` — interface — Ce qu'un retour demande.
+- `ReturnOutcome` — interface — Ce qu'un retour produit : le prêt fermé, et ce qui reste dû.
+- `ReturnUseCase` — class — Rendre un exemplaire, et constater ce qui est dû.
 
 ## src/domain/
 
@@ -115,6 +128,12 @@ runtime, and re-exports through an index.
 ### test/application/borrow/borrow.usecase.spec.ts
 
 - `Emprunter un exemplaire` — test harness
+
+## test/application/return/
+
+### test/application/return/return.usecase.spec.ts
+
+- `Rendre un exemplaire` — test harness
 
 ## test/domain/
 
