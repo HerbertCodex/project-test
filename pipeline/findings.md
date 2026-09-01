@@ -163,6 +163,30 @@ narrations dans les issues précédentes. Un outil qui a un faux positif n'est p
 un outil inutile — il est un outil dont on connaît la limite, et c'est pour ça
 qu'elle est écrite ici.
 
+## F1bis — Une boucle de réessai qui relit l'export fabrique des doublons
+
+**Payé le 2026-09-01, en créant les issues de la troisième spec. Erreur de ma
+main, née de la combinaison de F1 et F2.**
+
+F1 dit qu'un appel `sudocode` peut abandonner après avoir écrit. Le
+contournement écrit était : *« vérifier l'effet plutôt que le code de sortie »*.
+Je l'ai appliqué — et j'ai vérifié l'effet **dans le mauvais fichier**.
+
+Sur dix créations, cinq ont abandonné. J'ai écrit une boucle qui comptait les
+issues dans `.sudocode/issues.jsonl` et recréait la manquante. Le JSONL est un
+export de `cache.db`, et il **retarde** sur la base : mon compte était périmé à
+chaque tour. Trois tours, trois doublons.
+
+**Ce que ça apprend, et qui dépasse Sudocode** : un contournement qui dit
+« vérifie l'effet » doit dire **où**. F2 avait déjà établi que le JSONL n'est pas
+la source ; je l'avais écrit et je ne l'ai pas relié à F1 quand il fallait. Deux
+trouvailles justes séparément ne se composent pas toutes seules dans la tête de
+celui qui les a écrites.
+
+**Réparation** : `sudocode issue delete <id> --hard`. Sans `--hard`, la commande
+**clôt** l'issue au lieu de la supprimer — ce que son nom ne laisse pas deviner,
+et ce qui a fait croire à un premier échec.
+
 ## F5 — La proposition approuvée vit dans un répertoire que le cadre exige d'ignorer
 
 **Constatée le 2026-09-01, en écrivant le round 2 de la troisième spec.**

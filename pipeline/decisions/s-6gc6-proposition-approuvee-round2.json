@@ -1,0 +1,182 @@
+{
+ "schema_version": 1,
+ "mode": "spec_proposal",
+ "agent": "product",
+ "round": 2,
+ "scope": {
+  "spec_id": "s-6gc6"
+ },
+ "basis": {
+  "record_hash": "a71e488a8d3d88834fb4a8dc7b619ad128f8ef50561deeac26629857bb994335",
+  "pipeline_version": 1
+ },
+ "outcome": "awaiting_operator_decision",
+ "functional_scope": {
+  "summary": "Rendre appelables les six cas d'usage que s-6y4w a prouvés, et leur donner un état qui survit au redémarrage. Aujourd'hui la bibliothèque possède des règles justes et aucun moyen de s'en servir. Cette spec livre le service, pas de nouvelles règles métier. L'identité et le libre-service sont reportés en spec 3 par décision de l'opérateur.",
+  "origin": "Le trou vient d'un défaut de rédaction identifié après coup : sur les 39 critères de s-6y4w, un seul mentionnait l'adaptateur, et sa moitié vérifiable ne demandait que l'absence de HTTP dans le domaine. La phrase sur l'adaptateur était de la prose. Aucun gate ne vérifie qu'un chemin réservé est utilisé, donc quatre issues ont réservé src/adapters/* et l'ont laissé vide sans qu'aucune commande ne bronche. Cette spec écrit ses critères pour que la moitié vérifiable couvre ce qu'on veut livrer.",
+  "features": [
+   {
+    "name": "Appeler chaque opération par HTTP",
+    "user_value": "Un agent de guichet emprunte, rend, prolonge et réserve depuis son poste. Aujourd'hui il ne peut rien faire du tout.",
+    "rules": [
+     "Un refus métier garde son sens à travers la traduction : « cet exemplaire est déjà sorti » et « vous devez trop » ne peuvent pas répondre le même code, sinon l'agent au guichet ne sait pas quoi dire à l'adhérent.",
+     "Le domaine continue de ne rien connaître de HTTP. C'est l'adaptateur qui traduit, et le gate architecture le refuse dans l'autre sens.",
+     "Un refus que l'adaptateur ne sait pas traduire ne devient JAMAIS un 500. Une erreur de la technique et un refus du métier ne se ressemblent pas, et les confondre fait chercher une panne là où il y a une règle.",
+     "Une saisie mal formée est refusée avant d'atteindre le domaine, et le message dit quel champ. Le domaine reçoit des valeurs valides ou rien.",
+     "Chaque opération répond ce que le cas d'usage a produit — le prêt créé, la dette constatée, l'adhérent servi — pas un accusé de réception vide.",
+     "La correspondance est fixée : 409 pour un conflit d'état (exemplaire déjà sorti, mis de côté pour un autre, rien à réserver, exemplaire pas en prêt), 403 pour un droit suspendu (impayés, adhésion expirée, plafond d'emprunts ou de réservations atteint, titre réservé par un autre), 422 pour une demande cohérente mais impossible (prêt perdu, plafond de prolongations atteint), 404 pour un exemplaire ou un adhérent inconnu.",
+     "Un refus métier qu'aucune entrée de la table ne couvre fait échouer le BUILD, pas la requête. Une correspondance vérifiée au démarrage ou au premier appel se découvre en production ; vérifiée à la compilation, elle se découvre en écrivant le refus."
+    ]
+   },
+   {
+    "name": "Garder l'état entre deux démarrages",
+    "user_value": "La bibliothèque retrouve ses prêts le lendemain matin. Aujourd'hui tout disparaît à l'arrêt du processus.",
+    "rules": [
+     "Deux emprunts simultanés du même exemplaire ne peuvent pas réussir tous les deux. Le mécanisme est nommé parce qu'un critère qui dirait seulement « la concurrence est tenue » ne serait vérifiable par rien : un index unique PARTIEL sur copy_id là où returned_at est nul. La base refuse alors le second prêt ouvert quel que soit l'entrelacement des requêtes.",
+     "L'adaptateur de persistance TRADUIT la violation de cette contrainte en CopyAlreadyOnLoan. Sans cette traduction, le refus fondateur du produit sortirait en 500 exactement quand la concurrence se produit, c'est-à-dire quand la bibliothèque est chargée. C'est le conflit que la confrontation des réponses 2 et 3 a sorti.",
+     "Deux retours simultanés du même titre ne servent pas deux fois la même réservation.",
+     "Un prêt et la dette qu'il produit sont écrits ensemble ou pas du tout. Une dette sans son prêt est inexplicable à l'adhérent.",
+     "Les sept ports existants ne changent pas. Si l'implémentation exige de les modifier, c'est le signe que le port décrivait une base de données et non un besoin — et c'est alors le port qu'il faut corriger, pas la règle.",
+     "Le schéma est déclaré une fois, en tables, et les migrations sont générées et versionnées. Une base dont le schéma n'existe que dans la tête du dernier développeur n'est pas persistante, elle est chanceuse.",
+     "Les données d'un adhérent sont des données personnelles : leurs chemins passent par human_review_paths."
+    ]
+   },
+   {
+    "name": "Remplacer le scaffold par le produit",
+    "user_value": "Le dépôt ne contient plus le « Hello World » de Nest, et ce qui prouve le démarrage prouve la bibliothèque.",
+    "rules": [
+     "AppController et AppService sont supprimés. C'est la trouvaille garée de i-699g : AppService vit dans la couche application sans être un cas d'usage, et il importe @nestjs/common.",
+     "Le smoke exerce une opération MÉTIER réelle — emprunter un exemplaire puis le rendre — contre l'application construite et une vraie base. Le cœur documente le cas que ça attrape : treize gates verts pendant que chaque formulaire répondait 403.",
+     "L'ordre n'est pas libre : les vraies routes et le smoke métier existent AVANT la suppression, sinon il reste un moment où plus rien ne prouve que l'application démarre.",
+     "Une fois le scaffold parti, le test qui interdit @nestjs/common s'étend à TOUTE la couche application, et non plus aux seuls répertoires que i-699g avait pu couvrir."
+    ]
+   }
+  ],
+  "out_of_scope": [
+   "L'AUTHENTIFICATION et le libre-service adhérent : reportés en SPEC 3, décidés par l'opérateur le 2026-09-01. Cette API reste appelée par un agent de guichet, comme la décision 4 de s-6y4w l'avait arbitré. Ce n'est pas un oubli, c'est un report daté.",
+   "Toute nouvelle règle métier. s-6y4w les a livrées et cette spec ne les touche pas.",
+   "Le catalogage, les acquisitions, la recherche, le prêt entre bibliothèques, les ressources numériques.",
+   "L'encaissement des dettes : le système constate, il n'encaisse pas, et ReturnStore le rend structurellement impossible.",
+   "L'ordonnanceur qui déclenche expirations et bascules en « perdu ». Les opérations sont appelables ; le déclencheur reste dehors.",
+   "Une interface web ou mobile. project_type reste backend.",
+   "Les ports FileStore et PaymentGateway, nommés remplaçables mais sans usage à ce jour.",
+   "La migration de données existantes : il n'y en a aucune."
+  ]
+ },
+ "domain_reading": {
+  "retained": "Le domaine est fini et il ne bouge pas. Cette spec ajoute deux couches AUTOUR de lui — l'entrée HTTP et la sortie vers une base — et une transversale, l'identité. La question qui décide de tout est celle de la concurrence : jusqu'ici `assertLendable` refuse un second prêt sur une liste de prêts DONNÉE, et rien ne dit que deux requêtes simultanées lisent la même liste. Le refus fondateur du produit n'est donc pas encore tenu dans les faits, seulement dans le raisonnement.",
+  "discarded": [
+   "Exposer les cas d'usage sans persistance, pour livrer plus vite : un service qui perd tout au redémarrage ne se teste pas contre la concurrence, et c'est précisément le trou qu'il faut fermer.",
+   "Mettre la transaction dans le cas d'usage : le domaine et l'application ignoreraient alors qu'il existe une base, ce que l'architecture hexagonale retenue interdit. La transaction appartient à l'adaptateur.",
+   "Un contrôleur par entité, à la manière CRUD : le produit expose des OPÉRATIONS métier — emprunter, rendre, prolonger — pas des tables. Un POST /loans dirait le contraire de ce que la spec précédente a établi.",
+   "Faire porter l'autorisation par le domaine : « ce compte n'est pas le vôtre » n'est pas une règle de bibliothèque, c'est une règle d'accès. La confondre avec un refus métier rendrait les deux illisibles."
+  ]
+ },
+ "contract_sketch": "Une opération métier, une route. Chaque route valide sa saisie, identifie son appelant, appelle le cas d'usage, et traduit son résultat ou son refus. Le domaine reste inchangé et les sept ports existants aussi ; une implémentation qui exigerait de les modifier serait le signe que le port décrivait une base de données plutôt qu'un besoin.",
+ "planned_titles": [
+  "Déclarer le schéma en tables et générer la première migration",
+  "Implémenter les sept ports sur Drizzle, sans les modifier",
+  "Tenir le refus fondateur par un index unique partiel, et le prouver sous entrelacement",
+  "Traduire la violation de contrainte en CopyAlreadyOnLoan",
+  "Écrire un prêt et sa dette dans la même transaction",
+  "Traduire chaque refus métier en son code HTTP, la table vérifiée à la compilation",
+  "Exposer emprunter, rendre, prolonger et réserver, avec la validation de saisie à la frontière",
+  "Exposer expirer une réservation et déclarer un prêt perdu",
+  "Un smoke qui emprunte puis rend contre une vraie base",
+  "Supprimer AppController et AppService, et étendre le test anti-NestJS à toute la couche application"
+ ],
+ "decisions_for_operator": [],
+ "context": {
+  "heading": "## Context for Operator",
+  "body": "Round 2. Les cinq décisions sont répondues, le périmètre est arrêté : scope_final.\n\nUN CONFLIT EST SORTI DE LA CONFRONTATION, et il n'était visible d'aucune des deux réponses prise seule.\n\nTu as choisi une contrainte d'unicité en base pour tenir le refus fondateur (réponse 2), et une table de correspondance où un refus non cartographié ne devient jamais un 500 (réponse 3). Ensemble : une violation de contrainte remonte comme une erreur du pilote SQLite, pas comme un CopyAlreadyOnLoan. Elle ne serait donc dans aucune entrée de la table, et sortirait en 500 — exactement quand deux emprunts se croisent, c'est-à-dire quand la bibliothèque est chargée. Le refus fondateur du produit tomberait en panne au pire moment.\n\nLe périmètre porte la mitigation : l'adaptateur de persistance traduit la violation en CopyAlreadyOnLoan avant de la laisser remonter. Ce n'est pas une décision de plus à te soumettre, c'est une conséquence technique de tes deux réponses.\n\nUNE CONTRAINTE D'ORDRE est écrite plutôt que découverte : supprimer le scaffold retire la seule route du produit. Le smoke métier doit exister avant, sinon il reste un moment où rien ne prouve que l'application démarre.\n\nSUR TON CHOIX DE PERSISTANCE : la décision 0007 dit pourquoi je ne maintiens pas mon argument contre les ORM. Il portait sur une seconde modélisation du métier, et Drizzle déclare des TABLES, pas des entités. Ce que SQLite change vraiment est le mécanisme — un index unique partiel plutôt qu'un verrou de ligne — et il est plus difficile à contourner par accident, pas moins.\n\nTROIS FONCTIONNALITÉS, dix titres envisagés. Deux de plus qu'au round 1 malgré un périmètre réduit : la traduction de la contrainte et la migration du schéma sont devenues des travaux à part entière."
+ },
+ "produced_at": "2026-09-01T21:39:53.000Z",
+ "review_page": {
+  "path": "pipeline/pages/proposition-s-api-r2.html"
+ },
+ "scope_final": true,
+ "operator_feedback": {
+  "decided": [
+   {
+    "decision": "Périmètre de la spec",
+    "answer": "HTTP et persistance ensemble ; l'identité et le libre-service dans une spec suivante.",
+    "changed": "Les fonctionnalités « Savoir qui appelle » et « Le libre-service adhérent » quittent le périmètre et sont nommées comme SPEC 3, au lieu de disparaître. Les titres envisagés passent de dix à huit."
+   },
+   {
+    "decision": "Quelle persistance",
+    "answer": "Drizzle sur SQLite, dernière version, dépendance autorisée et installée.",
+    "changed": "Décision 0007 écrite. Le mécanisme qui tient le refus fondateur change : un index unique PARTIEL sur copy_id là où returned_at est nul, plutôt qu'un verrou de ligne. Une règle du périmètre est réécrite pour nommer ce mécanisme, parce qu'un critère qui dirait seulement « la concurrence est tenue » ne serait vérifiable par rien."
+   },
+   {
+    "decision": "Traduction des refus en codes HTTP",
+    "answer": "409 conflit d'état, 403 droit suspendu, 422 demande impossible, 404 inconnu ; un refus non cartographié fait échouer le build.",
+    "changed": "La table de correspondance entre dans le périmètre, refus par refus. « Faire échouer le build » devient une règle et non une intention."
+   },
+   {
+    "decision": "Le smoke exerce-t-il une opération métier",
+    "answer": "Oui : emprunter puis rendre un exemplaire.",
+    "changed": "Le smoke actuel, qui exerce le GET / du scaffold, est remplacé. C'est aussi ce qui rend la suppression du scaffold possible sans laisser le produit sans preuve de démarrage."
+   },
+   {
+    "decision": "Le scaffold AppController et AppService",
+    "answer": "Supprimés dans cette spec.",
+    "changed": "La trouvaille garée de i-699g est promue dans ce périmètre. Le test e2e existant disparaît avec eux, remplacé par le smoke métier."
+   }
+  ],
+  "summary": "Cinq décisions répondues en un tour. Une seule va contre ma recommandation — la persistance — et la décision 0007 dit pourquoi je ne maintiens pas mon argument plutôt que de le laisser flotter."
+ },
+ "answers_composition_check": {
+  "pairs_checked": [
+   {
+    "pair": [
+     "Le scaffold AppController et AppService",
+     "Le smoke exerce-t-il une opération métier"
+    ],
+    "composes": true,
+    "note": "CONTRAINTE D'ORDRE, pas un conflit, mais elle doit être écrite sinon elle sera découverte en cours de route. Supprimer le scaffold retire la SEULE route du produit et fait tomber le test e2e existant. Le smoke métier doit donc exister AVANT la suppression, sinon il reste un moment où rien ne prouve que l'application démarre. L'ordre des issues le reflète : exposer d'abord, supprimer ensuite."
+   },
+   {
+    "pair": [
+     "Quelle persistance",
+     "Périmètre de la spec"
+    ],
+    "composes": true,
+    "note": "Le périmètre retenu justifie précisément le choix de la base : c'est parce que HTTP et persistance arrivent ensemble que le trou de concurrence peut être fermé et prouvé dans la même spec. L'un sans l'autre laissait la règle juste dans le raisonnement seulement."
+   },
+   {
+    "pair": [
+     "Quelle persistance",
+     "Traduction des refus en codes HTTP"
+    ],
+    "composes": false,
+    "note": "PIÈGE RÉEL, et c'est la confrontation qui le sort. Avec un index unique partiel, un second emprunt concurrent est refusé par la BASE et non par le domaine : la violation de contrainte remonte comme une erreur du pilote SQLite, pas comme un CopyAlreadyOnLoan. Or la règle 3 du périmètre exige qu'un refus non cartographié ne devienne jamais un 500. Sans mesure, ce refus-là — le fondateur du produit — sortirait en 500 précisément quand la concurrence se produit, c'est-à-dire quand la bibliothèque est chargée. Mitigation portée par le périmètre : l'adaptateur de persistance TRADUIT la violation de contrainte en CopyAlreadyOnLoan avant de la laisser remonter. Le domaine garde son vocabulaire, et le refus garde son 409."
+   },
+   {
+    "pair": [
+     "Traduction des refus en codes HTTP",
+     "Le smoke exerce-t-il une opération métier"
+    ],
+    "composes": true,
+    "note": "Le smoke exerce le chemin nominal — emprunter puis rendre — et ne prouve donc aucun refus. C'est voulu : un smoke qui vérifierait les codes d'erreur ferait le travail des tests e2e et deviendrait fragile. Ce qu'il prouve, et que rien d'autre ne prouve, c'est que l'application CONSTRUITE, branchée sur une vraie base, répond à une opération réelle."
+   },
+   {
+    "pair": [
+     "Périmètre de la spec",
+     "Le scaffold AppController et AppService"
+    ],
+    "composes": true,
+    "note": "Reporter l'identité rend la suppression du scaffold plus simple, pas plus risquée : les nouvelles routes n'ont pas encore d'autorisation à porter, donc les remplacer est un échange à périmètre égal. Faire les trois d'un coup aurait mêlé suppression et autorisation dans les mêmes fichiers."
+   }
+  ],
+  "conflicts_found": [
+   {
+    "between": [
+     "Quelle persistance",
+     "Traduction des refus en codes HTTP"
+    ],
+    "conflict": "Une contrainte d'unicité en base fait remonter le refus fondateur comme une erreur de pilote, qui sortirait en 500 au lieu de 409 — et seulement sous concurrence, donc seulement en charge.",
+    "resolution": "L'adaptateur de persistance traduit la violation de contrainte en CopyAlreadyOnLoan. Non arbitré par l'opérateur : c'est une conséquence technique de deux de ses réponses, pas un choix de plus à lui soumettre."
+   }
+  ]
+ }
+}
