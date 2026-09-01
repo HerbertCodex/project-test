@@ -209,6 +209,20 @@ describe('Servir la file a la restitution', () => {
 });
 
 describe('Rendre un exemplaire declare perdu', () => {
+  const watchingClearance = (
+    overrides: Partial<ReturnStore> = {},
+  ): { store: ReturnStore; cleared: string[] } => {
+    const cleared: string[] = [];
+    const { store } = storeWith({
+      clearReplacementDebt: (memberId: string) => {
+        cleared.push(memberId);
+        return Promise.resolve();
+      },
+      ...overrides,
+    });
+    return { store, cleared };
+  };
+
   const lostLoan = new Loan({
     copyId: 'c1',
     memberId: 'm1',
@@ -218,13 +232,8 @@ describe('Rendre un exemplaire declare perdu', () => {
   });
 
   it('le reactive et solde la dette de remplacement', async () => {
-    const cleared: string[] = [];
-    const { store } = storeWith({
+    const { store, cleared } = watchingClearance({
       openLoanOfCopy: () => Promise.resolve(lostLoan),
-      clearReplacementDebt: (memberId: string) => {
-        cleared.push(memberId);
-        return Promise.resolve();
-      },
     });
     const outcome = await returning(store);
 
@@ -233,13 +242,7 @@ describe('Rendre un exemplaire declare perdu', () => {
   });
 
   it('ne solde rien quand le pret n etait pas perdu', async () => {
-    const cleared: string[] = [];
-    const { store } = storeWith({
-      clearReplacementDebt: (memberId: string) => {
-        cleared.push(memberId);
-        return Promise.resolve();
-      },
-    });
+    const { store, cleared } = watchingClearance();
     const outcome = await returning(store);
 
     expect(outcome.reactivated).toBe(false);

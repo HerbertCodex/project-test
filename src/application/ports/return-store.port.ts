@@ -63,4 +63,15 @@ export interface ReturnStore {
    * @param pickupBy - la date limite de retrait
    */
   setAsideForHold(hold: Hold, copyId: string, pickupBy: Date): Promise<void>;
+
+  /**
+   * Solde la dette de remplacement d'un adhérent dont l'exemplaire revient.
+   *
+   * Elle est soldée SEULE : l'amende de retard reste due, parce que le
+   * document a bien été rendu tard. Les fusionner ici annulerait par la porte
+   * de derrière la distinction que i-6k29 a établie.
+   *
+   * @param memberId - l'adhérent dont l'exemplaire est revenu
+   */
+  clearReplacementDebt(memberId: string): Promise<void>;
 }

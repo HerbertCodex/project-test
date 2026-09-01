@@ -44,6 +44,8 @@ export interface ReturnOutcome {
    * redevient simplement empruntable.
    */
   setAsideFor: string | null;
+  /** Vrai si l'exemplaire était déclaré perdu et vient d'être réactivé. */
+  reactivated: boolean;
 }
 
 /**
@@ -69,7 +71,11 @@ export class ReturnUseCase {
    * Exécute le retour.
    *
    * @param request - l'exemplaire rendu et la date du retour
-   * @returns le prêt fermé, la dette constatée et l'adhérent servi le cas échéant
+   * Un exemplaire déclaré perdu qui revient est réactivé : sa dette de
+   * remplacement est soldée, mais l'amende de retard reste due — le document a
+   * bien été rendu tard, et les deux dettes restent distinctes.
+   *
+   * @returns le prêt fermé, la dette de retard, la réactivation et l'adhérent servi
    * @throws {CopyNotOnLoan} si l'exemplaire n'est pas sorti
    */
   async execute(request: ReturnRequest): Promise<ReturnOutcome> {
@@ -89,9 +95,13 @@ export class ReturnUseCase {
     const debt = open.daysOverdueAt(now) * this.policy.lateFeePerDay;
     if (debt > 0) await this.store.addDebt(open.memberId, debt);
 
+    const reactivated = open.isLost();
+    if (reactivated) await this.store.clearReplacementDebt(open.memberId);
+
     return {
       loan: closed,
       debt,
+      reactivated,
       setAsideFor: await this.serveQueue(copyId, now),
     };
   }
