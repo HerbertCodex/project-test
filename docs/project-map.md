@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-6 files, src, test.
+13 files, src, test.
 
 ## src/adapters/
 
@@ -32,6 +32,27 @@ runtime, and re-exports through an index.
 
 - `AppService` — service
 
+## src/domain/
+
+### src/domain/availability.ts
+
+- `Availability` — type — Ce qu'un exemplaire peut être, du point de vue du prêt.
+- `CopyAlreadyOnLoan` — class — Refus : l'exemplaire porte déjà un prêt ouvert.
+- `availabilityOf` — function — Dérive la disponibilité d'un exemplaire de ses prêts.
+- `assertLendable` — function — Refuse de prêter un exemplaire déjà sorti.
+
+### src/domain/copy.ts
+
+- `Copy` — class — Un exemplaire physique, rattaché à un titre.
+
+### src/domain/loan.ts
+
+- `Loan` — class — Un prêt : l'accord daté entre un adhérent et un exemplaire.
+
+### src/domain/member.ts
+
+- `Member` — class — Un adhérent : un porteur de droits, que ses dettes suspendent.
+
 ## src/
 
 ### src/main.ts
@@ -43,3 +64,17 @@ runtime, and re-exports through an index.
 ### test/app.e2e-spec.ts
 
 - `AppController (e2e)` — test harness
+
+## test/domain/
+
+### test/domain/availability.spec.ts
+
+- `Disponibilite derivee des prets` — test harness
+
+### test/domain/loan.spec.ts
+
+- `Loan` — test harness
+
+### test/domain/member.spec.ts
+
+- `Member` — test harness
