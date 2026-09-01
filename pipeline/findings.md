@@ -33,25 +33,48 @@ posé deux fois répond « ✓ Created relationship » les deux fois).
 graphe avec `readIssueTracker` et compter, ce qui est ce que la pipeline fait de
 toute façon.
 
-## F2 — `sudocode link` n'a pas d'inverse
+## F2 — `sudocode link` n'a pas d'inverse, et le JSONL n'est pas la source
+
+**Corrigée le 2026-09-01. Une première rédaction affirmait que le lien avait été
+retiré par édition du JSONL. C'était faux, et c'est la pipeline qui l'a dit, pas
+moi en relisant.**
 
 Aucune commande ne retire une relation : `issue update` ne touche ni aux
-relations ni aux liens, et il n'existe pas d'`unlink`. `issue delete` supprime
-l'issue entière, ce qui n'est pas la même chose.
+relations ni aux liens, il n'existe pas d'`unlink`, et `issue delete` supprime
+l'issue entière.
 
-**Conséquence concrète, payée le 2026-09-01 :** un lien posé pour tester la
-reproductibilité de F1 — `i-6k29 depends-on i-65bu` — a été créé sur des données
-réelles et ne pouvait plus être retiré par la CLI. Il affirmait une dépendance
-que la spec ne justifie pas : basculer un prêt en « perdu » n'envoie aucune
-notification.
+**Ce qui a été payé le 2026-09-01.** Un lien posé pour tester la reproductibilité
+de F1 — `i-6k29 depends-on i-65bu` — a été créé sur des données réelles. Il
+affirme une dépendance que le périmètre approuvé ne justifie pas : basculer un
+prêt en « perdu » n'envoie aucune notification.
 
-Il a fallu éditer `.sudocode/issues.jsonl` à la main pour retirer cette seule
-relation, puis prouver le résultat par le lecteur de la pipeline (13 liens
-attendus, 13 lus). L'édition manuelle du store du tracker est exactement ce que
-`nouveau-profil.md` déconseille — « ne fabriquez pas ses fichiers » — et c'est
-ici une correction d'une contamination que j'ai moi-même introduite, pas une
-fabrication de données.
+Trois tentatives de retrait, et ce qu'elles ont appris :
 
-**La vraie leçon est de méthode, pas d'outil :** on ne teste pas la
-reproductibilité d'un plantage sur des données réelles quand l'écriture n'a pas
-d'annulation. Un identifiant jetable aurait coûté zéro.
+1. **Édition directe de `.sudocode/issues.jsonl`** → le lien est revenu. Le JSONL
+   est un **export** de `cache.db`, pas la source. La prochaine écriture de
+   Sudocode — ici l'appel CLI de `tracker-sync --apply` — l'a réécrit depuis la
+   base, et l'édition a disparu sans un mot.
+2. **`sudocode import` puis `export`** → le lien est revenu aussi. L'import
+   ajoute et met à jour ; il ne supprime pas ce que le JSONL ne porte plus.
+3. **Conclusion** : avec l'outillage disponible, une relation posée est
+   définitive. Seule la suppression puis recréation de l'issue l'effacerait, au
+   prix d'un nouvel identifiant.
+
+**C'est la pipeline qui a attrapé l'illusion**, et par un mécanisme qui ne
+cherchait pas ça : la révision liée de `i-6k29` ne correspondait plus à la
+révision vivante, donc `store-verify` et `tracker-sync` ont refusé avec
+`tracker binding scope`. Une correction qui se croyait faite a été démentie par
+un hachage. C'est exactement ce que la liaison optimiste existe pour faire.
+
+La liaison a ensuite été rebranchée par `refresh_tracker`, et l'écart est
+conservé dans `tracker_scope_changes` — l'historique garde la trace des deux
+révisions au lieu de l'effacer.
+
+**Deux leçons, et la seconde est la vraie :**
+
+- On ne teste pas la reproductibilité d'un plantage sur des données réelles quand
+  l'écriture n'a pas d'annulation. Un identifiant jetable aurait coûté zéro.
+- **Une correction qu'on n'a pas vérifiée n'est pas une correction.** J'ai écrit
+  « retiré », prouvé par une relecture immédiate du JSONL, et j'avais tort :
+  je lisais un fichier que la base allait écraser. La preuve doit passer par le
+  lecteur qui fait autorité, pas par le fichier le plus proche.
