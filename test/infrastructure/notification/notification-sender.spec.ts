@@ -3,6 +3,7 @@ import type { HoldAvailableNotice } from '../../../src/application/ports/notific
 import {
   LoggingNotificationSender,
   forgiving,
+  type WriteLine,
 } from '../../../src/infrastructure/notification/logging-notification-sender.js';
 
 const notice: HoldAvailableNotice = {
@@ -14,14 +15,22 @@ const notice: HoldAvailableNotice = {
 
 describe('Port de notification', () => {
   it('le port ne depend d aucun paquet tiers', () => {
-    const source = readFileSync('src/application/ports/notification-sender.port.ts', 'utf8');
-    const imports = [...source.matchAll(/^\s*import\s[^;]*from\s+'([^']+)'/gm)].map((m) => m[1]);
+    const source = readFileSync(
+      'src/application/ports/notification-sender.port.ts',
+      'utf8',
+    );
+    const imports = [
+      ...source.matchAll(/^\s*import\s[^;]*from\s+'([^']+)'/gm),
+    ].map((m) => m[1]);
     expect(imports.filter((path) => !path.startsWith('.'))).toEqual([]);
   });
 
   it('l adaptateur ecrit dans le journal et rien d autre', async () => {
     const written: string[] = [];
-    await new LoggingNotificationSender((line) => written.push(line)).holdAvailable(notice);
+    const write: WriteLine = (line) => {
+      written.push(line);
+    };
+    await new LoggingNotificationSender(write).holdAvailable(notice);
     expect(written).toHaveLength(1);
     expect(written[0]).toContain('m1');
     expect(written[0]).toContain('t1');
@@ -32,24 +41,31 @@ describe('Port de notification', () => {
       'src/infrastructure/notification/logging-notification-sender.ts',
       'utf8',
     );
-    expect(source).not.toMatch(/fetch\(|https?:\/\/|axios|nodemailer|sendgrid/i);
+    expect(source).not.toMatch(
+      /fetch\(|https?:\/\/|axios|nodemailer|sendgrid/i,
+    );
   });
 
   it('un echec de l adaptateur ne remonte pas a l appelant', async () => {
     const failing = {
-      holdAvailable: (): Promise<void> => Promise.reject(new Error('SMTP injoignable')),
+      holdAvailable: (): Promise<void> =>
+        Promise.reject(new Error('SMTP injoignable')),
     };
     const written: string[] = [];
-    await expect(forgiving(failing, (line) => written.push(line)).holdAvailable(notice)).resolves
-      .toBeUndefined();
+    await expect(
+      forgiving(failing, (line) => written.push(line)).holdAvailable(notice),
+    ).resolves.toBeUndefined();
   });
 
   it('mais l echec est trace, jamais avale en silence', async () => {
     const failing = {
-      holdAvailable: (): Promise<void> => Promise.reject(new Error('SMTP injoignable')),
+      holdAvailable: (): Promise<void> =>
+        Promise.reject(new Error('SMTP injoignable')),
     };
     const written: string[] = [];
-    await forgiving(failing, (line) => written.push(line)).holdAvailable(notice);
+    await forgiving(failing, (line) => written.push(line)).holdAvailable(
+      notice,
+    );
     expect(written.join(' ')).toContain('SMTP injoignable');
   });
 });
