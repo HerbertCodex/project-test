@@ -1,5 +1,6 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiResponse } from '@nestjs/swagger';
+import { ApiResponse, getSchemaPath } from '@nestjs/swagger';
+import { ErrorEnvelopeView } from './error-envelope.view.js';
 import { REFUSAL_STATUS, type RefusalName } from './refusal-map.js';
 
 /**
@@ -14,6 +15,10 @@ import { REFUSAL_STATUS, type RefusalName } from './refusal-map.js';
  * client écrit contre un 403 qui n'arrive jamais traite un cas qui n'existe
  * pas et rate celui qui existe.
  *
+ * Tous les statuts renvoient au MÊME schéma d'enveloppe. Deux schémas d'erreur
+ * diraient au lecteur qu'il doit distinguer deux formes, ce que la décision
+ * 0008 existe précisément pour lui épargner.
+ *
  * @param refusals - les refus que la route peut lever
  * @returns le décorateur composé à poser sur la méthode
  */
@@ -25,7 +30,11 @@ export function ApiRefusals(...refusals: RefusalName[]): MethodDecorator {
   }
   return applyDecorators(
     ...[...byStatus].map(([status, names]) =>
-      ApiResponse({ status, description: names.join(', ') }),
+      ApiResponse({
+        status,
+        description: names.join(', '),
+        schema: { $ref: getSchemaPath(ErrorEnvelopeView) },
+      }),
     ),
   );
 }

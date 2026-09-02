@@ -87,3 +87,46 @@ export function requiredByDocument(
   if (found == null) throw new Error(`schéma non documenté: ${schema}`);
   return [...((found as { required?: string[] }).required ?? [])].sort();
 }
+
+/**
+ * Les propriétés d'un schéma, `$ref` suivi d'un niveau.
+ *
+ * @param document - le document interrogé
+ * @param schema - le schéma ou la référence
+ * @returns les noms de ses propriétés, triés
+ */
+export function propertiesOf(
+  document: OpenAPIObject,
+  schema: Record<string, unknown> | undefined,
+): string[] {
+  const reference = schema?.['$ref'];
+  const resolved =
+    typeof reference === 'string'
+      ? (document.components?.schemas?.[reference.split('/').pop() ?? ''] as
+          Record<string, unknown> | undefined)
+      : schema;
+  return Object.keys(
+    (resolved?.['properties'] as Record<string, unknown>) ?? {},
+  ).sort();
+}
+
+/**
+ * Le schéma déclaré pour un statut d'une opération.
+ *
+ * @param document - le document interrogé
+ * @param path - le chemin
+ * @param code - le statut
+ * @returns le schéma déclaré
+ */
+export function schemaFor(
+  document: OpenAPIObject,
+  path: string,
+  code: string,
+): Record<string, unknown> | undefined {
+  const response = postOf(document, path).responses?.[code];
+  const content = (
+    response as { content?: Record<string, { schema?: unknown }> }
+  )?.content;
+  return content?.['application/json']?.schema as
+    Record<string, unknown> | undefined;
+}

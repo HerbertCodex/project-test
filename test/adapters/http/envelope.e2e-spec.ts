@@ -1,29 +1,23 @@
 import request from 'supertest';
-import type { INestApplication } from '@nestjs/common';
 import type { Server } from 'node:http';
 import { mountOpenApi } from '../../../src/adapters/http/openapi.js';
-import { startCirculationApp } from '../../support/circulation-app.js';
+import {
+  runningApp,
+  startCirculationApp,
+} from '../../support/circulation-app.js';
 
 describe('L enveloppe de reponse', () => {
-  let app: INestApplication<Server>;
-
-  beforeEach(async () => {
-    app = await startCirculationApp();
-  });
-
-  afterEach(async () => {
-    await app.close();
-  });
+  const app = runningApp();
 
   it('enveloppe CHAQUE succes sous data, sur toutes les routes declarees', async () => {
-    const created = await request(app.getHttpServer())
+    const created = await request(app().getHttpServer())
       .post('/loans')
       .send({ copyId: 'c1', memberId: 'm1' })
       .expect(201);
     expect(Object.keys(created.body)).toEqual(['data']);
     expect(created.body.data).toMatchObject({ copyId: 'c1', memberId: 'm1' });
 
-    const returned = await request(app.getHttpServer())
+    const returned = await request(app().getHttpServer())
       .post('/returns')
       .send({ copyId: 'c1' })
       .expect(200);
@@ -32,10 +26,10 @@ describe('L enveloppe de reponse', () => {
   });
 
   it('enveloppe un refus metier sous error, avec le nom du refus en code', async () => {
-    await request(app.getHttpServer())
+    await request(app().getHttpServer())
       .post('/loans')
       .send({ copyId: 'c1', memberId: 'm1' });
-    const refused = await request(app.getHttpServer())
+    const refused = await request(app().getHttpServer())
       .post('/loans')
       .send({ copyId: 'c1', memberId: 'm1' })
       .expect(409);
@@ -46,7 +40,7 @@ describe('L enveloppe de reponse', () => {
   });
 
   it('enveloppe une erreur de validation, et nomme les champs a reprendre', async () => {
-    const invalid = await request(app.getHttpServer())
+    const invalid = await request(app().getHttpServer())
       .post('/loans')
       .send({ copyId: '' })
       .expect(400);
@@ -57,11 +51,11 @@ describe('L enveloppe de reponse', () => {
   });
 
   it('LE CRITERE QUI COMPTE : les deux 404 ont la MEME forme et des code differents', async () => {
-    const unknownRoute = await request(app.getHttpServer())
+    const unknownRoute = await request(app().getHttpServer())
       .post('/pas-une-route')
       .send({})
       .expect(404);
-    const unknownMember = await request(app.getHttpServer())
+    const unknownMember = await request(app().getHttpServer())
       .post('/loans')
       .send({ copyId: 'c1', memberId: 'fantome' })
       .expect(404);
