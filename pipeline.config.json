@@ -105,7 +105,8 @@
       "test"
     ],
     "min_lines": 6,
-    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$"
+    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$|(^|/)migrations/meta/",
+    "skip_note": "migrations/meta/ contient les instantanés que drizzle-kit génère et relit pour produire la migration suivante. Ses répétitions internes ne disent rien de la réutilisation du code, et le fichier doit rester versionné. Exclusion décidée par l'opérateur le 2026-09-02, étroite à dessein : le SQL des migrations reste scanné."
   },
   "doc_policy": {
     "roots": [
