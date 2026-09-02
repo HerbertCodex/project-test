@@ -1,12 +1,8 @@
-import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import Database from 'better-sqlite3';
 import { Hold } from '../../../../src/domain/hold.js';
 import { Loan } from '../../../../src/domain/loan.js';
+import { seededDatabase } from '../../../support/database.js';
 import {
-  openDatabase,
   type Db,
   DrizzleBorrowStore,
   DrizzleReturnStore,
@@ -16,35 +12,20 @@ import {
   DrizzleExpireHoldStore,
 } from '../../../../src/infrastructure/persistence/repositories/drizzle-stores.js';
 
-const MIGRATIONS = 'src/infrastructure/persistence/migrations';
 const OUT = new Date('2026-03-01T10:00:00Z');
 const DUE = new Date('2026-03-24T10:00:00Z');
 
 /**
- * Une base SQLite neuve, migrée, avec un exemplaire et un adhérent.
+ * La base de reference de ces tests : deux exemplaires d'un titre, un adherent.
  */
-function seeded(): Db {
-  const file = join(mkdtempSync(join(tmpdir(), 'stores-')), 'test.db');
-  const raw = new Database(file);
-  for (const name of readdirSync(MIGRATIONS)
-    .filter((f) => f.endsWith('.sql'))
-    .sort()) {
-    raw.exec(readFileSync(join(MIGRATIONS, name), 'utf8'));
-  }
-  raw
-    .prepare('INSERT INTO copies (id, title_id) VALUES (?, ?)')
-    .run('c1', 't1');
-  raw
-    .prepare('INSERT INTO copies (id, title_id) VALUES (?, ?)')
-    .run('c2', 't1');
-  raw
-    .prepare(
-      'INSERT INTO members (id, membership_expires_at, outstanding_debt) VALUES (?, ?, ?)',
-    )
-    .run('m1', '2027-01-01T00:00:00.000Z', 0);
-  raw.close();
-  return openDatabase(file);
-}
+const seeded = (): Db =>
+  seededDatabase({
+    copies: [
+      { id: 'c1', titleId: 't1' },
+      { id: 'c2', titleId: 't1' },
+    ],
+    members: [{ id: 'm1', expiresAt: '2027-01-01T00:00:00.000Z', debt: 0 }],
+  });
 
 describe('Les sept ports sur Drizzle, contre une vraie base', () => {
   it('les ports de l application ne sont pas modifies par cette issue', () => {

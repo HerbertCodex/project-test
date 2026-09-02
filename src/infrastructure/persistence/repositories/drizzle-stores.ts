@@ -1,6 +1,7 @@
 import { and, eq, isNull, isNotNull, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
+import { CopyAlreadyOnLoan } from '../../../domain/availability.js';
 import { Copy } from '../../../domain/copy.js';
 import { Hold } from '../../../domain/hold.js';
 import { Loan } from '../../../domain/loan.js';
@@ -74,6 +75,44 @@ function toHold(row: typeof holds.$inferSelect): Hold {
     setAsideCopyId: row.setAsideCopyId,
     pickupBy: row.pickupBy === null ? null : new Date(row.pickupBy),
   });
+}
+
+/**
+ * Les colonnes d'un prêt.
+ *
+ * @param loan - le prêt du domaine
+ * @returns la ligne à écrire
+ */
+function rowOf(loan: Loan): typeof loans.$inferInsert {
+  return {
+    copyId: loan.copyId,
+    memberId: loan.memberId,
+    startedAt: loan.startedAt.toISOString(),
+    dueAt: loan.dueAt.toISOString(),
+    returnedAt: loan.returnedAt?.toISOString() ?? null,
+    lostAt: loan.lostAt?.toISOString() ?? null,
+    renewals: loan.renewals,
+  };
+}
+
+/**
+ * Dit si une erreur du pilote est la violation de l'index unique partiel.
+ *
+ * La traduction qui suit est ce que la confrontation des réponses 2 et 3 de
+ * l'opérateur a rendu nécessaire : sans elle, le refus fondateur remonterait
+ * comme une erreur SQLite, ne figurerait dans aucune entrée de la table de
+ * correspondance, et sortirait en 500 — exactement quand deux emprunts se
+ * croisent, c'est-à-dire quand la bibliothèque est chargée.
+ *
+ * @param error - l'erreur levée par le pilote
+ * @returns true s'il s'agit du conflit sur un prêt ouvert
+ */
+function isOpenLoanConflict(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes('loans_one_open_per_copy') ||
+    message.includes('UNIQUE constraint failed')
+  );
 }
 
 /**
@@ -176,30 +215,43 @@ class DrizzleStore {
   }
 
   /**
-   * Persiste un prêt : insertion s'il est nouveau, mise à jour sinon.
+   * Insère un prêt NOUVEAU.
    *
-   * @param loan - le prêt à écrire
+   * Séparé de la mise à jour, et c'est tout l'enjeu de cette issue. La version
+   * précédente cherchait un prêt ouvert sur l'exemplaire et le mettait à jour
+   * quand elle en trouvait un : prêter un exemplaire déjà sorti écrasait alors
+   * le prêt de l'autre adhérent en silence, la table ne grandissait pas, et
+   * l'index unique n'était jamais atteint. La contrainte censée tenir le refus
+   * fondateur ne pouvait pas se déclencher.
+   *
+   * @param loan - le prêt à créer
+   * @throws {CopyAlreadyOnLoan} si l'exemplaire porte déjà un prêt ouvert
    */
-  protected async writeLoan(loan: Loan): Promise<void> {
-    const existing = await this.db
+  protected async insertLoan(loan: Loan): Promise<void> {
+    try {
+      await this.db.insert(loans).values(rowOf(loan));
+    } catch (error) {
+      if (isOpenLoanConflict(error)) throw new CopyAlreadyOnLoan(loan.copyId);
+      throw error;
+    }
+  }
+
+  /**
+   * Met à jour le prêt ouvert d'un exemplaire.
+   *
+   * @param loan - le prêt, portant son nouvel état
+   */
+  protected async updateOpenLoan(loan: Loan): Promise<void> {
+    const [existing] = await this.db
       .select()
       .from(loans)
       .where(and(eq(loans.copyId, loan.copyId), isNull(loans.returnedAt)))
       .limit(1);
-    const values = {
-      copyId: loan.copyId,
-      memberId: loan.memberId,
-      startedAt: loan.startedAt.toISOString(),
-      dueAt: loan.dueAt.toISOString(),
-      returnedAt: loan.returnedAt?.toISOString() ?? null,
-      lostAt: loan.lostAt?.toISOString() ?? null,
-      renewals: loan.renewals,
-    };
-    if (existing.length === 0) {
-      await this.db.insert(loans).values(values);
-      return;
-    }
-    await this.db.update(loans).set(values).where(eq(loans.id, existing[0].id));
+    if (existing === undefined) return;
+    await this.db
+      .update(loans)
+      .set(rowOf(loan))
+      .where(eq(loans.id, existing.id));
   }
 
   /**
@@ -248,7 +300,11 @@ class DrizzleLoanStore extends DrizzleStore {
    * @param loan - le prêt à écrire
    */
   async save(loan: Loan): Promise<void> {
-    await this.writeLoan(loan);
+    if (loan.returnedAt !== null || loan.renewals > 0 || loan.isLost()) {
+      await this.updateOpenLoan(loan);
+      return;
+    }
+    await this.insertLoan(loan);
   }
 }
 
@@ -318,7 +374,7 @@ export class DrizzleReturnStore
    * @param loan - le prêt fermé
    */
   async closeLoan(loan: Loan): Promise<void> {
-    await this.writeLoan(loan);
+    await this.updateOpenLoan(loan);
   }
 
   /**
@@ -440,7 +496,7 @@ export class DrizzleLossStore extends DrizzleStore implements LossStore {
    * @param loan - le prêt déclaré perdu
    */
   async markLost(loan: Loan): Promise<void> {
-    await this.writeLoan(loan);
+    await this.updateOpenLoan(loan);
   }
 
   /**
