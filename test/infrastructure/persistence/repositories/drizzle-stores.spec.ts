@@ -7,6 +7,7 @@ import { Hold } from '../../../../src/domain/hold.js';
 import { Loan } from '../../../../src/domain/loan.js';
 import {
   openDatabase,
+  type Db,
   DrizzleBorrowStore,
   DrizzleReturnStore,
   DrizzleHoldStore,
@@ -22,16 +23,24 @@ const DUE = new Date('2026-03-24T10:00:00Z');
 /**
  * Une base SQLite neuve, migrée, avec un exemplaire et un adhérent.
  */
-function seeded(): ReturnType<typeof openDatabase> {
+function seeded(): Db {
   const file = join(mkdtempSync(join(tmpdir(), 'stores-')), 'test.db');
   const raw = new Database(file);
-  for (const name of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) {
+  for (const name of readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()) {
     raw.exec(readFileSync(join(MIGRATIONS, name), 'utf8'));
   }
-  raw.prepare('INSERT INTO copies (id, title_id) VALUES (?, ?)').run('c1', 't1');
-  raw.prepare('INSERT INTO copies (id, title_id) VALUES (?, ?)').run('c2', 't1');
   raw
-    .prepare('INSERT INTO members (id, membership_expires_at, outstanding_debt) VALUES (?, ?, ?)')
+    .prepare('INSERT INTO copies (id, title_id) VALUES (?, ?)')
+    .run('c1', 't1');
+  raw
+    .prepare('INSERT INTO copies (id, title_id) VALUES (?, ?)')
+    .run('c2', 't1');
+  raw
+    .prepare(
+      'INSERT INTO members (id, membership_expires_at, outstanding_debt) VALUES (?, ?, ?)',
+    )
     .run('m1', '2027-01-01T00:00:00.000Z', 0);
   raw.close();
   return openDatabase(file);
@@ -39,9 +48,13 @@ function seeded(): ReturnType<typeof openDatabase> {
 
 describe('Les sept ports sur Drizzle, contre une vraie base', () => {
   it('les ports de l application ne sont pas modifies par cette issue', () => {
-    const diff = execFileSync('git', ['diff', '--name-only', 'main', '--', 'src/application/ports'], {
-      encoding: 'utf8',
-    });
+    const diff = execFileSync(
+      'git',
+      ['diff', '--name-only', 'main', '--', 'src/application/ports'],
+      {
+        encoding: 'utf8',
+      },
+    );
     expect(diff.trim()).toBe('');
   });
 
@@ -53,7 +66,9 @@ describe('Les sept ports sur Drizzle, contre une vraie base', () => {
     expect(await store.openLoansOfCopy('c1')).toEqual([]);
     expect(await store.setAsideFor('c1')).toBeNull();
 
-    await store.save(new Loan({ copyId: 'c1', memberId: 'm1', startedAt: OUT, dueAt: DUE }));
+    await store.save(
+      new Loan({ copyId: 'c1', memberId: 'm1', startedAt: OUT, dueAt: DUE }),
+    );
     const open = await store.openLoansOfCopy('c1');
     expect(open).toHaveLength(1);
     expect(open[0].isOpen()).toBe(true);
@@ -78,12 +93,20 @@ describe('Les sept ports sur Drizzle, contre une vraie base', () => {
     expect(await store.titleOfCopy('c1')).toBe('t1');
 
     await store.closeLoan(
-      new Loan({ copyId: 'c1', memberId: 'm1', startedAt: OUT, dueAt: DUE, returnedAt: new Date() }),
+      new Loan({
+        copyId: 'c1',
+        memberId: 'm1',
+        startedAt: OUT,
+        dueAt: DUE,
+        returnedAt: new Date(),
+      }),
     );
     expect(await store.openLoanOfCopy('c1')).toBeNull();
 
     await store.addDebt('m1', 5);
-    expect((await new DrizzleBorrowStore(db).memberById('m1'))?.outstandingDebt).toBe(5);
+    expect(
+      (await new DrizzleBorrowStore(db).memberById('m1'))?.outstandingDebt,
+    ).toBe(5);
     await store.clearReplacementDebt('m1');
   });
 
@@ -93,7 +116,9 @@ describe('Les sept ports sur Drizzle, contre une vraie base', () => {
     expect(await store.availableCopiesOf('t1')).toBe(2);
     expect(await store.memberHoldsCopyOf('m1', 't1')).toBe(false);
 
-    await store.save(new Hold({ titleId: 't1', memberId: 'm1', placedAt: OUT }));
+    await store.save(
+      new Hold({ titleId: 't1', memberId: 'm1', placedAt: OUT }),
+    );
     expect(await store.holdsOfTitle('t1')).toHaveLength(1);
     expect(await store.holdsOfMember('m1')).toHaveLength(1);
   });
@@ -119,22 +144,32 @@ describe('Les sept ports sur Drizzle, contre une vraie base', () => {
     const store = new DrizzleLossStore(db);
     const open = await store.openLoans();
     expect(open).toHaveLength(1);
-    await store.markLost(open[0].declareLostAt(new Date('2026-05-20T10:00:00Z')));
+    await store.markLost(
+      open[0].declareLostAt(new Date('2026-05-20T10:00:00Z')),
+    );
     expect((await store.openLoans())[0].isLost()).toBe(true);
     expect(await store.replacementCostOf('c1')).toBeGreaterThan(0);
     await store.addReplacementDebt('m1', 30);
-    expect((await new DrizzleBorrowStore(db).memberById('m1'))?.outstandingDebt).toBe(30);
+    expect(
+      (await new DrizzleBorrowStore(db).memberById('m1'))?.outstandingDebt,
+    ).toBe(30);
   });
 
   it('ExpireHoldStore lit les reservations pretes, les expire et libere l exemplaire', async () => {
     const db = seeded();
     const holds = new DrizzleHoldStore(db);
-    await holds.save(new Hold({ titleId: 't1', memberId: 'm1', placedAt: OUT }));
+    await holds.save(
+      new Hold({ titleId: 't1', memberId: 'm1', placedAt: OUT }),
+    );
     const store = new DrizzleExpireHoldStore(db);
     expect(await store.readyHolds()).toEqual([]);
 
     const waiting = (await holds.holdsOfTitle('t1'))[0];
-    await store.setAsideForHold(waiting, 'c1', new Date('2026-03-09T10:00:00Z'));
+    await store.setAsideForHold(
+      waiting,
+      'c1',
+      new Date('2026-03-09T10:00:00Z'),
+    );
     const ready = await store.readyHolds();
     expect(ready).toHaveLength(1);
     expect(ready[0].setAsideCopyId).toBe('c1');
