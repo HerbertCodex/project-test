@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-55 files, src, test.
+57 files, src, test.
 
 ## src/adapters/
 
@@ -228,6 +228,12 @@ runtime, and re-exports through an index.
 - `loans` — const — Un prêt : l'accord daté entre un adhérent et un exemplaire.
 - `holds` — const — Une réservation : une place dans la file d'attente d'un TITRE.
 
+## src/infrastructure/persistence/transactions/
+
+### src/infrastructure/persistence/transactions/in-transaction.ts
+
+- `inTransaction` — function — Exécute un travail dans une transaction, ou n'écrit rien.
+
 ## src/
 
 ### src/main.ts
@@ -340,6 +346,12 @@ runtime, and re-exports through an index.
 ### test/infrastructure/persistence/schema/migration.spec.ts
 
 - `Le schema et sa migration` — test harness
+
+## test/infrastructure/persistence/transactions/
+
+### test/infrastructure/persistence/transactions/in-transaction.spec.ts
+
+- `Un pret et sa dette, ecrits ensemble ou pas du tout` — test harness
 
 ## test/support/
 
