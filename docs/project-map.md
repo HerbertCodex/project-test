@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-73 files, src, test.
+80 files, src, test.
 
 ## src/adapters/
 
@@ -41,11 +41,33 @@ runtime, and re-exports through an index.
 
 - `ReturnBody` — class — Ce qu'un retour demande.
 
+## src/adapters/http/circulation/views/
+
+### src/adapters/http/circulation/views/loan-view.ts
+
+- `LoanView` — class — Ce qu'un prêt rend au guichet.
+
+### src/adapters/http/circulation/views/return-view.ts
+
+- `ReturnView` — class — Ce qu'un retour rend au guichet.
+
 ## src/adapters/http/
 
 ### src/adapters/http/configure-app.ts
 
 - `configureApp` — function — Applique la configuration globale de l'application HTTP.
+
+## src/adapters/http/envelope/
+
+### src/adapters/http/envelope/envelope.interceptor.ts
+
+- `EnvelopeInterceptor` — service — Enveloppe toute réponse réussie sous `data`.
+
+### src/adapters/http/envelope/envelope.ts
+
+- `Envelope` — interface — Ce que l'API rend quand elle réussit.
+- `ApiError` — interface — Ce que l'API rend quand elle refuse.
+- `ErrorEnvelope` — interface — L'enveloppe d'erreur.
 
 ## src/adapters/http/errors/
 
@@ -53,9 +75,17 @@ runtime, and re-exports through an index.
 
 - `ApiRefusals` — function — Documente les refus qu'une route peut réellement produire.
 
+### src/adapters/http/errors/error-envelope.view.ts
+
+- `ErrorEnvelopeView` — class — L'enveloppe d'erreur, identique pour tous les statuts 4xx et 5xx.
+
 ### src/adapters/http/errors/exhaustive.ts
 
 - `REFUSAL_MAP_IS_EXHAUSTIVE` — const — La preuve d'exhaustivité, tenue par `tsc` et par rien d'autre.
+
+### src/adapters/http/errors/http-error.ts
+
+- `apiErrorOf` — function — Le refus nommé que porte une exception venant de Nest lui-même.
 
 ### src/adapters/http/errors/refusal-map.ts
 
@@ -65,7 +95,7 @@ runtime, and re-exports through an index.
 
 ### src/adapters/http/errors/refusal.filter.ts
 
-- `RefusalFilter` — class — Traduit un refus métier en code HTTP, et laisse passer le reste.
+- `RefusalFilter` — class — Traduit tout refus en une enveloppe `{error}`, quel qu'en soit l'origine.
 
 ## src/adapters/http/
 
@@ -302,6 +332,10 @@ runtime, and re-exports through an index.
 
 - `La configuration globale appartient au composition root` — test harness
 
+### test/adapters/http/envelope.e2e-spec.ts
+
+- `L enveloppe de reponse` — test harness
+
 ## test/adapters/http/errors/
 
 ### test/adapters/http/errors/refusal-map.spec.ts
@@ -430,6 +464,7 @@ runtime, and re-exports through an index.
 ### test/support/circulation-app.ts
 
 - `startCirculationApp` — function — Démarre le guichet sur une base jetable.
+- `runningApp` — function — Ouvre une application par test, et la referme après.
 
 ### test/support/database.ts
 
@@ -442,6 +477,8 @@ runtime, and re-exports through an index.
 - `statusesOf` — function — Tous les statuts documentés, à plat.
 - `requiredByValidator` — function — Les propriétés que class-validator exige réellement.
 - `requiredByDocument` — function — Les propriétés que le document annonce obligatoires.
+- `propertiesOf` — function — Les propriétés d'un schéma, `$ref` suivi d'un niveau.
+- `schemaFor` — function — Le schéma déclaré pour un statut d'une opération.
 
 ### test/support/sources.ts
 
