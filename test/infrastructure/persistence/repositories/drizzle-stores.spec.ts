@@ -48,9 +48,11 @@ function seeded(): Db {
 
 describe('Les sept ports sur Drizzle, contre une vraie base', () => {
   it('les ports de l application ne sont pas modifies par cette issue', () => {
-    // La ref de base est cherchee parmi plusieurs candidats : `main` n'existe
-    // pas comme branche locale dans un checkout de CI, et ce test passait en
-    // local en echouant sur le runner.
+    /**
+     * La ref de base est cherchée parmi plusieurs candidats parce que `main`
+     * n'existe pas comme branche locale dans un checkout de CI : ce test
+     * passait en local en échouant sur le runner.
+     */
     const base = ['origin/main', 'main'].find((ref) => {
       try {
         execFileSync('git', ['rev-parse', '--verify', ref], {

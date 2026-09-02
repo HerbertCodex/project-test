@@ -248,3 +248,36 @@ devient une décision, ce qu'elle est de toute façon.
 **Ce qui appartient au cœur** : décider si `approved_proposal` doit pointer
 ailleurs que dans `handoffs_dir`, ou si le digest doit être conservé dans le
 store plutôt que recalculé depuis un fichier. Ce n'est pas au projet de trancher.
+
+## F6 — `comment-policy` juge chaque ligne `//` séparément
+
+**Constatée le 2026-09-02, sur un commentaire d'explication parfaitement
+légitime.**
+
+Une explication sur trois lignes `//` a été refusée sur deux d'entre elles :
+
+```
+narration — « La ref de base est cherchee parmi plusieurs candidats : `main` n'existe »
+narration — « local en echouant sur le runner. »
+```
+
+La ligne du milieu contenait un marqueur d'intention, les deux autres non. Le
+gate lit chaque ligne comme un commentaire indépendant, alors qu'un bloc `//`
+consécutif est **un seul** commentaire pour un lecteur humain.
+
+**Ce que ça coûte** : la même chose que F4 — un faux positif sur du code juste
+pousse à réécrire du bon code pour plaire à l'outil. La sortie de secours
+documentée existe (un bloc `/** */` n'est jamais refusé) et elle a été employée
+ici, mais elle oblige à un style de commentaire inhabituel dans un corps de
+fonction.
+
+**Le correctif appartient à l'opérateur** : `scripts/` est refusé à
+l'implémenteur. Il consiste à regrouper les `SingleLineCommentTrivia`
+consécutifs avant de les juger, et à n'appliquer la borne des douze mots qu'au
+bloc entier.
+
+**Deuxième leçon, de méthode et pas d'outil** : ce défaut a été poussé parce que
+je n'ai pas rejoué la batterie complète après ma dernière édition. Les hooks ne
+couvrent que `lint`, `secrets_scan`, `check` et les cibles générées — pas
+`comment_policy`. Une modification après la dernière batterie verte n'est pas
+couverte, et c'est exactement là que ce défaut est passé.

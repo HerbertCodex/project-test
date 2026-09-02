@@ -92,12 +92,15 @@
       "src",
       "test"
     ],
-    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$",
+    "skip": "(^|/)(dist|coverage|node_modules)/|\\.d\\.ts$|(^|/)migrations/meta/",
     "extensions": [
       ".ts",
-      ".mts"
+      ".mts",
+      ".sql"
     ],
-    "regenerate": "node scripts/project-map.mjs"
+    "regenerate": "node scripts/project-map.mjs",
+    "skip_note": "migrations/meta/ est exclu pour la MÊME raison que dans duplication, et sur la même décision de l'opérateur du 2026-09-02 : ce sont les instantanés que drizzle-kit génère et relit. map_coverage compte tous les fichiers sous les racines, pas seulement les .ts, donc ces JSON générés auraient dû figurer dans une carte qui répond à « est-ce que ça existe déjà ? » — question qui ne se pose pas pour eux. Extension appliquée sans nouvelle question parce que la raison est identique ; à révoquer d'un mot.",
+    "extensions_note": "Le .sql est collecté parce qu'une migration EST un artefact dont on demande « est-ce que ça existe déjà ? ». Le générateur la cite sans y lire de déclaration — ce qui est littéralement vrai d'un fichier SQL — et un libellé plus riche demanderait de modifier scripts/, qui appartient à l'opérateur."
   },
   "duplication": {
     "roots": [

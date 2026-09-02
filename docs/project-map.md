@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-52 files, src, test.
+53 files, src, test.
 
 ## src/adapters/
 
@@ -197,6 +197,12 @@ runtime, and re-exports through an index.
 ## src/infrastructure/persistence/
 
 ### src/infrastructure/persistence/drizzle.config.ts
+
+- *no exported declaration*
+
+## src/infrastructure/persistence/migrations/
+
+### src/infrastructure/persistence/migrations/0000_workable_kree.sql
 
 - *no exported declaration*
 
