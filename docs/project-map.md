@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-53 files, src, test.
+55 files, src, test.
 
 ## src/adapters/
 
@@ -327,6 +327,10 @@ runtime, and re-exports through an index.
 
 ## test/infrastructure/persistence/repositories/
 
+### test/infrastructure/persistence/repositories/concurrency.spec.ts
+
+- `Le refus fondateur, tenu par la base` — test harness
+
 ### test/infrastructure/persistence/repositories/drizzle-stores.spec.ts
 
 - `Les sept ports sur Drizzle, contre une vraie base` — test harness
@@ -338,6 +342,10 @@ runtime, and re-exports through an index.
 - `Le schema et sa migration` — test harness
 
 ## test/support/
+
+### test/support/database.ts
+
+- `seededDatabase` — function — Une base SQLite neuve, migrée, avec les exemplaires et adhérents demandés.
 
 ### test/support/sources.ts
 
