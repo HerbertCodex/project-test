@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-80 files, src, test.
+79 files, src, test.
 
 ## src/adapters/
 
@@ -57,27 +57,11 @@ runtime, and re-exports through an index.
 
 - `configureApp` — function — Applique la configuration globale de l'application HTTP.
 
-## src/adapters/http/envelope/
-
-### src/adapters/http/envelope/envelope.interceptor.ts
-
-- `EnvelopeInterceptor` — service — Enveloppe toute réponse réussie sous `data`.
-
-### src/adapters/http/envelope/envelope.ts
-
-- `Envelope` — interface — Ce que l'API rend quand elle réussit.
-- `ApiError` — interface — Ce que l'API rend quand elle refuse.
-- `ErrorEnvelope` — interface — L'enveloppe d'erreur.
-
 ## src/adapters/http/errors/
 
 ### src/adapters/http/errors/documented-refusals.ts
 
 - `ApiRefusals` — function — Documente les refus qu'une route peut réellement produire.
-
-### src/adapters/http/errors/error-envelope.view.ts
-
-- `ErrorEnvelopeView` — class — L'enveloppe d'erreur, identique pour tous les statuts 4xx et 5xx.
 
 ### src/adapters/http/errors/exhaustive.ts
 
@@ -85,7 +69,18 @@ runtime, and re-exports through an index.
 
 ### src/adapters/http/errors/http-error.ts
 
-- `apiErrorOf` — function — Le refus nommé que porte une exception venant de Nest lui-même.
+- `NestRefusal` — interface — Ce que porte une exception venant de Nest lui-même.
+- `refusalOf` — function — Range une exception de Nest en refus nommé.
+
+### src/adapters/http/errors/problem.ts
+
+- `PROBLEM_JSON` — const — Le type de média que la RFC 9457 impose aux corps d'erreur.
+- `ProblemDetails` — interface — Un problème, tel que la RFC 9457 le décrit.
+- `problemTypeOf` — function — L'URI de catégorie d'un refus, DÉRIVÉE de son nom.
+
+### src/adapters/http/errors/problem.view.ts
+
+- `ProblemDetailsView` — class — Un problème RFC 9457, tel que la documentation le décrit.
 
 ### src/adapters/http/errors/refusal-map.ts
 
@@ -95,7 +90,7 @@ runtime, and re-exports through an index.
 
 ### src/adapters/http/errors/refusal.filter.ts
 
-- `RefusalFilter` — class — Traduit tout refus en une enveloppe `{error}`, quel qu'en soit l'origine.
+- `RefusalFilter` — class — Traduit tout refus en un problème RFC 9457, quelle qu'en soit l'origine.
 
 ## src/adapters/http/
 
@@ -332,10 +327,6 @@ runtime, and re-exports through an index.
 
 - `La configuration globale appartient au composition root` — test harness
 
-### test/adapters/http/envelope.e2e-spec.ts
-
-- `L enveloppe de reponse` — test harness
-
 ## test/adapters/http/errors/
 
 ### test/adapters/http/errors/refusal-map.spec.ts
@@ -351,6 +342,10 @@ runtime, and re-exports through an index.
 ### test/adapters/http/openapi.spec.ts
 
 - `La documentation OpenAPI` — test harness
+
+### test/adapters/http/problem-details.e2e-spec.ts
+
+- `Les erreurs en Problem Details` — test harness
 
 ## test/
 
