@@ -318,3 +318,35 @@ imaginée.
 Sudocode. On l'écrit avec `sudocode link <from> <to> -t depends-on`, puis on
 rafraîchit l'enregistrement avec `refresh_tracker: true`. C'est ce qui a été fait,
 et `next-step` désigne désormais `i-7iw7` de lui-même au lieu de `i-20xj`.
+
+## F8 — Une clôture est passée alors que ses découvertes avaient été refusées
+
+**Constaté sur i-7iw7**, et c'est ma faute de méthode plus qu'un défaut d'outil.
+J'ai enchaîné dans le même bloc l'écriture de `discoveries_declared` et la
+transition vers `closed` :
+
+```
+discoveries_declared[0] requires title and rationale. Nothing written.
+written: pipeline/store/issues.jsonl record i-7iw7 (1 line remplacee)
+```
+
+La première a été **refusée** — il manquait `title` et `rationale`. La seconde a
+**réussi**. L'issue s'est donc fermée avec zéro découverte au store, et
+`store-verify` n'avait rien à confronter : l'invariant qui doit refuser une
+clôture perdant ses découvertes ne pouvait pas mordre, faute de découvertes.
+
+**Ce que ça coûte** : exactement ce que `discoveries_declared` existe pour
+empêcher. Trois constats — dont F7 lui-même — auraient vécu dans un fichier de
+handoff que personne ne relit, pas dans le store.
+
+**Ce qui n'est pas en cause** : le cœur a refusé proprement, avec un message
+exact. Il n'y a pas de correctif à lui demander.
+
+**Ce qui est en cause** : avoir mis une écriture et une transition dans le même
+bloc de commandes, sans lire la sortie de la première avant de lancer la seconde.
+Un refus au milieu d'un enchaînement se lit comme une ligne parmi d'autres.
+
+**La règle qui en sort** : une transition ne part jamais dans le même bloc que
+l'écriture dont elle dépend. Corrigé après coup ici — découvertes réécrites avec
+`title` et `rationale`, `store-verify` repassé vert — mais l'ordre correct
+n'aurait rien demandé à corriger.
