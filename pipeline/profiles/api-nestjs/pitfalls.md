@@ -93,3 +93,29 @@ C'est la même leçon que la trouvaille F2 sur le store de Sudocode : **une
 correction qu'on n'a pas vérifiée par le lecteur qui fait autorité n'est pas une
 correction.** Elle s'est présentée deux fois sous deux visages différents avant
 d'être écrite ici.
+
+## Un test qui interroge git dépend de la topologie du dépôt, pas seulement du code
+
+**Payé le 2026-09-02, sur i-7f84.**
+
+Un critère demandait de prouver que les ports n'avaient pas bougé, et la
+manière la plus directe est d'appeler `git diff --name-only main -- src/...`.
+Vert en local, **rouge sur le runner** :
+
+```
+fatal: bad revision 'main'
+```
+
+`actions/checkout` place le dépôt sur la branche demandée et ne crée pas de
+branche locale `main` ; seule la ref distante `origin/main` existe. Le test
+supposait une topologie qui n'est vraie que sur une machine de développement.
+
+**Ce qui rend ce défaut coûteux** : il ne se voit pas dans la batterie locale,
+donc il traverse la revue et se découvre au push, quand l'issue est déjà close.
+C'est le symétrique de la trouvaille F3 — là, la CI en fait plus que la batterie
+par issue ; ici, elle en fait *autrement*.
+
+**Parade** : chercher la ref de base parmi plusieurs candidats — `origin/main`
+puis `main` — et échouer avec un message qui nomme le problème si aucune ne
+résout. Plus généralement, un test qui interroge l'environnement plutôt que le
+code doit dire ce qu'il suppose de cet environnement.

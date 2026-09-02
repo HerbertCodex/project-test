@@ -48,12 +48,24 @@ function seeded(): Db {
 
 describe('Les sept ports sur Drizzle, contre une vraie base', () => {
   it('les ports de l application ne sont pas modifies par cette issue', () => {
+    // La ref de base est cherchee parmi plusieurs candidats : `main` n'existe
+    // pas comme branche locale dans un checkout de CI, et ce test passait en
+    // local en echouant sur le runner.
+    const base = ['origin/main', 'main'].find((ref) => {
+      try {
+        execFileSync('git', ['rev-parse', '--verify', ref], {
+          stdio: 'ignore',
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    expect(base).toBeDefined();
     const diff = execFileSync(
       'git',
-      ['diff', '--name-only', 'main', '--', 'src/application/ports'],
-      {
-        encoding: 'utf8',
-      },
+      ['diff', '--name-only', base as string, '--', 'src/application/ports'],
+      { encoding: 'utf8' },
     );
     expect(diff.trim()).toBe('');
   });
