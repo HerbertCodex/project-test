@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-50 files, src, test.
+52 files, src, test.
 
 ## src/adapters/
 
@@ -200,6 +200,19 @@ runtime, and re-exports through an index.
 
 - *no exported declaration*
 
+## src/infrastructure/persistence/repositories/
+
+### src/infrastructure/persistence/repositories/drizzle-stores.ts
+
+- `Db` — type — La poignée de base que tous les magasins partagent.
+- `openDatabase` — function — Ouvre une base SQLite et l'enveloppe dans Drizzle.
+- `DrizzleBorrowStore` — class — `BorrowStore` sur Drizzle.
+- `DrizzleReturnStore` — class — `ReturnStore` sur Drizzle.
+- `DrizzleHoldStore` — class — `HoldStore` sur Drizzle.
+- `DrizzleRenewStore` — class — `RenewStore` sur Drizzle.
+- `DrizzleLossStore` — class — `LossStore` sur Drizzle.
+- `DrizzleExpireHoldStore` — class — `ExpireHoldStore` sur Drizzle.
+
 ## src/infrastructure/persistence/schema/
 
 ### src/infrastructure/persistence/schema/copies.ts
@@ -305,6 +318,12 @@ runtime, and re-exports through an index.
 ### test/infrastructure/notification/notification-sender.spec.ts
 
 - `Port de notification` — test harness
+
+## test/infrastructure/persistence/repositories/
+
+### test/infrastructure/persistence/repositories/drizzle-stores.spec.ts
+
+- `Les sept ports sur Drizzle, contre une vraie base` — test harness
 
 ## test/infrastructure/persistence/schema/
 
