@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-44 files, src, test.
+47 files, src, test.
 
 ## src/adapters/
 
@@ -182,6 +182,21 @@ runtime, and re-exports through an index.
 - `LoggingNotificationSender` — class — L'adaptateur livré : il écrit dans le journal, et rien d'autre.
 - `forgiving` — function — Enveloppe un expéditeur pour qu'il tienne le contrat « ne lève jamais ».
 
+## src/infrastructure/persistence/
+
+### src/infrastructure/persistence/drizzle.config.ts
+
+- *no exported declaration*
+
+## src/infrastructure/persistence/schema/
+
+### src/infrastructure/persistence/schema/copies.ts
+
+- `copies` — const — Un exemplaire physique, rattaché à un titre.
+- `members` — const — Un adhérent, ses droits et ses dettes.
+- `loans` — const — Un prêt : l'accord daté entre un adhérent et un exemplaire.
+- `holds` — const — Une réservation : une place dans la file d'attente d'un TITRE.
+
 ## src/
 
 ### src/main.ts
@@ -272,6 +287,12 @@ runtime, and re-exports through an index.
 ### test/infrastructure/notification/notification-sender.spec.ts
 
 - `Port de notification` — test harness
+
+## test/infrastructure/persistence/schema/
+
+### test/infrastructure/persistence/schema/migration.spec.ts
+
+- `Le schema et sa migration` — test harness
 
 ## test/support/
 
