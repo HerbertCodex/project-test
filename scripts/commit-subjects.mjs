@@ -11,7 +11,9 @@ import { readFileSync } from "node:fs";
  *
  * Ce validateur dit la même chose AVANT que le commit parte, là où c'est
  * encore réparable. `unclaimed` le dit après, quand la seule correction est de
- * réécrire l'historique — ce qui a coûté un signalement définitif sur 11a72e7.
+ * réécrire l'historique — ce qui a déjà coûté, une fois, quinze commits
+ * réécrits sur la branche par défaut et trois shas du store à repointer, pour
+ * un mot dans un sujet.
  *
  * **Il ne regarde que les commits en avance sur `origin/main`.** Ceux qui y
  * sont déjà ne sont plus corrigeables sans réécrire une branche publiée : les
