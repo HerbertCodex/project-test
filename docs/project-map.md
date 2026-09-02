@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-47 files, src, test.
+50 files, src, test.
 
 ## src/adapters/
 
@@ -19,6 +19,18 @@ runtime, and re-exports through an index.
 ### src/adapters/app.controller.ts
 
 - `AppController` — controller — GET /
+
+## src/adapters/http/errors/
+
+### src/adapters/http/errors/exhaustive.ts
+
+- `REFUSAL_MAP_IS_EXHAUSTIVE` — const — La preuve d'exhaustivité, tenue par `tsc` et par rien d'autre.
+
+### src/adapters/http/errors/refusal-map.ts
+
+- `REFUSAL_STATUS` — const — La correspondance entre un refus métier et son code HTTP.
+- `RefusalName` — type — Les noms de refus que la table couvre.
+- `statusFor` — function — Le code HTTP d'un refus métier.
 
 ## src/
 
@@ -202,6 +214,12 @@ runtime, and re-exports through an index.
 ### src/main.ts
 
 - *no exported declaration*
+
+## test/adapters/http/errors/
+
+### test/adapters/http/errors/refusal-map.spec.ts
+
+- `La table de correspondance refus vers code HTTP` — test harness
 
 ## test/
 
