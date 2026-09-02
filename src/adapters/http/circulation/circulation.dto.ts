@@ -1,24 +1,32 @@
-import { BadRequestException } from '@nestjs/common';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 /**
- * Vérifie qu'un champ obligatoire est une chaîne non vide.
+ * Ce qu'un emprunt demande.
  *
- * La validation vit à la frontière et nulle part ailleurs : le domaine reçoit
- * des valeurs valides ou rien. Le message nomme le champ, parce qu'un refus
- * que l'appelant ne peut pas corriger ne vaut guère mieux qu'un silence.
- *
- * @param body - le corps reçu
- * @param field - le champ attendu
- * @returns la valeur, garantie non vide
- * @throws {BadRequestException} si le champ manque ou n'est pas une chaîne
+ * Les contraintes sont DÉCLARÉES plutôt que vérifiées à la main. C'est la voie
+ * idiomatique de NestJS, et la version précédente l'évitait pour ne pas avoir
+ * à demander une dépendance — un contournement silencieux que l'opérateur a
+ * relevé en relisant le diff, ce qui est exactement le moment où il ne fallait
+ * pas qu'il le découvre.
  */
-export function requiredString(body: unknown, field: string): string {
-  const value = (body as Record<string, unknown> | null)?.[field];
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new BadRequestException({
-      message: `${field} est obligatoire`,
-      field,
-    });
-  }
-  return value;
+export class BorrowBody {
+  /** L'exemplaire qu'on veut prêter. */
+  @IsString()
+  @IsNotEmpty()
+  copyId!: string;
+
+  /** L'adhérent qui l'emprunte. */
+  @IsString()
+  @IsNotEmpty()
+  memberId!: string;
+}
+
+/**
+ * Ce qu'un retour demande.
+ */
+export class ReturnBody {
+  /** L'exemplaire rendu. */
+  @IsString()
+  @IsNotEmpty()
+  copyId!: string;
 }

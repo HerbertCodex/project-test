@@ -1,10 +1,9 @@
 import { readFileSync } from 'node:fs';
-import { Test, type TestingModule } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { Server } from 'node:http';
 import { sourcesUnder } from '../../../support/sources.js';
-import { CirculationModule } from '../../../../src/adapters/http/circulation/circulation.module.js';
+import { startCirculationApp } from '../../../support/circulation-app.js';
 
 /**
  * Construit depuis une chaîne parce que le littéral `/@nestjs\//` contient un
@@ -17,11 +16,7 @@ describe('Emprunter et rendre par HTTP', () => {
   let app: INestApplication<Server>;
 
   beforeEach(async () => {
-    const built: TestingModule = await Test.createTestingModule({
-      imports: [CirculationModule.forTesting()],
-    }).compile();
-    app = built.createNestApplication();
-    await app.init();
+    app = await startCirculationApp();
   });
 
   afterEach(async () => {

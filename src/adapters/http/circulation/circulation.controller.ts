@@ -2,7 +2,7 @@ import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import type { Loan } from '../../../domain/loan.js';
 import { BorrowUseCase } from '../../../application/borrow/borrow.usecase.js';
 import { ReturnUseCase } from '../../../application/return/return.usecase.js';
-import { requiredString } from './circulation.dto.js';
+import { BorrowBody, ReturnBody } from './circulation.dto.js';
 
 /**
  * Ce qu'une opération rend au guichet.
@@ -55,10 +55,10 @@ export class CirculationController {
    * @returns le prêt créé
    */
   @Post('loans')
-  async lend(@Body() body: unknown): Promise<LoanView> {
+  async lend(@Body() body: BorrowBody): Promise<LoanView> {
     const loan = await this.borrow.execute({
-      copyId: requiredString(body, 'copyId'),
-      memberId: requiredString(body, 'memberId'),
+      copyId: body.copyId,
+      memberId: body.memberId,
       now: new Date(),
     });
     return viewOf(loan);
@@ -73,10 +73,10 @@ export class CirculationController {
   @Post('returns')
   @HttpCode(200)
   async take(
-    @Body() body: unknown,
+    @Body() body: ReturnBody,
   ): Promise<{ debt: number; setAsideFor: string | null }> {
     const outcome = await this.give.execute({
-      copyId: requiredString(body, 'copyId'),
+      copyId: body.copyId,
       now: new Date(),
     });
     return { debt: outcome.debt, setAsideFor: outcome.setAsideFor };
