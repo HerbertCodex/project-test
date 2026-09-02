@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-65 files, src, test.
+67 files, src, test.
 
 ## src/adapters/
 
@@ -35,6 +35,12 @@ runtime, and re-exports through an index.
 
 - `DATABASE` — const — Le jeton par lequel on fournit la base.
 - `CirculationModule` — module — Le câblage du guichet : les cas d'usage, leurs ports, et les deux routes.
+
+## src/adapters/http/
+
+### src/adapters/http/configure-app.ts
+
+- `configureApp` — function — Applique la configuration globale de l'application HTTP.
 
 ## src/adapters/http/errors/
 
@@ -273,6 +279,12 @@ runtime, and re-exports through an index.
 ### test/adapters/http/circulation/module-hygiene.spec.ts
 
 - `Le module ne porte aucun echafaudage de test` — test harness
+
+## test/adapters/http/
+
+### test/adapters/http/composition-root.spec.ts
+
+- `La configuration globale appartient au composition root` — test harness
 
 ## test/adapters/http/errors/
 
