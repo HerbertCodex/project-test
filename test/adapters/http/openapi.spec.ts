@@ -5,7 +5,9 @@ import {
   buildOpenApiDocument,
   postOf,
   requiredByDocument,
+  propertiesOf,
   requiredByValidator,
+  schemaFor,
   statusesOf,
 } from '../../support/openapi.js';
 import { codeOf } from '../../support/sources.js';
@@ -70,6 +72,25 @@ describe('La documentation OpenAPI', () => {
       'copyId',
       'memberId',
     ]);
+  });
+
+  it('decrit l ENVELOPPE et non le corps nu, sur chaque statut de chaque route', async () => {
+    const document = await buildOpenApiDocument();
+    for (const [path, code] of statusesOf(document)) {
+      const expected = Number(code) < 400 ? 'data' : 'error';
+      expect(propertiesOf(document, schemaFor(document, path, code))).toEqual([
+        expected,
+      ]);
+    }
+  });
+
+  it('et tous les refus renvoient au MEME schema, pas a un par statut', async () => {
+    const document = await buildOpenApiDocument();
+    const refs = statusesOf(document)
+      .filter(([, code]) => Number(code) >= 400)
+      .map(([path, code]) => schemaFor(document, path, code)?.['$ref']);
+    expect(refs.length).toBeGreaterThan(1);
+    expect(new Set(refs).size).toBe(1);
   });
 
   it('la documentation n est pas montee inconditionnellement', () => {

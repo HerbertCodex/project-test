@@ -74,3 +74,24 @@ export async function startCirculationApp(
   await app.init();
   return app;
 }
+
+/**
+ * Ouvre une application par test, et la referme après.
+ *
+ * Partagé parce que `duplication` a refusé la seconde copie du même cycle de
+ * vie. Rendre un ACCESSEUR et non l'application elle-même est ce qui rend
+ * l'extraction possible : au moment où `describe` s'exécute, l'application
+ * n'existe pas encore — elle est construite par le `beforeEach`.
+ *
+ * @returns de quoi obtenir l'application du test en cours
+ */
+export function runningApp(): () => INestApplication<Server> {
+  let app: INestApplication<Server>;
+  beforeEach(async () => {
+    app = await startCirculationApp();
+  });
+  afterEach(async () => {
+    await app.close();
+  });
+  return () => app;
+}
