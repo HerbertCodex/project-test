@@ -385,3 +385,36 @@ découverte n'est pas perdue. Il ne garantit **rien** sur sa véracité. Un
 fait X », « aucun Y n'est configuré » — se mesure avant d'être écrite. Une
 absence est la chose la plus facile à croire et la plus coûteuse à supposer.
 Une découverte qui affirme une limite déjà observée n'a pas ce problème.
+
+## F10 — Le contrat de handoff ne sait pas représenter une issue sans code de production
+
+**Constaté sur i-20xj**, un parcours de fumée : il n'ajoute aucune ligne de
+`src/`. `validate-handoff` exige pourtant, sans condition :
+
+```
+invalid: evidence.red_proof.observed_before_implementation must be true
+```
+
+La règle vaut pour **tout** passage `implementer -> ready_for_qa`. Elle suppose
+qu'une issue écrit des tests *et* du code, et que le rouge précède le vert. Un
+test de caractérisation est vert dès qu'il est écrit : ce rouge n'existe pas.
+
+**La seule façon de passer était de porter `true`** — c'est-à-dire de mentir dans
+le registre qui existe précisément pour empêcher les mensonges. Le registre
+aurait alors affirmé une observation qui n'a jamais eu lieu, et personne n'aurait
+pu le savoir en le relisant.
+
+**Contourné, pas ignoré** : `in_progress -> blocked_infrastructure ->
+qa_in_progress`, transition que le cœur prévoit et qui n'exige pas de
+`red_proof`. Le blocage est réel et il est d'outillage ; il est enregistré comme
+tel, avec sa raison en toutes lettres.
+
+**La preuve équivalente existe et elle est meilleure que le rouge habituel.** Le
+critère 1 la nomme lui-même : le parcours doit TOMBER si l'application démarre et
+refuse. Deux cassures, trois tests sur trois à chaque fois. C'est porté par le
+`criteria_ledger` et par la QA, pas par un champ prévu pour ça.
+
+**Le correctif appartient à l'opérateur** (cœur vendoré) : conditionner la règle
+à la présence d'un fichier modifié sous `src/`. Un handoff qui ne touche que
+`test/` n'a pas de rouge à prouver — il a une cassure à montrer, ce qui n'est pas
+le même objet.

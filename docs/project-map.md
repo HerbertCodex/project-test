@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-81 files, src, test.
+83 files, src, test.
 
 ## src/adapters/
 
@@ -464,7 +464,17 @@ runtime, and re-exports through an index.
 
 - `Un pret et sa dette, ecrits ensemble ou pas du tout` — test harness
 
+## test/smoke/
+
+### test/smoke/circulation.e2e-spec.ts
+
+- `Le parcours de fumée métier` — test harness
+
 ## test/support/
+
+### test/support/app.ts
+
+- `startFrom` — function — Démarre une application configurée depuis un module, sans rien doubler.
 
 ### test/support/circulation-app.ts
 
