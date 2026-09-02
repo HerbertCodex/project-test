@@ -189,3 +189,23 @@ va dans le corps s'il apporte quelque chose.
 **Ce que ça coûte quand on l'oublie** : rien de fonctionnel, et c'est justement le
 risque. Un rapport qui signale à tort finit par être ignoré, et le jour où il
 signale un vrai travail direct non déclaré, plus personne ne le lit.
+
+## Corriger un sujet de commit coûte cher une fois poussé, rien avant
+
+`unclaimed.mjs` rattrape le second commit d'une issue par son SUJET. Un sujet
+qui ne nomme aucune issue et ne porte pas de ligne `direct:` sort en travail non
+réclamé, et `unclaimed` lit **tout l'historique** : le signalement survit à la
+fusion.
+
+`11a72e7` en est là. Le corriger réécrirait 44 commits, dont trois dont le sha
+est enregistré dans le store, sur la branche par défaut désormais. Le prix
+dépasse largement le bénéfice, et la ligne reste.
+
+**Ce qui a été fait à la place** : `commit_subjects` refuse le même défaut
+**avant** qu'il parte, sur les seuls commits en avance sur `origin/main`. Corrigé
+là, c'est un `git commit --amend` ; corrigé après, c'est une réécriture
+d'historique.
+
+**Pourquoi le gate ne regarde pas le passé** : le faire mordre sur `11a72e7` en
+ferait un gate rouge pour toujours, donc un gate qu'on désactive. Un gate qui ne
+peut pas passer ne protège rien.
