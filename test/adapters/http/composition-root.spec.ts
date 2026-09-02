@@ -10,7 +10,9 @@ const LINE_COMMENT = new RegExp('//[^\\n]*', 'g');
  * @returns son code seul
  */
 function codeOf(path: string): string {
-  return readFileSync(path, 'utf8').replace(BLOCK_COMMENT, ' ').replace(LINE_COMMENT, ' ');
+  return readFileSync(path, 'utf8')
+    .replace(BLOCK_COMMENT, ' ')
+    .replace(LINE_COMMENT, ' ');
 }
 
 describe('La configuration globale appartient au composition root', () => {
@@ -37,6 +39,11 @@ describe('La configuration globale appartient au composition root', () => {
     expect(code).toContain('configureApp');
     expect(code).not.toContain('useGlobalPipes');
     expect(code).not.toContain('new ValidationPipe');
+  });
+
+  it('les bases SQLite ne sont pas versionnees : l app en cree une au demarrage', () => {
+    const ignored = readFileSync('.gitignore', 'utf8');
+    expect(ignored).toContain('*.db');
   });
 
   it('AppModule importe CirculationModule : l API est joignable par l application reelle', () => {

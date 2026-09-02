@@ -8,6 +8,7 @@ import type { Server } from 'node:http';
 import { applyMigrations } from '../../src/infrastructure/persistence/migrate.js';
 import { openDatabase } from '../../src/infrastructure/persistence/repositories/drizzle-stores.js';
 import { DEFAULT_POLICY } from '../../src/infrastructure/config/circulation-policy.js';
+import { configureApp } from '../../src/adapters/http/configure-app.js';
 import {
   CirculationModule,
   DATABASE,
@@ -58,7 +59,9 @@ export async function startCirculationApp(): Promise<INestApplication<Server>> {
     .overrideProvider(DATABASE)
     .useValue(openDatabase(file))
     .compile();
-  const app = built.createNestApplication<INestApplication<Server>>();
+  const app = configureApp(
+    built.createNestApplication<INestApplication<Server>>(),
+  );
   await app.init();
   return app;
 }

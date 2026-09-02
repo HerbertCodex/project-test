@@ -1,5 +1,4 @@
-import { Module, ValidationPipe } from '@nestjs/common';
-import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { Module } from '@nestjs/common';
 import { BorrowUseCase } from '../../../application/borrow/borrow.usecase.js';
 import { ReturnUseCase } from '../../../application/return/return.usecase.js';
 import { DEFAULT_POLICY } from '../../../infrastructure/config/circulation-policy.js';
@@ -10,7 +9,6 @@ import {
   DrizzleReturnStore,
   type Db,
 } from '../../../infrastructure/persistence/repositories/drizzle-stores.js';
-import { RefusalFilter } from '../errors/refusal.filter.js';
 import { CirculationController } from './circulation.controller.js';
 
 /**
@@ -52,14 +50,6 @@ function databaseFile(): string {
 @Module({
   controllers: [CirculationController],
   providers: [
-    { provide: APP_FILTER, useClass: RefusalFilter },
-    {
-      provide: APP_PIPE,
-      useValue: new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    },
     { provide: DATABASE, useFactory: (): Db => openDatabase(databaseFile()) },
     {
       provide: BorrowUseCase,
