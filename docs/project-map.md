@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-79 files, src, test.
+81 files, src, test.
 
 ## src/adapters/
 
@@ -71,6 +71,12 @@ runtime, and re-exports through an index.
 
 - `NestRefusal` — interface — Ce que porte une exception venant de Nest lui-même.
 - `refusalOf` — function — Range une exception de Nest en refus nommé.
+
+### src/adapters/http/errors/incident.ts
+
+- `reportIncident` — function — Journalise une panne et rend l'occurrence sous laquelle la retrouver.
+- `instanceOf` — function — Le `instance` d'un problème.
+- `internalRefusal` — function — Le refus rendu pour une panne interne.
 
 ### src/adapters/http/errors/problem.ts
 
@@ -334,6 +340,10 @@ runtime, and re-exports through an index.
 - `La table de correspondance refus vers code HTTP` — test harness
 
 ## test/adapters/http/
+
+### test/adapters/http/internal-error.e2e-spec.ts
+
+- `Une panne interne` — test harness
 
 ### test/adapters/http/openapi.e2e-spec.ts
 
