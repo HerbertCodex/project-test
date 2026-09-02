@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-57 files, src, test.
+63 files, src, test.
 
 ## src/adapters/
 
@@ -20,6 +20,20 @@ runtime, and re-exports through an index.
 
 - `AppController` — controller — GET /
 
+## src/adapters/http/circulation/
+
+### src/adapters/http/circulation/circulation.controller.ts
+
+- `CirculationController` — controller — POST /loans, POST /returns — Les deux opérations du guichet : emprunter et rendre.
+
+### src/adapters/http/circulation/circulation.dto.ts
+
+- `requiredString` — function — Vérifie qu'un champ obligatoire est une chaîne non vide.
+
+### src/adapters/http/circulation/circulation.module.ts
+
+- `CirculationModule` — module — Le câblage du guichet : les cas d'usage, leurs ports, et les deux routes.
+
 ## src/adapters/http/errors/
 
 ### src/adapters/http/errors/exhaustive.ts
@@ -31,6 +45,10 @@ runtime, and re-exports through an index.
 - `REFUSAL_STATUS` — const — La correspondance entre un refus métier et son code HTTP.
 - `RefusalName` — type — Les noms de refus que la table couvre.
 - `statusFor` — function — Le code HTTP d'un refus métier.
+
+### src/adapters/http/errors/refusal.filter.ts
+
+- `RefusalFilter` — class — Traduit un refus métier en code HTTP, et laisse passer le reste.
 
 ## src/
 
@@ -200,6 +218,10 @@ runtime, and re-exports through an index.
 
 - *no exported declaration*
 
+### src/infrastructure/persistence/migrate.ts
+
+- `applyMigrations` — function — Applique toutes les migrations à un fichier de base.
+
 ## src/infrastructure/persistence/migrations/
 
 ### src/infrastructure/persistence/migrations/0000_workable_kree.sql
@@ -239,6 +261,12 @@ runtime, and re-exports through an index.
 ### src/main.ts
 
 - *no exported declaration*
+
+## test/adapters/http/circulation/
+
+### test/adapters/http/circulation/circulation.e2e-spec.ts
+
+- `Emprunter et rendre par HTTP` — test harness
 
 ## test/adapters/http/errors/
 
