@@ -74,13 +74,26 @@ describe('La documentation OpenAPI', () => {
     ]);
   });
 
-  it('decrit l ENVELOPPE et non le corps nu, sur chaque statut de chaque route', async () => {
+  it('decrit un probleme RFC 9457 sur chaque erreur, et le corps NU sur chaque succes', async () => {
     const document = await buildOpenApiDocument();
     for (const [path, code] of statusesOf(document)) {
-      const expected = Number(code) < 400 ? 'data' : 'error';
-      expect(propertiesOf(document, schemaFor(document, path, code))).toEqual([
-        expected,
-      ]);
+      const properties = propertiesOf(
+        document,
+        schemaFor(document, path, code),
+      );
+      expect(properties).not.toContain('data');
+      if (Number(code) >= 400) {
+        expect(properties).toEqual([
+          'detail',
+          'fields',
+          'instance',
+          'status',
+          'title',
+          'type',
+        ]);
+      } else {
+        expect(properties.length).toBeGreaterThan(0);
+      }
     }
   });
 

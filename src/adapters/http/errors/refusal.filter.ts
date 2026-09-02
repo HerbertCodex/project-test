@@ -4,13 +4,13 @@ import {
   ExceptionFilter,
   HttpException,
 } from '@nestjs/common';
-import type { Response } from 'express';
-import type { ApiError, ErrorEnvelope } from '../envelope/envelope.js';
+import type { Request, Response } from 'express';
+import { PROBLEM_JSON, problemTypeOf, type ProblemDetails } from './problem.js';
+import { refusalOf, type NestRefusal } from './http-error.js';
 import { statusFor } from './refusal-map.js';
-import { apiErrorOf } from './http-error.js';
 
 /**
- * Traduit tout refus en une enveloppe `{error}`, quel qu'en soit l'origine.
+ * Traduit tout refus en un problème RFC 9457, quelle qu'en soit l'origine.
  *
  * C'est le seul endroit où un refus du domaine devient un statut. Le domaine ne
  * connaît pas HTTP, et l'inverse — un cas d'usage levant une `HttpException` —
@@ -20,9 +20,9 @@ import { apiErrorOf } from './http-error.js';
  * **Ce qui n'est pas cartographié n'est PAS avalé.** Une erreur inconnue devient
  * un 500, ce qui est juste : c'est une panne de la technique, et la confondre
  * avec un refus du métier ferait chercher une règle là où il y a un incident.
- * La table, elle, ne contient aucun 5xx. Ce qui change avec la décision 0008,
- * c'est seulement la FORME : le 500 sort désormais sous la même enveloppe que
- * le reste, au lieu d'être la quatrième forme que devait connaître un client.
+ * La table, elle, ne contient aucun 5xx. Ce que la décision 0009 change, c'est
+ * la forme : le 500 sort sous le même format que le reste, au lieu d'être une
+ * forme de plus à connaître.
  */
 @Catch()
 export class RefusalFilter implements ExceptionFilter {
@@ -31,10 +31,18 @@ export class RefusalFilter implements ExceptionFilter {
    * @param host - le contexte de la requête
    */
   catch(exception: unknown, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<Response>();
-    const [status, error] = this.resolve(exception);
-    const body: ErrorEnvelope = { error };
-    response.status(status).json(body);
+    const http = host.switchToHttp();
+    const response = http.getResponse<Response>();
+    const [status, refusal] = this.resolve(exception);
+    const problem: ProblemDetails = {
+      type: problemTypeOf(refusal.name),
+      title: refusal.name,
+      status,
+      detail: refusal.detail,
+      instance: http.getRequest<Request>().url,
+      ...(refusal.fields === undefined ? {} : { fields: refusal.fields }),
+    };
+    response.status(status).contentType(PROBLEM_JSON).json(problem);
   }
 
   /**
@@ -43,15 +51,15 @@ export class RefusalFilter implements ExceptionFilter {
    * @param exception - ce qui a été levé
    * @returns le statut et le refus
    */
-  private resolve(exception: unknown): [number, ApiError] {
+  private resolve(exception: unknown): [number, NestRefusal] {
     if (exception instanceof HttpException) {
-      return [exception.getStatus(), apiErrorOf(exception)];
+      return [exception.getStatus(), refusalOf(exception)];
     }
     const status = exception instanceof Error ? statusFor(exception) : null;
     if (status === null) {
-      return [500, { code: 'InternalError', message: 'erreur interne' }];
+      return [500, { name: 'InternalError', detail: 'erreur interne' }];
     }
     const refusal = exception as Error;
-    return [status, { code: refusal.name, message: refusal.message }];
+    return [status, { name: refusal.name, detail: refusal.message }];
   }
 }
