@@ -197,9 +197,22 @@ qui ne nomme aucune issue et ne porte pas de ligne `direct:` sort en travail non
 réclamé, et `unclaimed` lit **tout l'historique** : le signalement survit à la
 fusion.
 
-`11a72e7` en est là. Le corriger réécrirait 44 commits, dont trois dont le sha
-est enregistré dans le store, sur la branche par défaut désormais. Le prix
-dépasse largement le bénéfice, et la ligne reste.
+`11a72e7` en est là. Le corriger réécrirait **15** commits, dont trois dont le
+sha est enregistré dans le store, sur la branche par défaut désormais.
+
+**Ce chiffre a d'abord été annoncé à 44**, et c'est une erreur de la même famille
+que F9 : j'avais compté la longueur de la branche au lieu des commits situés
+APRÈS celui à corriger. Le chiffre a servi à justifier de ne rien faire, dans une
+PR fusionnée et dans ce fichier. Un argument chiffré non mesuré pèse plus lourd
+qu'un argument sans chiffre, et c'est exactement ce qui le rend dangereux.
+
+Le prix reste supérieur au bénéfice pour un mot de sujet, et la ligne reste.
+
+**Supprimer le commit plutôt que le renommer serait pire, pas plus simple** : même
+réécriture, et en plus la perte du seul artefact prouvant que les tests de
+`i-7iw7` étaient rouges avant l'implémentation. La preuve du rouge est la
+discipline centrale de cette pipeline ; on ne l'efface pas pour faire taire un
+rapport.
 
 **Ce qui a été fait à la place** : `commit_subjects` refuse le même défaut
 **avant** qu'il parte, sur les seuls commits en avance sur `origin/main`. Corrigé
