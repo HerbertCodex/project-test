@@ -281,3 +281,40 @@ je n'ai pas rejoué la batterie complète après ma dernière édition. Les hook
 couvrent que `lint`, `secrets_scan`, `check` et les cibles générées — pas
 `comment_policy`. Une modification après la dernière batterie verte n'est pas
 couverte, et c'est exactement là que ce défaut est passé.
+
+## F7 — `store-update.mjs` annonce « written » pour une clé qu'il ignore
+
+**Constaté** en voulant ordonner `i-7iw7` avant les trois issues de routes. J'ai
+envoyé une requête portant `issue_fields: { depends_on: [...] }`. Le script a
+répondu :
+
+```
+written: pipeline/store/issues.jsonl record i-7el4 (1 line remplacee)
+```
+
+La ligne a bien été réécrite. **`depends_on` n'a pas bougé.** `issue_fields`
+n'existe pas — la surface documentée est `pipeline_state`,
+`acceptance_criteria`, `criteria_ledger`, `discoveries_declared`, `spec_state`,
+`spec_fields`, `append_context`, `set_status`, `create_record` — et une clé
+inconnue est ignorée sans un mot. Le même silence frappe `depends_on` passé dans
+`create_record` : il est écrasé par la projection du tracker, ce qui est correct
+sur le fond mais muet sur la forme.
+
+**Ce que ça coûte.** Le message de succès dit qu'une écriture a eu lieu, et une
+écriture a bien eu lieu — mais pas celle qui était demandée. Un appelant qui fait
+confiance à la sortie repart avec une modification qu'il croit appliquée. C'est
+plus dangereux qu'un refus : un refus se voit.
+
+**Ce qui m'a sauvé** : avoir relu l'enregistrement au lieu de croire la ligne de
+succès. Le contrôle n'était pas dans le processus, il était dans une habitude —
+ce qui, selon la règle du dépôt, revient à dire qu'il n'existe pas.
+
+**Le correctif appartient à l'opérateur** (cœur vendoré, non modifiable ici) :
+refuser toute clé de requête absente de la surface connue, plutôt que de
+l'ignorer. Une clé inconnue est presque toujours une faute de frappe ou une API
+imaginée.
+
+**La bonne voie, pour mémoire** : `depends_on` est une PROJECTION des relations
+Sudocode. On l'écrit avec `sudocode link <from> <to> -t depends-on`, puis on
+rafraîchit l'enregistrement avec `refresh_tracker: true`. C'est ce qui a été fait,
+et `next-step` désigne désormais `i-7iw7` de lui-même au lieu de `i-20xj`.
