@@ -7,6 +7,7 @@ import {
 import type { Request, Response } from 'express';
 import { PROBLEM_JSON, problemTypeOf, type ProblemDetails } from './problem.js';
 import { refusalOf, type NestRefusal } from './http-error.js';
+import { instanceOf, internalRefusal, reportIncident } from './incident.js';
 import { statusFor } from './refusal-map.js';
 
 /**
@@ -23,6 +24,10 @@ import { statusFor } from './refusal-map.js';
  * La table, elle, ne contient aucun 5xx. Ce que la décision 0009 change, c'est
  * la forme : le 500 sort sous le même format que le reste, au lieu d'être une
  * forme de plus à connaître.
+ *
+ * **Une panne est journalisée, un refus non.** Un refus métier est une issue
+ * prévue, pas un incident : le journaliser noierait les vraies pannes sous le
+ * bruit des règles qui font leur travail.
  */
 @Catch()
 export class RefusalFilter implements ExceptionFilter {
@@ -33,13 +38,13 @@ export class RefusalFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
     const response = http.getResponse<Response>();
-    const [status, refusal] = this.resolve(exception);
+    const [status, refusal, occurrence] = this.resolve(exception);
     const problem: ProblemDetails = {
       type: problemTypeOf(refusal.name),
       title: refusal.name,
       status,
       detail: refusal.detail,
-      instance: http.getRequest<Request>().url,
+      instance: instanceOf(http.getRequest<Request>().url, occurrence),
       ...(refusal.fields === undefined ? {} : { fields: refusal.fields }),
     };
     response.status(status).contentType(PROBLEM_JSON).json(problem);
@@ -49,17 +54,17 @@ export class RefusalFilter implements ExceptionFilter {
    * Range ce qui a été levé dans un statut et un refus nommé.
    *
    * @param exception - ce qui a été levé
-   * @returns le statut et le refus
+   * @returns le statut, le refus, et l'occurrence s'il y a eu incident
    */
-  private resolve(exception: unknown): [number, NestRefusal] {
+  private resolve(exception: unknown): [number, NestRefusal, string | null] {
     if (exception instanceof HttpException) {
-      return [exception.getStatus(), refusalOf(exception)];
+      return [exception.getStatus(), refusalOf(exception), null];
     }
     const status = exception instanceof Error ? statusFor(exception) : null;
     if (status === null) {
-      return [500, { name: 'InternalError', detail: 'erreur interne' }];
+      return [500, internalRefusal(), reportIncident(exception)];
     }
     const refusal = exception as Error;
-    return [status, { name: refusal.name, detail: refusal.message }];
+    return [status, { name: refusal.name, detail: refusal.message }, null];
   }
 }
