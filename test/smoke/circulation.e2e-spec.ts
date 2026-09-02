@@ -2,12 +2,11 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
 import type { Server } from 'node:http';
 import { applyMigrations } from '../../src/infrastructure/persistence/migrate.js';
-import { configureApp } from '../../src/adapters/http/configure-app.js';
+import { startFrom } from '../support/app.js';
 import { AppModule } from '../../src/app.module.js';
 
 /**
@@ -50,11 +49,7 @@ describe('Le parcours de fumée métier', () => {
     file = join(mkdtempSync(join(tmpdir(), 'fumee-')), 'bibliotheque.db');
     prepare(file);
     process.env.DATABASE_FILE = file;
-    const built = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = configureApp(built.createNestApplication<INestApplication<Server>>());
-    await app.init();
+    app = await startFrom(AppModule);
   });
 
   afterEach(async () => {

@@ -1,9 +1,8 @@
 import { Controller, Logger, Module, Post } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
 import type { Server } from 'node:http';
-import { configureApp } from '../../../src/adapters/http/configure-app.js';
+import { startFrom } from '../../support/app.js';
 
 const MARQUEUR = 'chaine-reconnaissable-qui-ne-doit-jamais-sortir';
 
@@ -57,11 +56,7 @@ describe('Une panne interne', () => {
   let app: INestApplication<Server>;
 
   beforeEach(async () => {
-    const built = await Test.createTestingModule({
-      imports: [FaultyModule],
-    }).compile();
-    app = configureApp(built.createNestApplication<INestApplication<Server>>());
-    await app.init();
+    app = await startFrom(FaultyModule);
   });
 
   afterEach(async () => {
