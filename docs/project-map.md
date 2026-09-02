@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-44 files, src, test.
+81 files, src, test.
 
 ## src/adapters/
 
@@ -19,6 +19,91 @@ runtime, and re-exports through an index.
 ### src/adapters/app.controller.ts
 
 - `AppController` — controller — GET /
+
+## src/adapters/http/circulation/
+
+### src/adapters/http/circulation/circulation.controller.ts
+
+- `CirculationController` — controller — POST /loans, POST /returns — Les deux opérations du guichet : emprunter et rendre.
+
+### src/adapters/http/circulation/circulation.module.ts
+
+- `DATABASE` — const — Le jeton par lequel on fournit la base.
+- `CirculationModule` — module — Le câblage du guichet : les cas d'usage, leurs ports, et les deux routes.
+
+## src/adapters/http/circulation/dto/
+
+### src/adapters/http/circulation/dto/borrow-body.dto.ts
+
+- `BorrowBody` — class — Ce qu'un emprunt demande.
+
+### src/adapters/http/circulation/dto/return-body.dto.ts
+
+- `ReturnBody` — class — Ce qu'un retour demande.
+
+## src/adapters/http/circulation/views/
+
+### src/adapters/http/circulation/views/loan-view.ts
+
+- `LoanView` — class — Ce qu'un prêt rend au guichet.
+
+### src/adapters/http/circulation/views/return-view.ts
+
+- `ReturnView` — class — Ce qu'un retour rend au guichet.
+
+## src/adapters/http/
+
+### src/adapters/http/configure-app.ts
+
+- `configureApp` — function — Applique la configuration globale de l'application HTTP.
+
+## src/adapters/http/errors/
+
+### src/adapters/http/errors/documented-refusals.ts
+
+- `ApiRefusals` — function — Documente les refus qu'une route peut réellement produire.
+
+### src/adapters/http/errors/exhaustive.ts
+
+- `REFUSAL_MAP_IS_EXHAUSTIVE` — const — La preuve d'exhaustivité, tenue par `tsc` et par rien d'autre.
+
+### src/adapters/http/errors/http-error.ts
+
+- `NestRefusal` — interface — Ce que porte une exception venant de Nest lui-même.
+- `refusalOf` — function — Range une exception de Nest en refus nommé.
+
+### src/adapters/http/errors/incident.ts
+
+- `reportIncident` — function — Journalise une panne et rend l'occurrence sous laquelle la retrouver.
+- `instanceOf` — function — Le `instance` d'un problème.
+- `internalRefusal` — function — Le refus rendu pour une panne interne.
+
+### src/adapters/http/errors/problem.ts
+
+- `PROBLEM_JSON` — const — Le type de média que la RFC 9457 impose aux corps d'erreur.
+- `ProblemDetails` — interface — Un problème, tel que la RFC 9457 le décrit.
+- `problemTypeOf` — function — L'URI de catégorie d'un refus, DÉRIVÉE de son nom.
+
+### src/adapters/http/errors/problem.view.ts
+
+- `ProblemDetailsView` — class — Un problème RFC 9457, tel que la documentation le décrit.
+
+### src/adapters/http/errors/refusal-map.ts
+
+- `REFUSAL_STATUS` — const — La correspondance entre un refus métier et son code HTTP.
+- `RefusalName` — type — Les noms de refus que la table couvre.
+- `statusFor` — function — Le code HTTP d'un refus métier.
+
+### src/adapters/http/errors/refusal.filter.ts
+
+- `RefusalFilter` — class — Traduit tout refus en un problème RFC 9457, quelle qu'en soit l'origine.
+
+## src/adapters/http/
+
+### src/adapters/http/openapi.ts
+
+- `openApiConfig` — function — La description du document OpenAPI.
+- `mountOpenApi` — function — Monte la page OpenAPI, si l'environnement le demande.
 
 ## src/
 
@@ -182,11 +267,95 @@ runtime, and re-exports through an index.
 - `LoggingNotificationSender` — class — L'adaptateur livré : il écrit dans le journal, et rien d'autre.
 - `forgiving` — function — Enveloppe un expéditeur pour qu'il tienne le contrat « ne lève jamais ».
 
+## src/infrastructure/persistence/
+
+### src/infrastructure/persistence/drizzle.config.ts
+
+- *no exported declaration*
+
+### src/infrastructure/persistence/migrate.ts
+
+- `applyMigrations` — function — Applique toutes les migrations à un fichier de base.
+
+## src/infrastructure/persistence/migrations/
+
+### src/infrastructure/persistence/migrations/0000_workable_kree.sql
+
+- *no exported declaration*
+
+## src/infrastructure/persistence/repositories/
+
+### src/infrastructure/persistence/repositories/drizzle-stores.ts
+
+- `Db` — type — La poignée de base que tous les magasins partagent.
+- `openDatabase` — function — Ouvre une base SQLite et l'enveloppe dans Drizzle.
+- `DrizzleBorrowStore` — class — `BorrowStore` sur Drizzle.
+- `DrizzleReturnStore` — class — `ReturnStore` sur Drizzle.
+- `DrizzleHoldStore` — class — `HoldStore` sur Drizzle.
+- `DrizzleRenewStore` — class — `RenewStore` sur Drizzle.
+- `DrizzleLossStore` — class — `LossStore` sur Drizzle.
+- `DrizzleExpireHoldStore` — class — `ExpireHoldStore` sur Drizzle.
+
+## src/infrastructure/persistence/schema/
+
+### src/infrastructure/persistence/schema/copies.ts
+
+- `copies` — const — Un exemplaire physique, rattaché à un titre.
+- `members` — const — Un adhérent, ses droits et ses dettes.
+- `loans` — const — Un prêt : l'accord daté entre un adhérent et un exemplaire.
+- `holds` — const — Une réservation : une place dans la file d'attente d'un TITRE.
+
+## src/infrastructure/persistence/transactions/
+
+### src/infrastructure/persistence/transactions/in-transaction.ts
+
+- `inTransaction` — function — Exécute un travail dans une transaction, ou n'écrit rien.
+
 ## src/
 
 ### src/main.ts
 
 - *no exported declaration*
+
+## test/adapters/http/circulation/
+
+### test/adapters/http/circulation/circulation.e2e-spec.ts
+
+- `Emprunter et rendre par HTTP` — test harness
+
+### test/adapters/http/circulation/module-hygiene.spec.ts
+
+- `Le module ne porte aucun echafaudage de test` — test harness
+
+## test/adapters/http/
+
+### test/adapters/http/composition-root.spec.ts
+
+- `La configuration globale appartient au composition root` — test harness
+
+## test/adapters/http/errors/
+
+### test/adapters/http/errors/refusal-map.spec.ts
+
+- `La table de correspondance refus vers code HTTP` — test harness
+
+## test/adapters/http/
+
+### test/adapters/http/internal-error.e2e-spec.ts
+
+- `Une panne interne` — test harness
+
+### test/adapters/http/openapi.e2e-spec.ts
+
+- `La page de documentation` — test harness
+
+### test/adapters/http/openapi.spec.ts
+
+- `La documentation OpenAPI` — test harness
+
+### test/adapters/http/problem-details.e2e-spec.ts
+
+- `Les erreurs en Problem Details` — test harness
 
 ## test/
 
@@ -273,8 +442,50 @@ runtime, and re-exports through an index.
 
 - `Port de notification` — test harness
 
+## test/infrastructure/persistence/repositories/
+
+### test/infrastructure/persistence/repositories/concurrency.spec.ts
+
+- `Le refus fondateur, tenu par la base` — test harness
+
+### test/infrastructure/persistence/repositories/drizzle-stores.spec.ts
+
+- `Les sept ports sur Drizzle, contre une vraie base` — test harness
+
+## test/infrastructure/persistence/schema/
+
+### test/infrastructure/persistence/schema/migration.spec.ts
+
+- `Le schema et sa migration` — test harness
+
+## test/infrastructure/persistence/transactions/
+
+### test/infrastructure/persistence/transactions/in-transaction.spec.ts
+
+- `Un pret et sa dette, ecrits ensemble ou pas du tout` — test harness
+
 ## test/support/
+
+### test/support/circulation-app.ts
+
+- `startCirculationApp` — function — Démarre le guichet sur une base jetable.
+- `runningApp` — function — Ouvre une application par test, et la referme après.
+
+### test/support/database.ts
+
+- `seededDatabase` — function — Une base SQLite neuve, migrée, avec les exemplaires et adhérents demandés.
+
+### test/support/openapi.ts
+
+- `buildOpenApiDocument` — function — Construit le document OpenAPI de l'application réelle.
+- `postOf` — function — L'opération POST déclarée pour un chemin.
+- `statusesOf` — function — Tous les statuts documentés, à plat.
+- `requiredByValidator` — function — Les propriétés que class-validator exige réellement.
+- `requiredByDocument` — function — Les propriétés que le document annonce obligatoires.
+- `propertiesOf` — function — Les propriétés d'un schéma, `$ref` suivi d'un niveau.
+- `schemaFor` — function — Le schéma déclaré pour un statut d'une opération.
 
 ### test/support/sources.ts
 
 - `sourcesUnder` — function — Les fichiers TypeScript sous une racine, récursivement.
+- `codeOf` — function — Le code d'un fichier, commentaires ôtés.

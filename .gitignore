@@ -4,6 +4,11 @@
 /build
 *.tsbuildinfo
 
+# bases SQLite : l'application en cree une au demarrage, elle n'est pas une source
+*.db
+*.db-journal
+*.db-wal
+
 # Logs
 logs
 *.log

@@ -248,3 +248,105 @@ devient une décision, ce qu'elle est de toute façon.
 **Ce qui appartient au cœur** : décider si `approved_proposal` doit pointer
 ailleurs que dans `handoffs_dir`, ou si le digest doit être conservé dans le
 store plutôt que recalculé depuis un fichier. Ce n'est pas au projet de trancher.
+
+## F6 — `comment-policy` juge chaque ligne `//` séparément
+
+**Constatée le 2026-09-02, sur un commentaire d'explication parfaitement
+légitime.**
+
+Une explication sur trois lignes `//` a été refusée sur deux d'entre elles :
+
+```
+narration — « La ref de base est cherchee parmi plusieurs candidats : `main` n'existe »
+narration — « local en echouant sur le runner. »
+```
+
+La ligne du milieu contenait un marqueur d'intention, les deux autres non. Le
+gate lit chaque ligne comme un commentaire indépendant, alors qu'un bloc `//`
+consécutif est **un seul** commentaire pour un lecteur humain.
+
+**Ce que ça coûte** : la même chose que F4 — un faux positif sur du code juste
+pousse à réécrire du bon code pour plaire à l'outil. La sortie de secours
+documentée existe (un bloc `/** */` n'est jamais refusé) et elle a été employée
+ici, mais elle oblige à un style de commentaire inhabituel dans un corps de
+fonction.
+
+**Le correctif appartient à l'opérateur** : `scripts/` est refusé à
+l'implémenteur. Il consiste à regrouper les `SingleLineCommentTrivia`
+consécutifs avant de les juger, et à n'appliquer la borne des douze mots qu'au
+bloc entier.
+
+**Deuxième leçon, de méthode et pas d'outil** : ce défaut a été poussé parce que
+je n'ai pas rejoué la batterie complète après ma dernière édition. Les hooks ne
+couvrent que `lint`, `secrets_scan`, `check` et les cibles générées — pas
+`comment_policy`. Une modification après la dernière batterie verte n'est pas
+couverte, et c'est exactement là que ce défaut est passé.
+
+## F7 — `store-update.mjs` annonce « written » pour une clé qu'il ignore
+
+**Constaté** en voulant ordonner `i-7iw7` avant les trois issues de routes. J'ai
+envoyé une requête portant `issue_fields: { depends_on: [...] }`. Le script a
+répondu :
+
+```
+written: pipeline/store/issues.jsonl record i-7el4 (1 line remplacee)
+```
+
+La ligne a bien été réécrite. **`depends_on` n'a pas bougé.** `issue_fields`
+n'existe pas — la surface documentée est `pipeline_state`,
+`acceptance_criteria`, `criteria_ledger`, `discoveries_declared`, `spec_state`,
+`spec_fields`, `append_context`, `set_status`, `create_record` — et une clé
+inconnue est ignorée sans un mot. Le même silence frappe `depends_on` passé dans
+`create_record` : il est écrasé par la projection du tracker, ce qui est correct
+sur le fond mais muet sur la forme.
+
+**Ce que ça coûte.** Le message de succès dit qu'une écriture a eu lieu, et une
+écriture a bien eu lieu — mais pas celle qui était demandée. Un appelant qui fait
+confiance à la sortie repart avec une modification qu'il croit appliquée. C'est
+plus dangereux qu'un refus : un refus se voit.
+
+**Ce qui m'a sauvé** : avoir relu l'enregistrement au lieu de croire la ligne de
+succès. Le contrôle n'était pas dans le processus, il était dans une habitude —
+ce qui, selon la règle du dépôt, revient à dire qu'il n'existe pas.
+
+**Le correctif appartient à l'opérateur** (cœur vendoré, non modifiable ici) :
+refuser toute clé de requête absente de la surface connue, plutôt que de
+l'ignorer. Une clé inconnue est presque toujours une faute de frappe ou une API
+imaginée.
+
+**La bonne voie, pour mémoire** : `depends_on` est une PROJECTION des relations
+Sudocode. On l'écrit avec `sudocode link <from> <to> -t depends-on`, puis on
+rafraîchit l'enregistrement avec `refresh_tracker: true`. C'est ce qui a été fait,
+et `next-step` désigne désormais `i-7iw7` de lui-même au lieu de `i-20xj`.
+
+## F8 — Une clôture est passée alors que ses découvertes avaient été refusées
+
+**Constaté sur i-7iw7**, et c'est ma faute de méthode plus qu'un défaut d'outil.
+J'ai enchaîné dans le même bloc l'écriture de `discoveries_declared` et la
+transition vers `closed` :
+
+```
+discoveries_declared[0] requires title and rationale. Nothing written.
+written: pipeline/store/issues.jsonl record i-7iw7 (1 line remplacee)
+```
+
+La première a été **refusée** — il manquait `title` et `rationale`. La seconde a
+**réussi**. L'issue s'est donc fermée avec zéro découverte au store, et
+`store-verify` n'avait rien à confronter : l'invariant qui doit refuser une
+clôture perdant ses découvertes ne pouvait pas mordre, faute de découvertes.
+
+**Ce que ça coûte** : exactement ce que `discoveries_declared` existe pour
+empêcher. Trois constats — dont F7 lui-même — auraient vécu dans un fichier de
+handoff que personne ne relit, pas dans le store.
+
+**Ce qui n'est pas en cause** : le cœur a refusé proprement, avec un message
+exact. Il n'y a pas de correctif à lui demander.
+
+**Ce qui est en cause** : avoir mis une écriture et une transition dans le même
+bloc de commandes, sans lire la sortie de la première avant de lancer la seconde.
+Un refus au milieu d'un enchaînement se lit comme une ligne parmi d'autres.
+
+**La règle qui en sort** : une transition ne part jamais dans le même bloc que
+l'écriture dont elle dépend. Corrigé après coup ici — découvertes réécrites avec
+`title` et `rationale`, `store-verify` repassé vert — mais l'ordre correct
+n'aurait rien demandé à corriger.

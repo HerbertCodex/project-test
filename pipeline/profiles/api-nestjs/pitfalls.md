@@ -93,3 +93,99 @@ C'est la même leçon que la trouvaille F2 sur le store de Sudocode : **une
 correction qu'on n'a pas vérifiée par le lecteur qui fait autorité n'est pas une
 correction.** Elle s'est présentée deux fois sous deux visages différents avant
 d'être écrite ici.
+
+## Un test qui interroge git dépend de la topologie du dépôt, pas seulement du code
+
+**Payé le 2026-09-02, sur i-7f84.**
+
+Un critère demandait de prouver que les ports n'avaient pas bougé, et la
+manière la plus directe est d'appeler `git diff --name-only main -- src/...`.
+Vert en local, **rouge sur le runner** :
+
+```
+fatal: bad revision 'main'
+```
+
+`actions/checkout` place le dépôt sur la branche demandée et ne crée pas de
+branche locale `main` ; seule la ref distante `origin/main` existe. Le test
+supposait une topologie qui n'est vraie que sur une machine de développement.
+
+**Ce qui rend ce défaut coûteux** : il ne se voit pas dans la batterie locale,
+donc il traverse la revue et se découvre au push, quand l'issue est déjà close.
+C'est le symétrique de la trouvaille F3 — là, la CI en fait plus que la batterie
+par issue ; ici, elle en fait *autrement*.
+
+**Parade** : chercher la ref de base parmi plusieurs candidats — `origin/main`
+puis `main` — et échouer avec un message qui nomme le problème si aucune ne
+résout. Plus généralement, un test qui interroge l'environnement plutôt que le
+code doit dire ce qu'il suppose de cet environnement.
+
+## Un test qui compare à une liste littérale ne prouve rien sur la source
+
+Le test de i-2rzo affirmait « les contraintes des DTO sont déclarées une seule
+fois » en comparant `components.schemas.BorrowBody.required` à
+`['copyId', 'memberId']` écrits à la main. Il est passé au vert sur un DTO où
+`copyId` portait `@IsOptional()` : le validateur ne l'exigeait plus, le document
+continuait de l'annoncer obligatoire, et le test ne voyait rien — parce qu'il
+comparait le document à une constante, pas à l'autre source.
+
+La cassure délibérée l'a montré ; les six tests verts ne l'auraient jamais dit.
+
+**Ce qu'il faut faire à la place :** quand un test prétend que deux sources
+s'accordent, il doit lire LES DEUX. Ici, on soumet un corps vide à
+`validate()` et on prend les propriétés refusées — le comportement, pas les
+métadonnées, car `@IsOptional` et `@IsString` y portent le même `type` et une
+lecture des métadonnées confondrait justement les deux cas à distinguer.
+
+C'est la même exigence que le croisement avec `REFUSAL_STATUS`, qui était déjà
+écrit correctement dans le même fichier : dans les deux sens, et contre la
+source réelle.
+
+## Activer un contrôle puis l'esquiver ne laisse rien de vérifié
+
+`strictPropertyInitialization` a été passé à `true` sur demande de l'opérateur.
+Trois propriétés de DTO seulement le refusaient — le reste du dépôt le
+satisfaisait déjà, ce qui montre que le drapeau n'avait été desserré que pour
+elles.
+
+Ma première réponse a été `declare`. Elle compilait, tous les tests passaient, et
+le décorateur survivait jusque dans le JS construit. L'opérateur l'a refusée pour
+la bonne raison : `declare` fait taire exactement le contrôle qu'on venait
+d'activer. Un drapeau activé et contourné dans le même fichier ne vérifie plus
+rien ; il coûte de la lecture sans rien refuser.
+
+**Les trois formes, mesurées et non supposées** (cible ES2023, donc
+`useDefineForClassFields` à `true` par défaut) :
+
+| Écrit | JS émis |
+| --- | --- |
+| `copyId!: string;` | `copyId;` — champ défini à `undefined` |
+| `declare copyId: string;` | rien |
+| `copyId: string = '';` | `copyId = '';` |
+
+**Retenu :** l'initialiseur. Il n'affirme rien au compilateur, et la chaîne vide
+n'est pas pour autant permise — `@IsNotEmpty()` la refuse, envoyée explicitement
+comme absente, vérifié sur le code construit et pas seulement sous le
+transformeur de test.
+
+Deux gardes tiennent la décision : les DTO ne peuvent porter ni `!` ni
+`declare`, et le test balaie le dossier `dto/` plutôt que de nommer des
+fichiers. Les deux ont été cassés et sont tombés.
+
+## Le sujet du commit porte l'identifiant de l'issue, sinon `unclaimed` le signale
+
+Une issue produit deux commits — les tests rouges, puis l'implémentation — et le
+store n'en retient qu'un, `last_commit_sha`. `unclaimed.mjs` rattrape l'autre par
+son **sujet** : un sujet qui nomme une issue connue est réputé lui appartenir.
+
+`test(i-2rzo): OpenAPI that does not lie…` est reconnu. `test(http): the
+envelope, red first…` ne l'est pas, et le commit rouge de `i-7iw7` s'est retrouvé
+dans la liste des non réclamés alors qu'il était parfaitement planifié.
+
+**La règle** : pour un commit de pipeline, le scope du sujet est l'identifiant de
+l'issue — `test(i-6pck):`, `feat(i-6pck):`. Le scope technique (`http`, `domain`)
+va dans le corps s'il apporte quelque chose.
+
+**Ce que ça coûte quand on l'oublie** : rien de fonctionnel, et c'est justement le
+risque. Un rapport qui signale à tort finit par être ignoré, et le jour où il
+signale un vrai travail direct non déclaré, plus personne ne le lit.
