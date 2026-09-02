@@ -140,3 +140,34 @@ lecture des métadonnées confondrait justement les deux cas à distinguer.
 C'est la même exigence que le croisement avec `REFUSAL_STATUS`, qui était déjà
 écrit correctement dans le même fichier : dans les deux sens, et contre la
 source réelle.
+
+## Activer un contrôle puis l'esquiver ne laisse rien de vérifié
+
+`strictPropertyInitialization` a été passé à `true` sur demande de l'opérateur.
+Trois propriétés de DTO seulement le refusaient — le reste du dépôt le
+satisfaisait déjà, ce qui montre que le drapeau n'avait été desserré que pour
+elles.
+
+Ma première réponse a été `declare`. Elle compilait, tous les tests passaient, et
+le décorateur survivait jusque dans le JS construit. L'opérateur l'a refusée pour
+la bonne raison : `declare` fait taire exactement le contrôle qu'on venait
+d'activer. Un drapeau activé et contourné dans le même fichier ne vérifie plus
+rien ; il coûte de la lecture sans rien refuser.
+
+**Les trois formes, mesurées et non supposées** (cible ES2023, donc
+`useDefineForClassFields` à `true` par défaut) :
+
+| Écrit | JS émis |
+| --- | --- |
+| `copyId!: string;` | `copyId;` — champ défini à `undefined` |
+| `declare copyId: string;` | rien |
+| `copyId: string = '';` | `copyId = '';` |
+
+**Retenu :** l'initialiseur. Il n'affirme rien au compilateur, et la chaîne vide
+n'est pas pour autant permise — `@IsNotEmpty()` la refuse, envoyée explicitement
+comme absente, vérifié sur le code construit et pas seulement sous le
+transformeur de test.
+
+Deux gardes tiennent la décision : les DTO ne peuvent porter ni `!` ni
+`declare`, et le test balaie le dossier `dto/` plutôt que de nommer des
+fichiers. Les deux ont été cassés et sont tombés.

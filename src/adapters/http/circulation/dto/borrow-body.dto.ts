@@ -11,6 +11,14 @@ import { IsNotEmpty, IsString } from 'class-validator';
  * deux sources, parce qu'une version antérieure comparait le document à une
  * liste écrite à la main et restait verte sur une vraie divergence.
  *
+ * Les champs portent une VALEUR INITIALE, ni `!` ni `declare`. Les deux autres
+ * formes affirment au compilateur ce qu'il ne peut pas voir, et
+ * `strictPropertyInitialization` est précisément le contrôle qu'elles font
+ * taire : l'activer puis l'esquiver dans le même fichier ne laisserait rien de
+ * vérifié ici. La chaîne vide n'affirme rien, et ce n'est pas non plus une
+ * valeur permise : `@IsNotEmpty()` la refuse, et c'est ce refus qui produit le
+ * 400 quand un champ manque.
+ *
  * Elles sont DÉCLARÉES plutôt que vérifiées à la main. C'est la voie
  * idiomatique de NestJS, et la version précédente l'évitait pour ne pas avoir
  * à demander une dépendance — un contournement silencieux que l'opérateur a
@@ -22,11 +30,11 @@ export class BorrowBody {
   @ApiProperty({ description: "L'exemplaire qu'on veut prêter", example: 'c1' })
   @IsString()
   @IsNotEmpty()
-  copyId: string;
+  copyId: string = '';
 
   /** L'adhérent qui l'emprunte. */
   @ApiProperty({ description: "L'adhérent qui l'emprunte", example: 'm1' })
   @IsString()
   @IsNotEmpty()
-  memberId: string;
+  memberId: string = '';
 }

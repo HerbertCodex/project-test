@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { sourcesUnder } from '../../../support/sources.js';
+import { codeOf, sourcesUnder } from '../../../support/sources.js';
 
 const FORBIDDEN: { pattern: RegExp; why: string }[] = [
   {
@@ -61,9 +61,11 @@ describe('Le module ne porte aucun echafaudage de test', () => {
     }
   });
 
-  it('aucun DTO n affirme une initialisation que rien ne garantit', () => {
+  it('aucun DTO n esquive strictPropertyInitialization', () => {
     for (const file of sourcesUnder('src/adapters/http/circulation/dto')) {
-      expect(readFileSync(file, 'utf8')).not.toMatch(/[A-Za-z_]!\s*:/);
+      const code = codeOf(file);
+      expect(code).not.toMatch(/[A-Za-z_]!\s*:/);
+      expect(code).not.toMatch(/\bdeclare\s+\w+\s*:/);
     }
   });
 });
