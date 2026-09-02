@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-72 files, src, test.
+73 files, src, test.
 
 ## src/adapters/
 
@@ -26,15 +26,20 @@ runtime, and re-exports through an index.
 
 - `CirculationController` — controller — POST /loans, POST /returns — Les deux opérations du guichet : emprunter et rendre.
 
-### src/adapters/http/circulation/circulation.dto.ts
-
-- `BorrowBody` — class — Ce qu'un emprunt demande.
-- `ReturnBody` — class — Ce qu'un retour demande.
-
 ### src/adapters/http/circulation/circulation.module.ts
 
 - `DATABASE` — const — Le jeton par lequel on fournit la base.
 - `CirculationModule` — module — Le câblage du guichet : les cas d'usage, leurs ports, et les deux routes.
+
+## src/adapters/http/circulation/dto/
+
+### src/adapters/http/circulation/dto/borrow-body.dto.ts
+
+- `BorrowBody` — class — Ce qu'un emprunt demande.
+
+### src/adapters/http/circulation/dto/return-body.dto.ts
+
+- `ReturnBody` — class — Ce qu'un retour demande.
 
 ## src/adapters/http/
 

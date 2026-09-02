@@ -1,8 +1,6 @@
 import { REFUSAL_STATUS } from '../../../src/adapters/http/errors/refusal-map.js';
-import {
-  BorrowBody,
-  ReturnBody,
-} from '../../../src/adapters/http/circulation/circulation.dto.js';
+import { BorrowBody } from '../../../src/adapters/http/circulation/dto/borrow-body.dto.js';
+import { ReturnBody } from '../../../src/adapters/http/circulation/dto/return-body.dto.js';
 import {
   buildOpenApiDocument,
   postOf,

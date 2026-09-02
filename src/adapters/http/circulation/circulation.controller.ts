@@ -4,7 +4,8 @@ import type { Loan } from '../../../domain/loan.js';
 import { BorrowUseCase } from '../../../application/borrow/borrow.usecase.js';
 import { ReturnUseCase } from '../../../application/return/return.usecase.js';
 import { ApiRefusals } from '../errors/documented-refusals.js';
-import { BorrowBody, ReturnBody } from './circulation.dto.js';
+import { BorrowBody } from './dto/borrow-body.dto.js';
+import { ReturnBody } from './dto/return-body.dto.js';
 
 /**
  * Ce qu'une opération rend au guichet.

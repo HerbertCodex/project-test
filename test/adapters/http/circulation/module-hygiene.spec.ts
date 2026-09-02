@@ -51,12 +51,19 @@ describe('Le module ne porte aucun echafaudage de test', () => {
   });
 
   it('les DTO declarent leurs contraintes plutot que de les verifier a la main', () => {
-    const text = readFileSync(
-      'src/adapters/http/circulation/circulation.dto.ts',
-      'utf8',
-    );
-    expect(text).toContain('class-validator');
-    expect(text).toMatch(/@IsString\(\)/);
-    expect(text).toMatch(/@IsNotEmpty\(\)/);
+    const files = sourcesUnder('src/adapters/http/circulation/dto');
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toContain('class-validator');
+      expect(text).toMatch(/@IsString\(\)/);
+      expect(text).toMatch(/@IsNotEmpty\(\)/);
+    }
+  });
+
+  it('aucun DTO n affirme une initialisation que rien ne garantit', () => {
+    for (const file of sourcesUnder('src/adapters/http/circulation/dto')) {
+      expect(readFileSync(file, 'utf8')).not.toMatch(/[A-Za-z_]!\s*:/);
+    }
   });
 });

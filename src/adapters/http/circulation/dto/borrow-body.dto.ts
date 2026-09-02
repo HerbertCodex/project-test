@@ -7,7 +7,9 @@ import { IsNotEmpty, IsString } from 'class-validator';
  * Les contraintes sont DÉCLARÉES une seule fois : `class-validator` les
  * applique à l'exécution et Swagger les lit du même endroit. Deux déclarations
  * pour un même champ finiraient par diverger, et c'est la documentation qui
- * mentirait — celle que personne ne relit.
+ * mentirait — celle que personne ne relit. Le test qui garde cet accord lit les
+ * deux sources, parce qu'une version antérieure comparait le document à une
+ * liste écrite à la main et restait verte sur une vraie divergence.
  *
  * Elles sont DÉCLARÉES plutôt que vérifiées à la main. C'est la voie
  * idiomatique de NestJS, et la version précédente l'évitait pour ne pas avoir
@@ -20,22 +22,11 @@ export class BorrowBody {
   @ApiProperty({ description: "L'exemplaire qu'on veut prêter", example: 'c1' })
   @IsString()
   @IsNotEmpty()
-  copyId!: string;
+  copyId: string;
 
   /** L'adhérent qui l'emprunte. */
   @ApiProperty({ description: "L'adhérent qui l'emprunte", example: 'm1' })
   @IsString()
   @IsNotEmpty()
-  memberId!: string;
-}
-
-/**
- * Ce qu'un retour demande.
- */
-export class ReturnBody {
-  /** L'exemplaire rendu. */
-  @ApiProperty({ description: "L'exemplaire rendu", example: 'c1' })
-  @IsString()
-  @IsNotEmpty()
-  copyId!: string;
+  memberId: string;
 }
