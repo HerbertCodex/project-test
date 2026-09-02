@@ -19,7 +19,13 @@ const seeded = () =>
   });
 
 const closed = (): Loan =>
-  new Loan({ copyId: 'c1', memberId: 'm1', startedAt: OUT, dueAt: DUE, returnedAt: BACK });
+  new Loan({
+    copyId: 'c1',
+    memberId: 'm1',
+    startedAt: OUT,
+    dueAt: DUE,
+    returnedAt: BACK,
+  });
 
 describe('Un pret et sa dette, ecrits ensemble ou pas du tout', () => {
   it('le cas nominal ecrit les deux, relus depuis la base', async () => {
@@ -35,7 +41,9 @@ describe('Un pret et sa dette, ecrits ensemble ou pas du tout', () => {
     });
 
     expect(await store.openLoanOfCopy('c1')).toBeNull();
-    expect((await new DrizzleBorrowStore(db).memberById('m1'))?.outstandingDebt).toBe(5);
+    expect(
+      (await new DrizzleBorrowStore(db).memberById('m1'))?.outstandingDebt,
+    ).toBe(5);
   });
 
   it('si la dette echoue, le pret n est PAS ferme', async () => {
@@ -55,13 +63,17 @@ describe('Un pret et sa dette, ecrits ensemble ou pas du tout', () => {
     const open = await store.openLoanOfCopy('c1');
     expect(open).not.toBeNull();
     expect(open?.isOpen()).toBe(true);
-    expect((await new DrizzleBorrowStore(db).memberById('m1'))?.outstandingDebt).toBe(0);
+    expect(
+      (await new DrizzleBorrowStore(db).memberById('m1'))?.outstandingDebt,
+    ).toBe(0);
   });
 
   it('l erreur d origine remonte, elle n est pas remplacee par celle du rollback', async () => {
     const db = seeded();
     const cause = new Error('cause reelle');
-    const caught = await inTransaction(db, () => Promise.reject(cause)).catch((e: Error) => e);
+    const caught = await inTransaction(db, () => Promise.reject(cause)).catch(
+      (e: Error) => e,
+    );
     expect(caught).toBe(cause);
   });
 
@@ -72,7 +84,8 @@ describe('Un pret et sa dette, ecrits ensemble ou pas du tout', () => {
         const text = readFileSync(path, 'utf8')
           .replace(new RegExp('/\\*[\\s\\S]*?\\*/', 'g'), ' ')
           .replace(new RegExp('//[^\\n]*', 'g'), ' ');
-        if (/\btransaction\b/i.test(text)) offenders.push(`${path}: transaction`);
+        if (/\btransaction\b/i.test(text))
+          offenders.push(`${path}: transaction`);
         if (/\bdb\b/.test(text)) offenders.push(`${path}: db`);
       }
     }
