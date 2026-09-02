@@ -11,7 +11,9 @@ const MIGRATIONS = 'src/infrastructure/persistence/migrations';
 function freshDatabase(): Database.Database {
   const file = join(mkdtempSync(join(tmpdir(), 'biblio-')), 'test.db');
   const db = new Database(file);
-  for (const name of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) {
+  for (const name of readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()) {
     db.exec(readFileSync(join(MIGRATIONS, name), 'utf8'));
   }
   return db;
@@ -19,12 +21,16 @@ function freshDatabase(): Database.Database {
 
 describe('Le schema et sa migration', () => {
   it('la configuration Drizzle vit sous src, pas a la racine', () => {
-    expect(existsSync('src/infrastructure/persistence/drizzle.config.ts')).toBe(true);
+    expect(existsSync('src/infrastructure/persistence/drizzle.config.ts')).toBe(
+      true,
+    );
     expect(existsSync('drizzle.config.ts')).toBe(false);
   });
 
   it('une migration versionnee existe', () => {
-    expect(readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).length).toBeGreaterThan(0);
+    expect(
+      readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).length,
+    ).toBeGreaterThan(0);
   });
 
   it('appliquee a une base neuve, elle cree les quatre tables', () => {
@@ -45,7 +51,9 @@ describe('Le schema et sa migration', () => {
       'INSERT INTO loans (copy_id, member_id, started_at, due_at, returned_at, lost_at, renewals) VALUES (?, ?, ?, ?, ?, ?, ?)',
     );
     insert.run('c1', 'm1', '2026-03-01', '2026-03-24', null, null, 0);
-    expect(() => insert.run('c1', 'm2', '2026-03-02', '2026-03-25', null, null, 0)).toThrow();
+    expect(() =>
+      insert.run('c1', 'm2', '2026-03-02', '2026-03-25', null, null, 0),
+    ).toThrow();
     db.close();
   });
 
@@ -55,7 +63,9 @@ describe('Le schema et sa migration', () => {
       'INSERT INTO loans (copy_id, member_id, started_at, due_at, returned_at, lost_at, renewals) VALUES (?, ?, ?, ?, ?, ?, ?)',
     );
     insert.run('c1', 'm1', '2026-03-01', '2026-03-24', '2026-03-10', null, 0);
-    expect(() => insert.run('c1', 'm2', '2026-03-11', '2026-04-03', null, null, 0)).not.toThrow();
+    expect(() =>
+      insert.run('c1', 'm2', '2026-03-11', '2026-04-03', null, null, 0),
+    ).not.toThrow();
     db.close();
   });
 });
