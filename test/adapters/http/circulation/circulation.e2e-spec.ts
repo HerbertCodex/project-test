@@ -19,8 +19,8 @@ describe('Emprunter et rendre par HTTP', () => {
       .send({ copyId: 'c1', memberId: 'm1' })
       .expect(201);
 
-    expect(response.body.data).toMatchObject({ copyId: 'c1', memberId: 'm1' });
-    expect(response.body.data.dueAt).toBeDefined();
+    expect(response.body).toMatchObject({ copyId: 'c1', memberId: 'm1' });
+    expect(response.body.dueAt).toBeDefined();
   });
 
   it('un retour rend la dette constatee', async () => {
@@ -32,8 +32,8 @@ describe('Emprunter et rendre par HTTP', () => {
       .send({ copyId: 'c1' })
       .expect(200);
 
-    expect(response.body.data).toHaveProperty('debt');
-    expect(response.body.data).toHaveProperty('setAsideFor');
+    expect(response.body).toHaveProperty('debt');
+    expect(response.body).toHaveProperty('setAsideFor');
   });
 
   it('un exemplaire deja sorti ressort en 409, pas en 500', async () => {

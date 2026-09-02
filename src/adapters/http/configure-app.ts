@@ -4,7 +4,6 @@ import {
   type INestApplication,
 } from '@nestjs/common';
 import type { ValidationError } from '@nestjs/common';
-import { EnvelopeInterceptor } from './envelope/envelope.interceptor.js';
 import { RefusalFilter } from './errors/refusal.filter.js';
 
 /**
@@ -45,9 +44,9 @@ function validationRefusal(errors: ValidationError[]): BadRequestException {
  * `whitelist` écarte les champs inconnus au lieu de les porter jusqu'au
  * domaine ; `forbidNonWhitelisted` les refuse au lieu de les taire.
  *
- * L'intercepteur d'enveloppe est posé ici pour la même raison que le filtre :
- * une route ajoutée demain est enveloppée parce qu'elle existe, pas parce que
- * quelqu'un a pensé à le demander.
+ * Le filtre est posé ici et non sur un module pour la même raison : une route
+ * ajoutée demain rend ses refus au bon format parce qu'elle existe, pas parce
+ * que quelqu'un a pensé à le demander.
  *
  * @param app - l'application à configurer
  * @returns la même application, configurée
@@ -60,7 +59,6 @@ export function configureApp<App extends INestApplication>(app: App): App {
       exceptionFactory: validationRefusal,
     }),
   );
-  app.useGlobalInterceptors(new EnvelopeInterceptor());
   app.useGlobalFilters(new RefusalFilter());
   return app;
 }

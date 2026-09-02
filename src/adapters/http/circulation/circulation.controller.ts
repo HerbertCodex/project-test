@@ -4,10 +4,9 @@ import {
   ApiOperation,
   ApiResponse,
   ApiTags,
-  getSchemaPath,
 } from '@nestjs/swagger';
 import type { Loan } from '../../../domain/loan.js';
-import { ErrorEnvelopeView } from '../errors/error-envelope.view.js';
+import { ProblemDetailsView } from '../errors/problem.view.js';
 import { LoanView } from './views/loan-view.js';
 import { ReturnView } from './views/return-view.js';
 import { BorrowUseCase } from '../../../application/borrow/borrow.usecase.js';
@@ -15,28 +14,6 @@ import { ReturnUseCase } from '../../../application/return/return.usecase.js';
 import { ApiRefusals } from '../errors/documented-refusals.js';
 import { BorrowBody } from './dto/borrow-body.dto.js';
 import { ReturnBody } from './dto/return-body.dto.js';
-
-/**
- * Le schéma d'une réponse réussie : la vue, sous `data`.
- *
- * Construit et non écrit à la main pour chaque route, sans quoi une route
- * ajoutée plus tard documenterait un corps nu pendant que l'intercepteur, lui,
- * l'envelopperait — la documentation mentirait sans que personne s'en aperçoive.
- *
- * @param model - la vue placée sous `data`
- * @returns le schéma de l'enveloppe
- */
-function envelopeOf(model: Parameters<typeof getSchemaPath>[0]): {
-  type: 'object';
-  required: string[];
-  properties: { data: { $ref: string } };
-} {
-  return {
-    type: 'object',
-    required: ['data'],
-    properties: { data: { $ref: getSchemaPath(model) } },
-  };
-}
 
 /**
  * Rend un prêt lisible par un client HTTP.
@@ -60,7 +37,7 @@ function viewOf(loan: Loan): LoanView {
  * qui leur donne un code, ce qui garde la correspondance en un seul endroit.
  */
 @ApiTags('circulation')
-@ApiExtraModels(LoanView, ReturnView, ErrorEnvelopeView)
+@ApiExtraModels(ProblemDetailsView)
 @Controller()
 export class CirculationController {
   /**
@@ -83,7 +60,7 @@ export class CirculationController {
   @ApiResponse({
     status: 201,
     description: 'Le prêt créé, avec son échéance',
-    schema: envelopeOf(LoanView),
+    type: LoanView,
   })
   @ApiRefusals(
     'CopyAlreadyOnLoan',
@@ -114,7 +91,7 @@ export class CirculationController {
   @ApiResponse({
     status: 200,
     description: 'La dette constatée et l adhérent servi le cas échéant',
-    schema: envelopeOf(ReturnView),
+    type: ReturnView,
   })
   @ApiRefusals('CopyNotOnLoan')
   async take(@Body() body: ReturnBody): Promise<ReturnView> {
