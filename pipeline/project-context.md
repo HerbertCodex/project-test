@@ -77,10 +77,11 @@ Le port du smoke se surcharge par `SMOKE_PORT` (3111 par défaut) : le `3000` de
   pas *pourquoi*. Un commentaire long échappe à la règle : la borne est à douze
   mots, et c'est un compromis, pas une vérité.
 - **`commit_subjects` ne regarde que ce qui est en avance sur `origin/main`.**
-  Un sujet déjà poussé n'est plus corrigeable sans réécrire une branche publiée ;
-  le refuser à chaque exécution ferait un gate rouge pour toujours, donc un gate
-  qu'on désactive. Le prix est assumé : `11a72e7` reste signalé par `unclaimed`
-  et ne le sera jamais par ce gate.
+  Un sujet déjà poussé n'est plus corrigeable sans réécrire une branche publiée.
+  Le cas s'est présenté une fois et a été réglé par une réécriture d'historique :
+  quinze commits ont changé de sha, dont trois enregistrés dans le store, pour un
+  mot de sujet. Corrigé avant le push, c'est un `amend` — c'est tout l'écart que
+  ce gate existe pour ne plus payer.
 - **Les incidents vont sur stderr** (décision 0010), avec l'occurrence rendue au
   client dans `instance`. Vérifié sur le binaire construit, pas déduit. Aucune
   rétention n'est garantie par le dépôt : c'est la plateforme qui collecte.

@@ -197,28 +197,27 @@ qui ne nomme aucune issue et ne porte pas de ligne `direct:` sort en travail non
 réclamé, et `unclaimed` lit **tout l'historique** : le signalement survit à la
 fusion.
 
-`11a72e7` en est là. Le corriger réécrirait **15** commits, dont trois dont le
-sha est enregistré dans le store, sur la branche par défaut désormais.
+Le commit rouge de `i-7iw7` en était là, sous le sujet `test(http):`.
 
-**Ce chiffre a d'abord été annoncé à 44**, et c'est une erreur de la même famille
-que F9 : j'avais compté la longueur de la branche au lieu des commits situés
-APRÈS celui à corriger. Le chiffre a servi à justifier de ne rien faire, dans une
-PR fusionnée et dans ce fichier. Un argument chiffré non mesuré pèse plus lourd
-qu'un argument sans chiffre, et c'est exactement ce qui le rend dangereux.
+**Il a fini par être corrigé, et il faut dire ce que ça a coûté.** L'opérateur a
+réécrit l'historique : quinze commits sur la branche par défaut ont changé de
+sha, dont trois enregistrés dans le store — repointés ensuite par un amendement
+`closed → closed`, sans quoi les enregistrements auraient désigné des commits
+disparus. Un force-push, une branche de sauvegarde, et une correction du store :
+tout ça pour **un mot dans un sujet**.
 
-Le prix reste supérieur au bénéfice pour un mot de sujet, et la ligne reste.
+**Le chiffre lui-même a d'abord été faux** : annoncé à 44, il était de 15. Compter
+la longueur de la branche au lieu des commits situés APRÈS celui à corriger. Le
+chiffre servait à justifier de ne rien faire, ce qui est la pire place pour une
+mesure non vérifiée — même famille que F9.
 
-**Supprimer le commit plutôt que le renommer serait pire, pas plus simple** : même
-réécriture, et en plus la perte du seul artefact prouvant que les tests de
-`i-7iw7` étaient rouges avant l'implémentation. La preuve du rouge est la
-discipline centrale de cette pipeline ; on ne l'efface pas pour faire taire un
-rapport.
+**Ce qui reste vrai, et c'est l'enseignement** : corrigé avant le push, c'est un
+`git commit --amend`. Corrigé après, c'est tout ce qui précède. C'est
+exactement le rapport de coût que `commit_subjects` existe pour ne plus avoir à
+payer.
 
-**Ce qui a été fait à la place** : `commit_subjects` refuse le même défaut
-**avant** qu'il parte, sur les seuls commits en avance sur `origin/main`. Corrigé
-là, c'est un `git commit --amend` ; corrigé après, c'est une réécriture
-d'historique.
-
-**Pourquoi le gate ne regarde pas le passé** : le faire mordre sur `11a72e7` en
-ferait un gate rouge pour toujours, donc un gate qu'on désactive. Un gate qui ne
-peut pas passer ne protège rien.
+**Pourquoi le gate ne regarde pas le passé** : au moment où il a été écrit, le
+faire mordre sur un commit déjà poussé en aurait fait un gate rouge pour
+toujours, donc un gate qu'on désactive. Un gate qui ne peut pas passer ne protège
+rien. Ce choix reste bon même maintenant que le cas est réglé : le passé d'un
+dépôt n'est pas corrigeable au même prix que son présent.
