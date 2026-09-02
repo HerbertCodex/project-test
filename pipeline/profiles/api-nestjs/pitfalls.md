@@ -171,3 +171,21 @@ transformeur de test.
 Deux gardes tiennent la décision : les DTO ne peuvent porter ni `!` ni
 `declare`, et le test balaie le dossier `dto/` plutôt que de nommer des
 fichiers. Les deux ont été cassés et sont tombés.
+
+## Le sujet du commit porte l'identifiant de l'issue, sinon `unclaimed` le signale
+
+Une issue produit deux commits — les tests rouges, puis l'implémentation — et le
+store n'en retient qu'un, `last_commit_sha`. `unclaimed.mjs` rattrape l'autre par
+son **sujet** : un sujet qui nomme une issue connue est réputé lui appartenir.
+
+`test(i-2rzo): OpenAPI that does not lie…` est reconnu. `test(http): the
+envelope, red first…` ne l'est pas, et le commit rouge de `i-7iw7` s'est retrouvé
+dans la liste des non réclamés alors qu'il était parfaitement planifié.
+
+**La règle** : pour un commit de pipeline, le scope du sujet est l'identifiant de
+l'issue — `test(i-6pck):`, `feat(i-6pck):`. Le scope technique (`http`, `domain`)
+va dans le corps s'il apporte quelque chose.
+
+**Ce que ça coûte quand on l'oublie** : rien de fonctionnel, et c'est justement le
+risque. Un rapport qui signale à tort finit par être ignoré, et le jour où il
+signale un vrai travail direct non déclaré, plus personne ne le lit.
