@@ -1,13 +1,12 @@
-import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
+import { applyMigrations } from '../../src/infrastructure/persistence/migrate.js';
 import {
   openDatabase,
   type Db,
 } from '../../src/infrastructure/persistence/repositories/drizzle-stores.js';
-
-const MIGRATIONS = 'src/infrastructure/persistence/migrations';
 
 /**
  * Une base SQLite neuve, migrée, avec les exemplaires et adhérents demandés.
@@ -27,12 +26,8 @@ export function seededDatabase(seed: {
   members?: { id: string; expiresAt: string; debt: number }[];
 }): Db {
   const file = join(mkdtempSync(join(tmpdir(), 'biblio-')), 'test.db');
+  applyMigrations(file);
   const raw = new Database(file);
-  for (const name of readdirSync(MIGRATIONS)
-    .filter((entry) => entry.endsWith('.sql'))
-    .sort()) {
-    raw.exec(readFileSync(join(MIGRATIONS, name), 'utf8'));
-  }
   for (const copy of seed.copies ?? []) {
     raw
       .prepare('INSERT INTO copies (id, title_id) VALUES (?, ?)')

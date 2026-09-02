@@ -6,6 +6,13 @@ import type { Server } from 'node:http';
 import { sourcesUnder } from '../../../support/sources.js';
 import { CirculationModule } from '../../../../src/adapters/http/circulation/circulation.module.js';
 
+/**
+ * Construit depuis une chaîne parce que le littéral `/@nestjs\//` contient un
+ * `//` que `comment-policy` lit comme un commentaire — c'est la trouvaille F4,
+ * rencontrée pour la troisième fois.
+ */
+const NESTJS_IMPORT = new RegExp('@nestjs/');
+
 describe('Emprunter et rendre par HTTP', () => {
   let app: INestApplication<Server>;
 
@@ -32,7 +39,9 @@ describe('Emprunter et rendre par HTTP', () => {
   });
 
   it('un retour rend la dette constatee', async () => {
-    await request(app.getHttpServer()).post('/loans').send({ copyId: 'c1', memberId: 'm1' });
+    await request(app.getHttpServer())
+      .post('/loans')
+      .send({ copyId: 'c1', memberId: 'm1' });
     const response = await request(app.getHttpServer())
       .post('/returns')
       .send({ copyId: 'c1' })
@@ -43,7 +52,9 @@ describe('Emprunter et rendre par HTTP', () => {
   });
 
   it('un exemplaire deja sorti ressort en 409, pas en 500', async () => {
-    await request(app.getHttpServer()).post('/loans').send({ copyId: 'c1', memberId: 'm1' });
+    await request(app.getHttpServer())
+      .post('/loans')
+      .send({ copyId: 'c1', memberId: 'm1' });
     await request(app.getHttpServer())
       .post('/loans')
       .send({ copyId: 'c1', memberId: 'm2' })
@@ -74,13 +85,16 @@ describe('Emprunter et rendre par HTTP', () => {
   });
 
   it('rendre un exemplaire qui n est pas en pret ressort en 409', async () => {
-    await request(app.getHttpServer()).post('/returns').send({ copyId: 'c1' }).expect(409);
+    await request(app.getHttpServer())
+      .post('/returns')
+      .send({ copyId: 'c1' })
+      .expect(409);
   });
 
   it('ni le domaine ni l application n importent NestJS, hors scaffold', () => {
     const offenders = ['src/domain', 'src/application']
       .flatMap((root) => sourcesUnder(root))
-      .filter((path) => /@nestjs\//.test(readFileSync(path, 'utf8')));
+      .filter((path) => NESTJS_IMPORT.test(readFileSync(path, 'utf8')));
     expect(offenders).toEqual(['src/application/app.service.ts']);
   });
 });
