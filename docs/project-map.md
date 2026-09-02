@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-63 files, src, test.
+65 files, src, test.
 
 ## src/adapters/
 
@@ -28,10 +28,12 @@ runtime, and re-exports through an index.
 
 ### src/adapters/http/circulation/circulation.dto.ts
 
-- `requiredString` — function — Vérifie qu'un champ obligatoire est une chaîne non vide.
+- `BorrowBody` — class — Ce qu'un emprunt demande.
+- `ReturnBody` — class — Ce qu'un retour demande.
 
 ### src/adapters/http/circulation/circulation.module.ts
 
+- `DATABASE` — const — Le jeton par lequel on fournit la base.
 - `CirculationModule` — module — Le câblage du guichet : les cas d'usage, leurs ports, et les deux routes.
 
 ## src/adapters/http/errors/
@@ -268,6 +270,10 @@ runtime, and re-exports through an index.
 
 - `Emprunter et rendre par HTTP` — test harness
 
+### test/adapters/http/circulation/module-hygiene.spec.ts
+
+- `Le module ne porte aucun echafaudage de test` — test harness
+
 ## test/adapters/http/errors/
 
 ### test/adapters/http/errors/refusal-map.spec.ts
@@ -382,6 +388,10 @@ runtime, and re-exports through an index.
 - `Un pret et sa dette, ecrits ensemble ou pas du tout` — test harness
 
 ## test/support/
+
+### test/support/circulation-app.ts
+
+- `startCirculationApp` — function — Démarre le guichet sur une base jetable.
 
 ### test/support/database.ts
 
