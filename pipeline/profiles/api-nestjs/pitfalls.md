@@ -119,3 +119,24 @@ par issue ; ici, elle en fait *autrement*.
 puis `main` — et échouer avec un message qui nomme le problème si aucune ne
 résout. Plus généralement, un test qui interroge l'environnement plutôt que le
 code doit dire ce qu'il suppose de cet environnement.
+
+## Un test qui compare à une liste littérale ne prouve rien sur la source
+
+Le test de i-2rzo affirmait « les contraintes des DTO sont déclarées une seule
+fois » en comparant `components.schemas.BorrowBody.required` à
+`['copyId', 'memberId']` écrits à la main. Il est passé au vert sur un DTO où
+`copyId` portait `@IsOptional()` : le validateur ne l'exigeait plus, le document
+continuait de l'annoncer obligatoire, et le test ne voyait rien — parce qu'il
+comparait le document à une constante, pas à l'autre source.
+
+La cassure délibérée l'a montré ; les six tests verts ne l'auraient jamais dit.
+
+**Ce qu'il faut faire à la place :** quand un test prétend que deux sources
+s'accordent, il doit lire LES DEUX. Ici, on soumet un corps vide à
+`validate()` et on prend les propriétés refusées — le comportement, pas les
+métadonnées, car `@IsOptional` et `@IsString` y portent le même `type` et une
+lecture des métadonnées confondrait justement les deux cas à distinguer.
+
+C'est la même exigence que le croisement avec `REFUSAL_STATUS`, qui était déjà
+écrit correctement dans le même fichier : dans les deux sens, et contre la
+source réelle.

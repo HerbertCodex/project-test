@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-67 files, src, test.
+72 files, src, test.
 
 ## src/adapters/
 
@@ -44,6 +44,10 @@ runtime, and re-exports through an index.
 
 ## src/adapters/http/errors/
 
+### src/adapters/http/errors/documented-refusals.ts
+
+- `ApiRefusals` — function — Documente les refus qu'une route peut réellement produire.
+
 ### src/adapters/http/errors/exhaustive.ts
 
 - `REFUSAL_MAP_IS_EXHAUSTIVE` — const — La preuve d'exhaustivité, tenue par `tsc` et par rien d'autre.
@@ -57,6 +61,13 @@ runtime, and re-exports through an index.
 ### src/adapters/http/errors/refusal.filter.ts
 
 - `RefusalFilter` — class — Traduit un refus métier en code HTTP, et laisse passer le reste.
+
+## src/adapters/http/
+
+### src/adapters/http/openapi.ts
+
+- `openApiConfig` — function — La description du document OpenAPI.
+- `mountOpenApi` — function — Monte la page OpenAPI, si l'environnement le demande.
 
 ## src/
 
@@ -292,6 +303,16 @@ runtime, and re-exports through an index.
 
 - `La table de correspondance refus vers code HTTP` — test harness
 
+## test/adapters/http/
+
+### test/adapters/http/openapi.e2e-spec.ts
+
+- `La page de documentation` — test harness
+
+### test/adapters/http/openapi.spec.ts
+
+- `La documentation OpenAPI` — test harness
+
 ## test/
 
 ### test/app.e2e-spec.ts
@@ -409,6 +430,15 @@ runtime, and re-exports through an index.
 
 - `seededDatabase` — function — Une base SQLite neuve, migrée, avec les exemplaires et adhérents demandés.
 
+### test/support/openapi.ts
+
+- `buildOpenApiDocument` — function — Construit le document OpenAPI de l'application réelle.
+- `postOf` — function — L'opération POST déclarée pour un chemin.
+- `statusesOf` — function — Tous les statuts documentés, à plat.
+- `requiredByValidator` — function — Les propriétés que class-validator exige réellement.
+- `requiredByDocument` — function — Les propriétés que le document annonce obligatoires.
+
 ### test/support/sources.ts
 
 - `sourcesUnder` — function — Les fichiers TypeScript sous une racine, récursivement.
+- `codeOf` — function — Le code d'un fichier, commentaires ôtés.
