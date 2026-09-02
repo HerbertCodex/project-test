@@ -18,6 +18,8 @@ Profile: api-nestjs. When a rule or a prompt names a command by its key (check, 
 - architecture : `node scripts/architecture-check.mjs`
 - design_limits : `node scripts/design-limits.mjs`
 - comment_policy : `node scripts/comment-policy.mjs`
+- decisions_lint : `node scripts/decisions-lint.mjs`
+- commit_subjects : `node scripts/commit-subjects.mjs`
 - secrets_scan : `node scripts/secrets-scan.mjs`
 - duplication : `node agent-pipeline/scripts/duplication.mjs`
 - dead_code : `node agent-pipeline/scripts/dead-code.mjs`
