@@ -35,7 +35,7 @@ The Implementer writes both the tests and the code. No second role attests that 
 
 The map's gate is a closure gate: it is red on the branch by design until the Orchestrator regenerates the map, and green on the pull request. A red `project_map` step on a push mid-spec is not a defect to route.
 
-**Full battery, run once before the PR, not per issue:** everything above plus what this project defers — `test_e2e`, `coverage`, `smoke`, `duplication`, `dead_code`, `audit`, `project_map`, `map_coverage`. Replaying the whole table on every issue of a spec buys nothing after the first — it re-proves the same untouched surface — and it was measured as one of the two largest costs of a spec's wall time. The Orchestrator asks you for this pass when the last issue closes; treat it as a closure gate on the spec, not on an issue.
+**Full battery, run once before the PR, not per issue:** everything above plus what this project defers — `test_e2e`, `coverage`, `smoke`, `decisions_lint`, `commit_subjects`, `duplication`, `dead_code`, `audit`, `project_map`, `map_coverage`. Replaying the whole table on every issue of a spec buys nothing after the first — it re-proves the same untouched surface — and it was measured as one of the two largest costs of a spec's wall time. The Orchestrator asks you for this pass when the last issue closes; treat it as a closure gate on the spec, not on an issue.
 
 Run `coverage` in the full battery and cite its summary; coverage is a signal: an uncovered criterion is a rejection at any rate, a rate target is never one.
 

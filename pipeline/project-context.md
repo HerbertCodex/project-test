@@ -40,6 +40,8 @@ quotidien.
 | `architecture` | `node scripts/architecture-check.mjs` | un import à contresens des flèches |
 | `design_limits` | `node scripts/design-limits.mjs` | 60 lignes, 4 paramètres, profondeur 3, complexité 10 ; Liskov et ouvert-fermé écrits noir sur blanc |
 | `comment_policy` | `node scripts/comment-policy.mjs` | la narration et le code commenté |
+| `decisions_lint` | `node scripts/decisions-lint.mjs` | une décision remplacée qui ne le dit pas, ou un remplacement qui n'est lié que d'un côté |
+| `commit_subjects` | `node scripts/commit-subjects.mjs` | un commit en avance dont le sujet ne nomme aucune issue et qui ne se déclare pas `direct:` |
 | `secrets_scan` | `node scripts/secrets-scan.mjs` | un secret dans les sources |
 | `project_map` | `node scripts/project-map.mjs --check` | une carte périmée |
 | `map_coverage` | `node agent-pipeline/scripts/map-coverage.mjs` | une carte vide |
@@ -74,6 +76,14 @@ Le port du smoke se surcharge par `SMOKE_PORT` (3111 par défaut) : le `3000` de
 - **`comment_policy` juge par forme.** Il refuse un commentaire court qui ne dit
   pas *pourquoi*. Un commentaire long échappe à la règle : la borne est à douze
   mots, et c'est un compromis, pas une vérité.
+- **`commit_subjects` ne regarde que ce qui est en avance sur `origin/main`.**
+  Un sujet déjà poussé n'est plus corrigeable sans réécrire une branche publiée ;
+  le refuser à chaque exécution ferait un gate rouge pour toujours, donc un gate
+  qu'on désactive. Le prix est assumé : `11a72e7` reste signalé par `unclaimed`
+  et ne le sera jamais par ce gate.
+- **Les incidents vont sur stderr** (décision 0010), avec l'occurrence rendue au
+  client dans `instance`. Vérifié sur le binaire construit, pas déduit. Aucune
+  rétention n'est garantie par le dépôt : c'est la plateforme qui collecte.
 - **`lint` est type-aware, donc plus lent.** Il charge l'information de types
   pour refuser une promesse flottante (décision 0005). C'est délibéré : sans
   `--type-aware`, oxlint lit la règle et n'applique rien.

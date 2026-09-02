@@ -350,3 +350,38 @@ Un refus au milieu d'un enchaînement se lit comme une ligne parmi d'autres.
 l'écriture dont elle dépend. Corrigé après coup ici — découvertes réécrites avec
 `title` et `rationale`, `store-verify` repassé vert — mais l'ordre correct
 n'aurait rien demandé à corriger.
+
+## F9 — Un constat déclaré n'est pas un constat vérifié
+
+**Constaté sur moi-même.** `i-7iw7` puis `i-6pck` ont reporté « la forme du 500
+n'est prouvée par aucun test », et `i-73em` a clos en déclarant « le journal n'a
+aucune destination configurée dans ce dépôt ». Le second est **faux**. Il a
+traversé deux issues, le store, et la description de la PR #3 sans que personne
+le mesure.
+
+La mesure, faite en faisant tomber le binaire construit sur une base non migrée :
+
+```
+{"type":"/problems/internal-error", …, "instance":"/loans#b7e0e5e0-…"}
+
+# stderr :
+[Nest] ERROR [RefusalFilter] incident b7e0e5e0-…
+SqliteError: no such table: copies
+```
+
+La destination existait — stderr, par le logger par défaut de NestJS. Ce qui
+manquait, c'était de l'avoir vérifiée et décidée. Consigné en 0010.
+
+**Ce que ça coûte.** La même chose que taire une limite : dans les deux cas, on
+agit sur autre chose que la réalité. Pire ici, parce qu'un constat écrit dans le
+store a l'apparence d'une observation. Une issue de suivi aurait pu être ouverte
+pour « configurer une destination » qui existait déjà.
+
+**Ce que ça révèle du dispositif** : `discoveries_declared` garantit qu'une
+découverte n'est pas perdue. Il ne garantit **rien** sur sa véracité. Un
+`criteria_ledger` exige une preuve ; une découverte n'exige qu'une phrase.
+
+**La règle qui en sort** : une découverte qui affirme une ABSENCE — « rien ne
+fait X », « aucun Y n'est configuré » — se mesure avant d'être écrite. Une
+absence est la chose la plus facile à croire et la plus coûteuse à supposer.
+Une découverte qui affirme une limite déjà observée n'a pas ce problème.

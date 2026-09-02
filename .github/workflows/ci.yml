@@ -65,6 +65,12 @@ jobs:
       - name: comment-policy
         run: node scripts/comment-policy.mjs
 
+      - name: decisions-lint
+        run: node scripts/decisions-lint.mjs
+
+      - name: commit-subjects
+        run: node scripts/commit-subjects.mjs
+
       - name: secrets-scan
         run: node scripts/secrets-scan.mjs
 
