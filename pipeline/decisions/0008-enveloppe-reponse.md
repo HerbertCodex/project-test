@@ -1,8 +1,17 @@
 # 0008 — Une enveloppe `{data}` / `{error}` sur toutes les routes
 
-- **Statut** : décidée, 2026-09-02, par l'opérateur, **contre ma recommandation**.
-- **Ne pas redemander.** La forme de l'enveloppe est arrêtée ; une route nouvelle
-  s'y conforme, elle ne rouvre pas le sujet.
+- **Statut** : **REMPLACÉE par `0009-problem-details.md`**, le 2026-09-02, le jour
+  même où elle avait été prise.
+- Décidée le 2026-09-02 par l'opérateur, contre ma recommandation ; **annulée le
+  même jour par le même opérateur**, cette fois dans le sens que je
+  recommandais. Elle est conservée et non effacée : le constat qui l'a motivée —
+  quatre formes de réponse, deux 404 indiscernables — reste vrai et reste la
+  raison d'être de 0009.
+- Ce qui a changé entre les deux : rien dans les faits, tout dans
+  l'information. L'opérateur a demandé ce qu'était RFC 9457 après avoir tranché,
+  et a tranché autrement une fois la réponse lue. C'est écrit ici parce qu'une
+  décision prise sans une information qu'on n'avait pas encore n'est pas une
+  faute — la cacher en serait une.
 
 ## Le défaut constaté
 
