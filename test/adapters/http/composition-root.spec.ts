@@ -1,19 +1,5 @@
 import { readFileSync } from 'node:fs';
-
-const BLOCK_COMMENT = new RegExp('/\\*[\\s\\S]*?\\*/', 'g');
-const LINE_COMMENT = new RegExp('//[^\\n]*', 'g');
-
-/**
- * Le code d'un fichier, commentaires ôtés.
- *
- * @param path - le fichier à lire
- * @returns son code seul
- */
-function codeOf(path: string): string {
-  return readFileSync(path, 'utf8')
-    .replace(BLOCK_COMMENT, ' ')
-    .replace(LINE_COMMENT, ' ');
-}
+import { codeOf } from '../../support/sources.js';
 
 describe('La configuration globale appartient au composition root', () => {
   it('le module du guichet n enregistre RIEN de global', () => {

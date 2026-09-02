@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { configureApp } from './adapters/http/configure-app.js';
+import { mountOpenApi } from './adapters/http/openapi.js';
 import { AppModule } from './app.module.js';
 
 /**
@@ -11,6 +12,7 @@ import { AppModule } from './app.module.js';
  */
 async function bootstrap(): Promise<void> {
   const app = configureApp(await NestFactory.create(AppModule));
+  mountOpenApi(app);
   await app.listen(process.env.PORT ?? 3000);
 }
 await bootstrap();

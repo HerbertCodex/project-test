@@ -50,9 +50,17 @@ function seed(file: string): void {
  * La base est fournie par `overrideProvider`, l'outil que NestJS donne pour
  * ça. Le module de production ignore que des tests existent.
  *
+ * `beforeInit` existe parce que certains montages ne prennent effet qu'avant
+ * `init` — la page OpenAPI en est un. Sans ce point d'accroche, le test qui la
+ * vérifie devrait recopier la construction de l'application, et vérifierait
+ * alors sa copie plutôt que le montage réel.
+ *
+ * @param beforeInit - ce qu'il faut appliquer avant l'initialisation
  * @returns l'application prête à recevoir des requêtes
  */
-export async function startCirculationApp(): Promise<INestApplication<Server>> {
+export async function startCirculationApp(
+  beforeInit?: (app: INestApplication<Server>) => void,
+): Promise<INestApplication<Server>> {
   const file = join(mkdtempSync(join(tmpdir(), 'guichet-')), 'test.db');
   seed(file);
   const built = await Test.createTestingModule({ imports: [CirculationModule] })
@@ -62,6 +70,7 @@ export async function startCirculationApp(): Promise<INestApplication<Server>> {
   const app = configureApp(
     built.createNestApplication<INestApplication<Server>>(),
   );
+  beforeInit?.(app);
   await app.init();
   return app;
 }
