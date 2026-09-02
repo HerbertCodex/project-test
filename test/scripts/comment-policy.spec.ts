@@ -7,7 +7,8 @@ import { findingsOf } from '../../scripts/comment-policy.mjs';
 const roots: string[] = [];
 
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of roots.splice(0))
+    rmSync(root, { recursive: true, force: true });
 });
 
 function findings(source: string) {
@@ -20,16 +21,24 @@ function findings(source: string) {
 
 describe('comment policy lexical scanning', () => {
   it('does not read comment delimiters inside a regular-expression literal', () => {
-    expect(findings("const cleaned = input.replace(/\\/\\*[\\s\\S]*?\\*\\//g, ' ');\n")).toEqual([]);
+    expect(
+      findings(
+        "const cleaned = input.replace(/\\/\\*[\\s\\S]*?\\*\\//g, ' ');\n",
+      ),
+    ).toEqual([]);
   });
 
   it('evaluates consecutive line comments as one explanation', () => {
-    expect(findings([
-      '// The base reference comes from several candidates',
-      '// because CI uses a shallow checkout.',
-      'const base = resolveBase();',
-      '',
-    ].join('\n'))).toEqual([]);
+    expect(
+      findings(
+        [
+          '// The base reference comes from several candidates',
+          '// because CI uses a shallow checkout.',
+          'const base = resolveBase();',
+          '',
+        ].join('\n'),
+      ),
+    ).toEqual([]);
   });
 
   it('still refuses a short narrative line', () => {
