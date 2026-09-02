@@ -22,7 +22,12 @@ import {
   RenewalLimitReached,
   TitleIsHeldByAnother,
 } from '../../../../src/application/renew/renew.usecase.js';
-import { statusFor, REFUSAL_STATUS } from '../../../../src/adapters/http/errors/refusal-map.js';
+import {
+  statusFor,
+  REFUSAL_STATUS,
+  type RefusalName,
+} from '../../../../src/adapters/http/errors/refusal-map.js';
+import { REFUSAL_MAP_IS_EXHAUSTIVE } from '../../../../src/adapters/http/errors/exhaustive.js';
 
 describe('La table de correspondance refus vers code HTTP', () => {
   it('un conflit d etat ressort en 409', () => {
@@ -54,10 +59,21 @@ describe('La table de correspondance refus vers code HTTP', () => {
     expect(statusFor(new NothingToRenew('rien'))).toBe(404);
   });
 
+  it('chaque cle de la table est un RefusalName', () => {
+    for (const key of Object.keys(REFUSAL_STATUS)) {
+      const name: RefusalName = key as RefusalName;
+      expect(REFUSAL_STATUS[name]).toBeGreaterThan(0);
+    }
+  });
+
   it('AUCUN refus metier ne produit un 5xx', () => {
     const codes = Object.values(REFUSAL_STATUS);
     expect(codes.length).toBeGreaterThan(0);
     for (const code of codes) expect(code).toBeLessThan(500);
+  });
+
+  it('l exhaustivite est tenue par le COMPILATEUR, pas seulement par ce test', () => {
+    expect(REFUSAL_MAP_IS_EXHAUSTIVE).toBe(REFUSAL_STATUS);
   });
 
   it('la table couvre TOUS les refus que le domaine et l application declarent', () => {
@@ -70,7 +86,9 @@ describe('La table de correspondance refus vers code HTTP', () => {
       'src/application/renew/renew.usecase.ts',
     ];
     for (const path of sources) {
-      for (const found of readFileSync(path, 'utf8').matchAll(/export class (\w+) extends Error/g)) {
+      for (const found of readFileSync(path, 'utf8').matchAll(
+        /export class (\w+) extends Error/g,
+      )) {
         declared.add(found[1]);
       }
     }
