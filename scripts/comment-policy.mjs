@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
 /**
@@ -42,6 +43,38 @@ const COMMENTED_CODE = [
   /^\s*\/\/\s*}/,
 ];
 
+const REGEX_PREFIX_TOKENS = new Set([
+  ts.SyntaxKind.OpenParenToken,
+  ts.SyntaxKind.OpenBracketToken,
+  ts.SyntaxKind.OpenBraceToken,
+  ts.SyntaxKind.CommaToken,
+  ts.SyntaxKind.ColonToken,
+  ts.SyntaxKind.SemicolonToken,
+  ts.SyntaxKind.EqualsToken,
+  ts.SyntaxKind.EqualsEqualsToken,
+  ts.SyntaxKind.EqualsEqualsEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsEqualsToken,
+  ts.SyntaxKind.QuestionToken,
+  ts.SyntaxKind.QuestionQuestionToken,
+  ts.SyntaxKind.AmpersandAmpersandToken,
+  ts.SyntaxKind.BarBarToken,
+  ts.SyntaxKind.ExclamationToken,
+  ts.SyntaxKind.TildeToken,
+  ts.SyntaxKind.ArrowToken,
+  ts.SyntaxKind.ReturnKeyword,
+  ts.SyntaxKind.ThrowKeyword,
+  ts.SyntaxKind.CaseKeyword,
+  ts.SyntaxKind.DeleteKeyword,
+  ts.SyntaxKind.TypeOfKeyword,
+  ts.SyntaxKind.VoidKeyword,
+  ts.SyntaxKind.NewKeyword,
+  ts.SyntaxKind.InKeyword,
+  ts.SyntaxKind.OfKeyword,
+  ts.SyntaxKind.YieldKeyword,
+  ts.SyntaxKind.AwaitKeyword,
+]);
+
 /**
  * Walks a root and returns the TypeScript files it holds.
  *
@@ -70,16 +103,42 @@ function walk(root, skip, found = []) {
  * @param path - the file's path
  * @returns one finding per offending comment
  */
-function findingsOf(path) {
+export function findingsOf(path) {
   const text = readFileSync(path, "utf8");
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.ES2023, true);
   const found = [];
   const scanner = ts.createScanner(ts.ScriptTarget.ES2023, false, ts.LanguageVariant.Standard, text);
 
+  let pendingLineComment = null;
+  const evaluate = (line, content) => {
+    if (content.length === 0) return;
+    if (COMMENTED_CODE.some((pattern) => pattern.test(content))) {
+      found.push({ line, kind: "commented-out code", text: content });
+      return;
+    }
+    if (!INTENT.test(content) && content.split(/\s+/).length <= 12) {
+      found.push({ line, kind: "narration", text: content });
+    }
+  };
+  const flushLineComment = () => {
+    if (pendingLineComment == null) return;
+    evaluate(pendingLineComment.line, pendingLineComment.content.join(" "));
+    pendingLineComment = null;
+  };
+
+  let previous = null;
   for (let token = scanner.scan(); token !== ts.SyntaxKind.EndOfFileToken; token = scanner.scan()) {
+    if (token === ts.SyntaxKind.WhitespaceTrivia || token === ts.SyntaxKind.NewLineTrivia) continue;
+    if (token === ts.SyntaxKind.SlashToken && REGEX_PREFIX_TOKENS.has(previous)) {
+      token = scanner.reScanSlashToken();
+    }
     const isComment =
       token === ts.SyntaxKind.SingleLineCommentTrivia || token === ts.SyntaxKind.MultiLineCommentTrivia;
-    if (!isComment) continue;
+    if (!isComment) {
+      flushLineComment();
+      previous = token;
+      continue;
+    }
 
     const body = scanner.getTokenText();
     if (body.startsWith("/**")) continue;
@@ -93,16 +152,20 @@ function findingsOf(path) {
       .map((entry) => entry.replace(/^\s*\*\s?/, "").trim())
       .join(" ")
       .trim();
-    if (content.length === 0) continue;
-
-    if (COMMENTED_CODE.some((pattern) => pattern.test(content))) {
-      found.push({ line, kind: "commented-out code", text: content });
+    if (token === ts.SyntaxKind.SingleLineCommentTrivia) {
+      if (pendingLineComment != null && line === pendingLineComment.lastLine + 1) {
+        pendingLineComment.content.push(content);
+        pendingLineComment.lastLine = line;
+      } else {
+        flushLineComment();
+        pendingLineComment = { line, lastLine: line, content: [content] };
+      }
       continue;
     }
-    if (!INTENT.test(content) && content.split(/\s+/).length <= 12) {
-      found.push({ line, kind: "narration", text: content });
-    }
+    flushLineComment();
+    evaluate(line, content);
   }
+  flushLineComment();
 
   return found;
 }
@@ -150,4 +213,4 @@ function main() {
   console.log(`${files.length} files: no narration, no commented-out code.`);
 }
 
-main();
+if (process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]).href) main();

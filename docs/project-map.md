@@ -7,7 +7,7 @@ It answers one question — **does this already exist?** — and the reuse note 
 addition is judged against it. What it does not see: members of a class, names assembled at
 runtime, and re-exports through an index.
 
-83 files, src, test.
+85 files, src, test.
 
 ## src/adapters/
 
@@ -463,6 +463,16 @@ runtime, and re-exports through an index.
 ### test/infrastructure/persistence/transactions/in-transaction.spec.ts
 
 - `Un pret et sa dette, ecrits ensemble ou pas du tout` — test harness
+
+## test/scripts/
+
+### test/scripts/comment-policy.spec.ts
+
+- `comment policy lexical scanning` — test harness
+
+### test/scripts/commit-subjects.spec.ts
+
+- `commit subjects` — test harness
 
 ## test/smoke/
 
