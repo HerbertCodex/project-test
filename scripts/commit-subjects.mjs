@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 /**
  * Refuse un commit à venir dont le sujet ne dit pas à qui il appartient.
@@ -20,11 +20,13 @@ import { readFileSync } from "node:fs";
  * refuser à chaque exécution ferait un gate rouge pour toujours, donc un gate
  * qu'on finit par désactiver.
  */
-const STORE = "pipeline/store/issues.jsonl";
+const STORE = 'pipeline/store/issues.jsonl';
 const DIRECT = /^direct:/m;
 
 /**
- * Les commits en avance sur la référence, sujet et corps.
+ * Les commits non-merge en avance sur la référence, sujet et corps.
+ * Les commits de fusion produits par GitHub pour tester une PR sont synthétiques
+ * et ne peuvent pas être rendus conformes par leur auteur.
  *
  * @param base - la référence de comparaison
  * @returns une entrée par commit, ou une liste vide s'il n'y a pas de base
@@ -32,20 +34,24 @@ const DIRECT = /^direct:/m;
 function commitsAhead(base) {
   let raw;
   try {
-    raw = execFileSync("git", ["log", "--format=%h%x1f%s%x1f%b%x1e", `${base}..HEAD`], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    raw = execFileSync(
+      'git',
+      ['log', '--no-merges', '--format=%h%x1f%s%x1f%b%x1e', `${base}..HEAD`],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      },
+    );
   } catch {
     return null;
   }
   return raw
-    .split("\x1e")
+    .split('\x1e')
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0)
     .map((entry) => {
-      const [sha, subject, body] = entry.split("\x1f");
-      return { sha, subject, body: body ?? "" };
+      const [sha, subject, body] = entry.split('\x1f');
+      return { sha, subject, body: body ?? '' };
     });
 }
 
@@ -56,16 +62,18 @@ function commitsAhead(base) {
  */
 function knownIssues() {
   return new Set(
-    readFileSync(STORE, "utf8")
-      .split("\n")
+    readFileSync(STORE, 'utf8')
+      .split('\n')
       .filter((line) => line.trim().length > 0)
       .map((line) => JSON.parse(line).id),
   );
 }
 
-const base = ["origin/main", "main"].map(commitsAhead).find((found) => found !== null);
+const base = ['origin/main', 'main']
+  .map(commitsAhead)
+  .find((found) => found !== null);
 if (base === undefined) {
-  console.log("ni origin/main ni main : rien à comparer, rien à refuser.");
+  console.log('ni origin/main ni main : rien à comparer, rien à refuser.');
   process.exit(0);
 }
 const known = knownIssues();
@@ -74,8 +82,11 @@ const offenders = base.filter((commit) => {
   return ![...known].some((id) => commit.subject.includes(id));
 });
 if (offenders.length > 0) {
-  console.error(`${offenders.length} commit(s) en avance dont le sujet ne nomme aucune issue :`);
-  for (const commit of offenders) console.error(`  ${commit.sha}  ${commit.subject}`);
+  console.error(
+    `${offenders.length} commit(s) en avance dont le sujet ne nomme aucune issue :`,
+  );
+  for (const commit of offenders)
+    console.error(`  ${commit.sha}  ${commit.subject}`);
   console.error(
     "\nLe sujet porte l'identifiant — feat(i-xxxx): … — ou le message porte une ligne `direct:`" +
       " disant pourquoi. Corrigé maintenant, c'est un amend ; corrigé plus tard, c'est une" +
@@ -83,4 +94,6 @@ if (offenders.length > 0) {
   );
   process.exit(1);
 }
-console.log(`${base.length} commit(s) en avance : chacun nomme son issue ou se déclare direct.`);
+console.log(
+  `${base.length} commit(s) en avance : chacun nomme son issue ou se déclare direct.`,
+);
