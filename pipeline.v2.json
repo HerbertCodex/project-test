@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "executionMode": "local-trusted",
+  "environment": {
+    "id": "local-linux-x64-node-24.21.0",
+    "passEnv": [
+      "PATH",
+      "SystemRoot",
+      "WINDIR",
+      "TMPDIR",
+      "TEMP",
+      "TMP",
+      "LANG"
+    ]
+  },
+  "agent": {
+    "type": "claude",
+    "command": [],
+    "timeoutMs": 900000,
+    "passEnv": [
+      "HOME",
+      "CLAUDE_CONFIG_DIR",
+      "ANTHROPIC_API_KEY",
+      "CLAUDE_CODE_OAUTH_TOKEN"
+    ],
+    "model": "",
+    "maxTurns": 32,
+    "maxBudgetUsd": 5
+  },
+  "skills": {
+    "enabled": [
+      "clean-code",
+      "design-patterns",
+      "refactoring",
+      "security",
+      "tdd",
+      "ui-design"
+    ],
+    "projectType": "fullstack",
+    "maxContextBytes": 16000
+  },
+  "roles": {
+    "product": null,
+    "qa": null
+  },
+  "workflow": {
+    "qaLanes": [
+      "standard",
+      "high"
+    ],
+    "maxQaRepairs": 2,
+    "maxActiveMs": 3600000,
+    "reviewMode": "solo"
+  },
+  "setup": [
+    {
+      "command": [
+        "npm",
+        "ci",
+        "--ignore-scripts"
+      ],
+      "timeoutMs": 300000,
+      "passEnv": [
+        "HOME"
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "id": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "{{baseSha}}",
+        "{{candidateSha}}"
+      ],
+      "timeoutMs": 120000,
+      "passEnv": [],
+      "dependsOn": [],
+      "resources": [],
+      "outputs": [],
+      "paths": [],
+      "lanes": [
+        "fast",
+        "standard",
+        "high"
+      ],
+      "mandatory": true,
+      "cacheTtlMs": 0
+    },
+    {
+      "id": "test",
+      "command": [
+        "npm",
+        "run",
+        "test"
+      ],
+      "timeoutMs": 120000,
+      "passEnv": [],
+      "dependsOn": [],
+      "resources": [
+        "project-checks"
+      ],
+      "outputs": [],
+      "paths": [],
+      "lanes": [
+        "standard",
+        "high"
+      ],
+      "mandatory": false,
+      "cacheTtlMs": 0
+    },
+    {
+      "id": "check",
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "timeoutMs": 120000,
+      "passEnv": [],
+      "dependsOn": [],
+      "resources": [
+        "project-checks"
+      ],
+      "outputs": [],
+      "paths": [],
+      "lanes": [
+        "standard",
+        "high"
+      ],
+      "mandatory": false,
+      "cacheTtlMs": 0
+    }
+  ],
+  "concurrency": 3,
+  "failFast": true,
+  "maxRunMs": 1800000,
+  "maxRepairAttempts": 1,
+  "validationMaxAgeMs": 3600000,
+  "risk": {
+    "fastPaths": [
+      "docs/**",
+      "*.md"
+    ],
+    "highPaths": [],
+    "maxFastFiles": 5,
+    "maxFastLines": 100
+  }
+}
