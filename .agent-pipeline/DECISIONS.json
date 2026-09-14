@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "decisions": [
+    {
+      "id": "D-domain-librairie",
+      "subject": "Nature du lieu ou de la collection gérée (« librairie »)",
+      "value": "Non résolu : on sait seulement qu'il s'agit de gérer des livres avec une fonction d'emprunt. Le type d'établissement reste à clarifier.",
+      "enforcement": "product",
+      "status": "ambiguous",
+      "source": "operator",
+      "sourceQuote": "Je veux faire une app de gestion de librairie",
+      "rationale": "En français, « librairie » désigne un commerce qui vend des livres. Associé à « emprunter », le mot peut aussi être un anglicisme (library = bibliothèque) ou viser une collection personnelle ou associative. Le modèle métier diffère beaucoup. Le squelette reste neutre (page d'accueil générique et endpoint de santé), donc cela ne bloque pas le bootstrap.",
+      "supersedes": [],
+      "clarificationQuestion": "Par « librairie », voulez-vous dire une bibliothèque (prêt de livres à des adhérents), une librairie commerciale qui propose aussi le prêt, ou la gestion d'une collection personnelle ou associative prêtée à des proches ?",
+      "interpretations": [
+        "Bibliothèque (anglicisme de « library ») : catalogue, adhérents, prêts et retours, sans vente.",
+        "Librairie commerciale (vente de livres) qui propose en plus un service de prêt.",
+        "Collection personnelle ou associative dont on suit les livres prêtés à des proches."
+      ]
+    },
+    {
+      "id": "D-borrowing-capability",
+      "subject": "Fonction d'emprunt",
+      "value": "L'application doit permettre d'emprunter (des livres). Qui emprunte, les conditions et le suivi des retours restent à définir par Product.",
+      "enforcement": "product",
+      "status": "confirmed",
+      "source": "operator",
+      "sourceQuote": "qui permet d'emprunter",
+      "rationale": "L'existence de la fonction d'emprunt n'a qu'une interprétation matérielle. Ses règles (durée, limites, retards, réservations, exemplaires) sont des décisions Product et ne sont pas inventées ici.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-stack-sveltekit",
+      "subject": "Framework applicatif",
+      "value": "SvelteKit.",
+      "enforcement": "bootstrap",
+      "status": "confirmed",
+      "source": "operator",
+      "sourceQuote": "je veux ca SvelteKit",
+      "rationale": "Préférence technologique explicite de l'opérateur, qui remplace le socle Node.js sans dépendance et la forme « backend d'abord » proposés auparavant.",
+      "supersedes": [
+        "D-stack-node-zero-deps",
+        "D-app-shape-backend-first"
+      ],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-sveltekit-fullstack-variant",
+      "subject": "Variante d'utilisation de SvelteKit",
+      "value": "SvelteKit full-stack : pages et code serveur (endpoints, hooks, futurs load et form actions) dans une seule application.",
+      "enforcement": "bootstrap",
+      "status": "proposed",
+      "source": "derived",
+      "sourceQuote": "",
+      "rationale": "L'emprunt demande un état central côté serveur. La variante full-stack le fournit sans second service. Si l'opérateur ne voulait SvelteKit que pour le frontend, on pourra ajouter un backend séparé plus tard sans jeter ce squelette.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-typescript",
+      "subject": "Langage",
+      "value": "TypeScript strict, vérifié par svelte-check.",
+      "enforcement": "bootstrap",
+      "status": "proposed",
+      "source": "derived",
+      "sourceQuote": "",
+      "rationale": "Configuration standard de SvelteKit, utile pour le futur modèle de domaine et les types de route générés.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-package-manager-npm",
+      "subject": "Gestionnaire de paquets et lockfile",
+      "value": "npm. Aucun lockfile fabriqué : `package-lock.json` sera généré par le premier `npm install` après approbation, puis commité.",
+      "enforcement": "bootstrap",
+      "status": "proposed",
+      "source": "derived",
+      "sourceQuote": "",
+      "rationale": "Livré avec Node.js, aucune préférence exprimée. Les consignes interdisent de fabriquer un lockfile.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-adapter-auto",
+      "subject": "Adaptateur de déploiement",
+      "value": "@sveltejs/adapter-auto jusqu'au choix de l'hébergement.",
+      "enforcement": "deferred",
+      "status": "deferred",
+      "source": "derived",
+      "sourceQuote": "",
+      "rationale": "L'hébergement de production est reportable et ne doit pas bloquer le bootstrap.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-no-persistence-auth-yet",
+      "subject": "Persistance, comptes et authentification",
+      "value": "Aucune base de données, aucun compte et aucune authentification dans le squelette. À décider après le modèle métier.",
+      "enforcement": "deferred",
+      "status": "deferred",
+      "source": "derived",
+      "sourceQuote": "",
+      "rationale": "Ces choix dépendent des réponses Product (qui emprunte, données collectées, volume) et peuvent être ajoutés sans risque après le squelette.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-local-bind-default",
+      "subject": "Exposition réseau par défaut",
+      "value": "En développement, le serveur écoute sur localhost (comportement par défaut de `vite dev`, sans option `--host`).",
+      "enforcement": "bootstrap",
+      "status": "proposed",
+      "source": "derived",
+      "sourceQuote": "",
+      "rationale": "L'exposition est inconnue (securityContext) : on n'expose rien sur le réseau par défaut.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-baseline-web-security",
+      "subject": "Sécurité web de base",
+      "value": "CSP SvelteKit en mode auto (script-src, object-src, base-uri et form-action restreints) et hook serveur ajoutant nosniff, Referrer-Policy et X-Frame-Options.",
+      "enforcement": "bootstrap",
+      "status": "proposed",
+      "source": "derived",
+      "sourceQuote": "",
+      "rationale": "Le squelette sert désormais une interface web. Ces protections sont bien moins coûteuses dès le départ qu'ajoutées après coup.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-tests-vitest",
+      "subject": "Outil de test",
+      "value": "Vitest (`npm test` lance `vitest run`), en environnement node.",
+      "enforcement": "bootstrap",
+      "status": "proposed",
+      "source": "derived",
+      "sourceQuote": "",
+      "rationale": "Réutilise la configuration Vite et SvelteKit, et permet de tester les handlers serveur sans démarrer de serveur.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    }
+  ]
+}
