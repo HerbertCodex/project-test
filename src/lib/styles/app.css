@@ -1,0 +1,702 @@
+/*
+ * Direction « Functional high-contrast ».
+ *
+ * Contrastes des couples utilisés pour du texte :
+ * - encre #121212 sur blanc : 18,7:1 ; encre secondaire #3d3d3d sur blanc : 10,9:1 ;
+ * - encre sur orange #ff6a00 : 6,5:1 ; orange sur encre (badge de retard) : 6,5:1 ;
+ * - blanc sur encre (en-tête libraire, erreurs) : 18,7:1.
+ * L'orange n'est jamais une couleur de texte sur blanc (2,9:1) ni un fond sous du texte blanc.
+ * Le filet #767676 (4,5:1) ne sert qu'aux bordures.
+ */
+
+:root {
+  --paper: #ffffff;
+  --ink: #121212;
+  --ink-2: #3d3d3d;
+  --rule: #767676;
+  --hover: #f0f0f0;
+  --accent: #ff6a00;
+
+  --font: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --measure: 72rem;
+  --counter-measure: 40rem;
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+
+  --control-height: 3.25rem;
+  --counter-button-height: 4.25rem;
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* 18 px sur un navigateur réglé à 16 px, en suivant le réglage de l'utilisateur. */
+  font-size: 112.5%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.5em;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+h1 {
+  font-size: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+  font-weight: 900;
+}
+
+h2 {
+  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+}
+
+h3 {
+  font-size: 1.25rem;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+a {
+  color: var(--ink);
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-thickness: 0.22em;
+}
+
+time,
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus : anneau encre de 3 px et halo orange. */
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 0;
+  box-shadow: 0 0 0 7px var(--accent);
+}
+
+[tabindex='-1']:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Texte réservé aux technologies d'assistance. */
+.vh {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10;
+  padding: 0.75rem 1rem;
+  background: var(--accent);
+  color: var(--ink);
+  font-weight: 800;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+/* ------------------------------------------------------------------------- */
+/* En-tête                                                                    */
+/* ------------------------------------------------------------------------- */
+
+.site-header {
+  border-bottom: 6px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.site-header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 2rem;
+  max-width: var(--measure);
+  padding: 1rem var(--gutter);
+}
+
+.site-brand {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+}
+
+.site-brand__name {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.site-brand__tag {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav a {
+  display: inline-block;
+  padding: 0.35rem 0.5rem;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 4px solid transparent;
+}
+
+.site-nav a:hover {
+  border-bottom-color: currentColor;
+}
+
+/* Page active : texte encre sur l'orange, repérée aussi par la graisse et le filet. */
+.site-nav a[aria-current='page'] {
+  background: var(--accent);
+  color: var(--ink);
+  font-weight: 850;
+  border-bottom-color: var(--ink);
+}
+
+.site-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  margin-left: auto;
+}
+
+.site-account__name {
+  font-weight: 700;
+}
+
+.site-account form {
+  margin: 0;
+}
+
+/* Espace libraire : en-tête inversé avec filet orange. */
+.site-header--libraire {
+  background: var(--ink);
+  color: var(--paper);
+  border-bottom-color: var(--accent);
+}
+
+.site-header--libraire :focus-visible {
+  outline-color: var(--paper);
+}
+
+.site-header--libraire .btn-link {
+  color: var(--paper);
+}
+
+/* ------------------------------------------------------------------------- */
+/* Mise en page                                                               */
+/* ------------------------------------------------------------------------- */
+
+.page {
+  display: block;
+  max-width: var(--measure);
+  padding: 2rem var(--gutter) 4rem;
+}
+
+.page--counter {
+  max-width: calc(var(--counter-measure) + 2 * var(--gutter));
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-head h1 {
+  margin: 0;
+}
+
+.lead {
+  color: var(--ink-2);
+  font-size: 1.15rem;
+}
+
+/* Inscription et connexion : introduction et formulaire côte à côte à partir de 50 rem. */
+.auth {
+  display: grid;
+  gap: 1.5rem 4rem;
+}
+
+.auth__form {
+  max-width: 32rem;
+}
+
+@media (min-width: 50rem) {
+  .auth {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 32rem);
+    align-items: start;
+  }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Formulaires                                                                */
+/* ------------------------------------------------------------------------- */
+
+.form {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-weight: 800;
+}
+
+.field .hint {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.field input {
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  /* 22,5 px : évite le zoom automatique sur iOS. */
+  font-size: 1.25rem;
+}
+
+.field input:hover {
+  background: var(--hover);
+}
+
+.field input[aria-invalid='true'] {
+  border-width: 3px;
+  border-left-width: 14px;
+}
+
+.field-error {
+  margin: 0;
+  padding-left: 0.75rem;
+  border-left: 14px solid var(--ink);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Boutons                                                                    */
+/* ------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-height);
+  padding: 0.5rem 1.5rem;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 120ms linear;
+}
+
+.btn:hover {
+  background: var(--hover);
+}
+
+.btn--primary {
+  background: var(--accent);
+}
+
+.btn--primary:hover {
+  background: var(--paper);
+}
+
+.btn--counter {
+  min-height: var(--counter-button-height);
+  font-size: 1.25rem;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn[aria-busy='true'] {
+  cursor: progress;
+}
+
+@media (max-width: 40rem) {
+  .form .btn,
+  .error-page .btn {
+    width: 100%;
+  }
+}
+
+/* Bouton d'apparence lien (déconnexion dans l'en-tête). */
+.btn-link {
+  padding: 0.35rem 0.5rem;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.btn-link:hover {
+  text-decoration-thickness: 0.22em;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Messages                                                                   */
+/* ------------------------------------------------------------------------- */
+
+.notice {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--ink);
+  border-left: 14px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.notice > :last-child {
+  margin-bottom: 0;
+}
+
+.notice__title {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 850;
+}
+
+.notice--success {
+  border-left-color: var(--accent);
+}
+
+.notice--error {
+  border-color: var(--ink);
+  border-left-color: var(--accent);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.notice--error a {
+  color: var(--paper);
+}
+
+.notice--error :focus-visible,
+.notice--error:focus-visible {
+  outline-color: var(--paper);
+}
+
+.notice ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.empty {
+  padding: 2rem 1.5rem;
+  border: 3px dashed var(--ink);
+}
+
+/* ------------------------------------------------------------------------- */
+/* Tables                                                                     */
+/* ------------------------------------------------------------------------- */
+
+.data {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data caption {
+  text-align: left;
+}
+
+.data th,
+.data td {
+  padding: 0.75rem 0.75rem 0.75rem 0;
+  border-bottom: 1px solid var(--ink);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.data thead th {
+  border-bottom-width: 3px;
+  font-size: 0.9rem;
+  font-variant: small-caps;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+.data tbody tr:hover {
+  background: var(--hover);
+}
+
+.data .col-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.data .col-action {
+  text-align: right;
+  padding-right: 0;
+}
+
+.data .col-price {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-label {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  .data--stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .data--stack,
+  .data--stack tbody {
+    display: block;
+  }
+
+  .data--stack tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  .data--stack td,
+  .data--stack th {
+    padding: 0;
+    border: 0;
+  }
+
+  .data--stack td:empty {
+    display: none;
+  }
+
+  .data--stack .col-title,
+  .data--stack .col-author,
+  .data--stack .col-action {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .data--stack .col-action .btn {
+    width: 100%;
+    min-height: 3.25rem;
+  }
+
+  .cell-label {
+    display: block;
+    color: var(--ink-2);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Signaux de prêt                                                            */
+/* ------------------------------------------------------------------------- */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status::before {
+  content: '';
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid var(--ink);
+}
+
+.status--available {
+  font-weight: 800;
+}
+
+.status--available::before {
+  background: var(--accent);
+}
+
+.status--borrowed {
+  color: var(--ink-2);
+}
+
+.badge-overdue {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: var(--ink);
+  color: var(--accent);
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Compteurs (Mes prêts, retours). */
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.tally__item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border: 2px solid var(--ink);
+}
+
+.tally__value {
+  font-size: 1.75rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.tally__item--alert {
+  background: var(--accent);
+}
+
+/* Écrans libraire : une colonne étroite et une seule action. */
+.counter {
+  max-width: var(--counter-measure);
+}
+
+/* ------------------------------------------------------------------------- */
+/* Page d'erreur                                                              */
+/* ------------------------------------------------------------------------- */
+
+.error-page {
+  max-width: 48rem;
+  padding-top: 1rem;
+}
+
+.error-page__code {
+  display: block;
+  margin: 0 0 0.5rem;
+  font-size: clamp(4rem, 2rem + 10vw, 9rem);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 6px solid var(--ink);
+}
+
+.error-page__code::after {
+  content: '';
+  display: block;
+  width: 4rem;
+  height: 0.5rem;
+  margin-top: 0.5rem;
+  background: var(--accent);
+}
+
+.error-page__message {
+  font-size: 1.25rem;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Préférences                                                                */
+/* ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+
+  .btn--primary,
+  .site-nav a[aria-current='page'],
+  .status--available::before,
+  .badge-overdue,
+  .tally__item--alert,
+  .skip-link {
+    border: 2px solid CanvasText;
+  }
+
+  .site-nav a[aria-current='page'] {
+    text-decoration: underline;
+  }
+}
