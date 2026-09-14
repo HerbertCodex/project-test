@@ -1,5 +1,8 @@
 node_modules/
 
+# Base SQLite locale (data/librairie.db et fichiers WAL)
+data/
+
 # Sorties SvelteKit et adaptateurs
 /.svelte-kit
 /build
