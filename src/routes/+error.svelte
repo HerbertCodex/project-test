@@ -36,3 +36,40 @@
   <p class="error-page__message">{content.message}</p>
   <p><a class="btn btn--primary" href="/">Retour au catalogue</a></p>
 </section>
+
+<style>
+  .error-page {
+    max-width: 48rem;
+    padding-top: 1rem;
+  }
+
+  .error-page__code {
+    display: block;
+    margin: 0 0 0.5rem;
+    font-size: clamp(4rem, 2rem + 10vw, 9rem);
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 0.9;
+    font-variant-numeric: tabular-nums;
+    border-bottom: 6px solid var(--ink);
+  }
+
+  .error-page__code::after {
+    content: '';
+    display: block;
+    width: 4rem;
+    height: 0.5rem;
+    margin-top: 0.5rem;
+    background: var(--accent);
+  }
+
+  .error-page__message {
+    font-size: 1.25rem;
+  }
+
+  @media (max-width: 40rem) {
+    .error-page .btn {
+      width: 100%;
+    }
+  }
+</style>

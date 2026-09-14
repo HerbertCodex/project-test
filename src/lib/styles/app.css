@@ -7,6 +7,9 @@
  * - blanc sur encre (en-tête libraire, erreurs) : 18,7:1.
  * L'orange n'est jamais une couleur de texte sur blanc (2,9:1) ni un fond sous du texte blanc.
  * Le filet #767676 (4,5:1) ne sert qu'aux bordures.
+ *
+ * Ce fichier porte la base partagée ; les styles propres à un seul composant ou
+ * à une seule page sont dans le bloc style de ce fichier.
  */
 
 :root {
@@ -382,8 +385,7 @@ time,
 }
 
 @media (max-width: 40rem) {
-  .form .btn,
-  .error-page .btn {
+  .form .btn {
     width: 100%;
   }
 }
@@ -569,31 +571,6 @@ time,
 /* Signaux de prêt                                                            */
 /* ------------------------------------------------------------------------- */
 
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.status::before {
-  content: '';
-  width: 0.9rem;
-  height: 0.9rem;
-  border: 2px solid var(--ink);
-}
-
-.status--available {
-  font-weight: 800;
-}
-
-.status--available::before {
-  background: var(--accent);
-}
-
-.status--borrowed {
-  color: var(--ink-2);
-}
-
 .badge-overdue {
   display: inline-block;
   padding: 0.15rem 0.5rem;
@@ -638,39 +615,6 @@ time,
 }
 
 /* ------------------------------------------------------------------------- */
-/* Page d'erreur                                                              */
-/* ------------------------------------------------------------------------- */
-
-.error-page {
-  max-width: 48rem;
-  padding-top: 1rem;
-}
-
-.error-page__code {
-  display: block;
-  margin: 0 0 0.5rem;
-  font-size: clamp(4rem, 2rem + 10vw, 9rem);
-  font-weight: 900;
-  letter-spacing: -0.05em;
-  line-height: 0.9;
-  font-variant-numeric: tabular-nums;
-  border-bottom: 6px solid var(--ink);
-}
-
-.error-page__code::after {
-  content: '';
-  display: block;
-  width: 4rem;
-  height: 0.5rem;
-  margin-top: 0.5rem;
-  background: var(--accent);
-}
-
-.error-page__message {
-  font-size: 1.25rem;
-}
-
-/* ------------------------------------------------------------------------- */
 /* Préférences                                                                */
 /* ------------------------------------------------------------------------- */
 
@@ -689,7 +633,6 @@ time,
 
   .btn--primary,
   .site-nav a[aria-current='page'],
-  .status--available::before,
   .badge-overdue,
   .tally__item--alert,
   .skip-link {
