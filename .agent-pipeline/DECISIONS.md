@@ -1,22 +1,6 @@
 # Decision Ledger
 
-Ledger hash: 8e78ff0a0b97a04b22fd3fecc8ccd17a2ce821d722ddb0c1fe1072ac5c24a08e
-
-## D-domain-librairie — Nature du lieu ou de la collection gérée (« librairie »)
-
-Value: Non résolu : on sait seulement qu'il s'agit de gérer des livres avec une fonction d'emprunt. Le type d'établissement reste à clarifier.
-Status: ambiguous
-Enforcement: product
-Source: operator
-Source quote: Je veux faire une app de gestion de librairie
-Clarification: Par « librairie », voulez-vous dire une bibliothèque (prêt de livres à des adhérents), une librairie commerciale qui propose aussi le prêt, ou la gestion d'une collection personnelle ou associative prêtée à des proches ?
-
-Plausible interpretations:
-- Bibliothèque (anglicisme de « library ») : catalogue, adhérents, prêts et retours, sans vente.
-- Librairie commerciale (vente de livres) qui propose en plus un service de prêt.
-- Collection personnelle ou associative dont on suit les livres prêtés à des proches.
-
-En français, « librairie » désigne un commerce qui vend des livres. Associé à « emprunter », le mot peut aussi être un anglicisme (library = bibliothèque) ou viser une collection personnelle ou associative. Le modèle métier diffère beaucoup. Le squelette reste neutre (page d'accueil générique et endpoint de santé), donc cela ne bloque pas le bootstrap.
+Ledger hash: 45168ae15fbcc1fe44c86cca9b4545f3b426381889d214001bb4c08e90d64853
 
 ## D-borrowing-capability — Fonction d'emprunt
 
@@ -74,15 +58,6 @@ Source: derived
 
 L'hébergement de production est reportable et ne doit pas bloquer le bootstrap.
 
-## D-no-persistence-auth-yet — Persistance, comptes et authentification
-
-Value: Aucune base de données, aucun compte et aucune authentification dans le squelette. À décider après le modèle métier.
-Status: deferred
-Enforcement: deferred
-Source: derived
-
-Ces choix dépendent des réponses Product (qui emprunte, données collectées, volume) et peuvent être ajoutés sans risque après le squelette.
-
 ## D-local-bind-default — Exposition réseau par défaut
 
 Value: En développement, le serveur écoute sur localhost (comportement par défaut de `vite dev`, sans option `--host`).
@@ -109,4 +84,34 @@ Enforcement: bootstrap
 Source: derived
 
 Réutilise la configuration Vite et SvelteKit, et permet de tester les handlers serveur sans démarrer de serveur.
+
+## D-domain-librairie-resolved — Nature du lieu ou de la collection gérée (« librairie »)
+
+Value: Librairie commerciale qui vend des livres et propose en plus un service de prêt.
+Status: confirmed
+Enforcement: product
+Source: operator
+Source quote: Librairie + prêt
+
+Réponse de l'opérateur à la question de clarification enregistrée pour D-domain-librairie (spec 0eda2681), reprise dans les specs 3ffac906, 36b93132, 91fcb206 et f287f99d.
+
+## D-persistence-auth — Persistance, comptes et authentification
+
+Value: SQLite via better-sqlite3 ; comptes par e-mail et mot de passe d'au moins 12 caractères haché en Argon2id (paquet argon2) ; sessions serveur à expiration absolue de 7 jours ; blocage de 15 minutes après 5 échecs ; pas de réinitialisation par e-mail ni de 2FA en v1.
+Status: confirmed
+Enforcement: bootstrap
+Source: operator
+Source quote: Paquets éprouvés
+
+Choix de l'opérateur pour l'authentification, les données et la persistance (spec 0eda2681, révision 2), implémenté dans l'incrément 1 (spec 3ffac906). Remplace le report initial.
+
+## D-visual-direction — Direction visuelle et typographie
+
+Value: « Maison d'édition » : fond ivoire, texte bleu nuit, accent laiton rare ; titres en Cormorant Garamond et texte en Inter, polices OFL auto-hébergées dans static/fonts.
+Status: confirmed
+Enforcement: bootstrap
+Source: operator
+Source quote: Maison d'édition
+
+Choisie par l'opérateur après avoir refusé « Functional high-contrast » ; paire de polices validée (« Oui, cette paire »). Implémentée par la spec 91fcb206.
 

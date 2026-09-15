@@ -2,23 +2,6 @@
   "schemaVersion": 1,
   "decisions": [
     {
-      "id": "D-domain-librairie",
-      "subject": "Nature du lieu ou de la collection gérée (« librairie »)",
-      "value": "Non résolu : on sait seulement qu'il s'agit de gérer des livres avec une fonction d'emprunt. Le type d'établissement reste à clarifier.",
-      "enforcement": "product",
-      "status": "ambiguous",
-      "source": "operator",
-      "sourceQuote": "Je veux faire une app de gestion de librairie",
-      "rationale": "En français, « librairie » désigne un commerce qui vend des livres. Associé à « emprunter », le mot peut aussi être un anglicisme (library = bibliothèque) ou viser une collection personnelle ou associative. Le modèle métier diffère beaucoup. Le squelette reste neutre (page d'accueil générique et endpoint de santé), donc cela ne bloque pas le bootstrap.",
-      "supersedes": [],
-      "clarificationQuestion": "Par « librairie », voulez-vous dire une bibliothèque (prêt de livres à des adhérents), une librairie commerciale qui propose aussi le prêt, ou la gestion d'une collection personnelle ou associative prêtée à des proches ?",
-      "interpretations": [
-        "Bibliothèque (anglicisme de « library ») : catalogue, adhérents, prêts et retours, sans vente.",
-        "Librairie commerciale (vente de livres) qui propose en plus un service de prêt.",
-        "Collection personnelle ou associative dont on suit les livres prêtés à des proches."
-      ]
-    },
-    {
       "id": "D-borrowing-capability",
       "subject": "Fonction d'emprunt",
       "value": "L'application doit permettre d'emprunter (des livres). Qui emprunte, les conditions et le suivi des retours restent à définir par Product.",
@@ -100,19 +83,6 @@
       "interpretations": []
     },
     {
-      "id": "D-no-persistence-auth-yet",
-      "subject": "Persistance, comptes et authentification",
-      "value": "Aucune base de données, aucun compte et aucune authentification dans le squelette. À décider après le modèle métier.",
-      "enforcement": "deferred",
-      "status": "deferred",
-      "source": "derived",
-      "sourceQuote": "",
-      "rationale": "Ces choix dépendent des réponses Product (qui emprunte, données collectées, volume) et peuvent être ajoutés sans risque après le squelette.",
-      "supersedes": [],
-      "clarificationQuestion": "",
-      "interpretations": []
-    },
-    {
       "id": "D-local-bind-default",
       "subject": "Exposition réseau par défaut",
       "value": "En développement, le serveur écoute sur localhost (comportement par défaut de `vite dev`, sans option `--host`).",
@@ -147,6 +117,49 @@
       "source": "derived",
       "sourceQuote": "",
       "rationale": "Réutilise la configuration Vite et SvelteKit, et permet de tester les handlers serveur sans démarrer de serveur.",
+      "supersedes": [],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-domain-librairie-resolved",
+      "subject": "Nature du lieu ou de la collection gérée (« librairie »)",
+      "value": "Librairie commerciale qui vend des livres et propose en plus un service de prêt.",
+      "enforcement": "product",
+      "status": "confirmed",
+      "source": "operator",
+      "sourceQuote": "Librairie + prêt",
+      "rationale": "Réponse de l'opérateur à la question de clarification enregistrée pour D-domain-librairie (spec 0eda2681), reprise dans les specs 3ffac906, 36b93132, 91fcb206 et f287f99d.",
+      "supersedes": [
+        "D-domain-librairie"
+      ],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-persistence-auth",
+      "subject": "Persistance, comptes et authentification",
+      "value": "SQLite via better-sqlite3 ; comptes par e-mail et mot de passe d'au moins 12 caractères haché en Argon2id (paquet argon2) ; sessions serveur à expiration absolue de 7 jours ; blocage de 15 minutes après 5 échecs ; pas de réinitialisation par e-mail ni de 2FA en v1.",
+      "enforcement": "bootstrap",
+      "status": "confirmed",
+      "source": "operator",
+      "sourceQuote": "Paquets éprouvés",
+      "rationale": "Choix de l'opérateur pour l'authentification, les données et la persistance (spec 0eda2681, révision 2), implémenté dans l'incrément 1 (spec 3ffac906). Remplace le report initial.",
+      "supersedes": [
+        "D-no-persistence-auth-yet"
+      ],
+      "clarificationQuestion": "",
+      "interpretations": []
+    },
+    {
+      "id": "D-visual-direction",
+      "subject": "Direction visuelle et typographie",
+      "value": "« Maison d'édition » : fond ivoire, texte bleu nuit, accent laiton rare ; titres en Cormorant Garamond et texte en Inter, polices OFL auto-hébergées dans static/fonts.",
+      "enforcement": "bootstrap",
+      "status": "confirmed",
+      "source": "operator",
+      "sourceQuote": "Maison d'édition",
+      "rationale": "Choisie par l'opérateur après avoir refusé « Functional high-contrast » ; paire de polices validée (« Oui, cette paire »). Implémentée par la spec 91fcb206.",
       "supersedes": [],
       "clarificationQuestion": "",
       "interpretations": []
