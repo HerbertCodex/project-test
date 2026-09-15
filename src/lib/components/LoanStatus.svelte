@@ -11,35 +11,47 @@
 {/if}
 
 <style>
+  /* Le texte porte le statut ; la forme (pastille pleine, anneau vide) le double, jamais la couleur seule. */
   .status {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    font-size: 0.9375rem;
   }
 
   .status::before {
     content: '';
-    width: 0.9rem;
-    height: 0.9rem;
-    border: 2px solid var(--ink);
+    flex: none;
+    width: 0.625rem;
+    height: 0.625rem;
+    border: 2px solid currentColor;
+    border-radius: 50%;
   }
 
   .status--available {
-    font-weight: 800;
+    color: var(--ink);
+    font-weight: 600;
   }
 
   .status--available::before {
-    background: var(--accent);
+    border-color: var(--success);
+    background: var(--success);
   }
 
   .status--borrowed {
     color: var(--ink-2);
+    font-style: italic;
   }
 
-  /* Après .status::before : même spécificité une fois scopé, l'ordre fait gagner la bordure. */
+  /* Après les règles ::before : même spécificité une fois scopé, l'ordre fait gagner la forme. */
   @media (forced-colors: active) {
+    .status::before {
+      border-color: CanvasText;
+    }
+
     .status--available::before {
-      border: 2px solid CanvasText;
+      forced-color-adjust: none;
+      background: CanvasText;
     }
   }
 </style>

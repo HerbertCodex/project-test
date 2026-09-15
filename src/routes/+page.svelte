@@ -68,7 +68,7 @@
 {#snippet borrowAction(book: CatalogueEntry)}
   {#if book.status === 'available'}
     {@const pending = pendingBookId === String(book.id)}
-    <form method="POST" action="?/emprunter" use:enhance={submit}>
+    <form class="borrow" method="POST" action="?/emprunter" use:enhance={submit}>
       <input type="hidden" name="bookId" value={book.id} />
       <button
         class="btn btn--primary"
@@ -92,3 +92,14 @@
 {:else}
   <CatalogueTable books={data.books} action={isBorrower ? borrowAction : undefined} />
 {/if}
+
+<style>
+  .borrow {
+    margin: 0;
+  }
+
+  /* Action principale de la ligne : le libellé reste sur une ligne, pleine largeur sous 40 rem (app.css). */
+  .borrow .btn {
+    white-space: nowrap;
+  }
+</style>
