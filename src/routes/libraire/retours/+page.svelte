@@ -106,3 +106,10 @@
     </table>
   {/if}
 </div>
+
+<style>
+  /* Bouton de retour à droite de la ligne, libellé sur une ligne ; pleine largeur sous 40 rem (app.css). */
+  .col-action .btn {
+    white-space: nowrap;
+  }
+</style>

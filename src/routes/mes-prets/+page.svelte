@@ -107,3 +107,20 @@
     </table>
   {/if}
 </section>
+
+<style>
+  /* Sections « En cours » et « Rendus » séparées par l'espace, sans carte. */
+  section + section {
+    margin-top: 3.5rem;
+  }
+
+  /* « Dans les temps » : gris bleuté de .lead, au corps du tableau. */
+  td .lead {
+    font-size: 0.9375rem;
+  }
+
+  /* État vide des prêts rendus : phrase simple en gris bleuté. */
+  h2 + p {
+    color: var(--ink-2);
+  }
+</style>

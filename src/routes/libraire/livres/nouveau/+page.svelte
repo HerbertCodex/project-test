@@ -111,3 +111,12 @@
     </button>
   </form>
 </div>
+
+<style>
+  /* Formulaire du comptoir détaché du chapeau par un filet fin. */
+  .form {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+  }
+</style>
