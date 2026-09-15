@@ -31,7 +31,7 @@
 </svelte:head>
 
 <section class="error-page" aria-labelledby="error-title">
-  <p class="error-page__code num" aria-hidden="true">{status}</p>
+  <p class="error-page__code" aria-hidden="true">{status}</p>
   <h1 id="error-title">{content.title}</h1>
   <p class="error-page__message">{content.message}</p>
   <p><a class="btn btn--primary" href="/">Retour au catalogue</a></p>
@@ -39,32 +39,40 @@
 
 <style>
   .error-page {
-    max-width: 48rem;
+    max-width: 44rem;
     padding-top: 1rem;
   }
 
+  /* Grand numéro serif décoratif, souligné d'un filet laiton. */
   .error-page__code {
-    display: block;
-    margin: 0 0 0.5rem;
-    font-size: clamp(4rem, 2rem + 10vw, 9rem);
-    font-weight: 900;
-    letter-spacing: -0.05em;
-    line-height: 0.9;
-    font-variant-numeric: tabular-nums;
-    border-bottom: 6px solid var(--ink);
+    margin: 0 0 1.5rem;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: clamp(5rem, 2.5rem + 12vw, 10rem);
+    font-weight: 500;
+    font-variant-numeric: lining-nums tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 0.85;
   }
 
   .error-page__code::after {
     content: '';
     display: block;
     width: 4rem;
-    height: 0.5rem;
-    margin-top: 0.5rem;
-    background: var(--accent);
+    height: 2px;
+    margin-top: 1.25rem;
+    background: var(--brass);
+  }
+
+  /* Le filet est déjà porté par le numéro : pas de second filet sous le titre. */
+  .error-page h1::after {
+    content: none;
   }
 
   .error-page__message {
-    font-size: 1.25rem;
+    max-width: 38rem;
+    color: var(--ink-2);
+    font-size: 1.125rem;
   }
 
   @media (max-width: 40rem) {
