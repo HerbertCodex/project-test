@@ -626,7 +626,8 @@ describe('action ?/prix', () => {
     const seller = bookseller();
     const bookId = createBook('Germinal', { price: '9', saleStock: '3' });
 
-    for (const fields of [{ intent: 'supprimer' }, {}]) {
+    const variants: Record<string, string>[] = [{ intent: 'supprimer' }, {}];
+    for (const fields of variants) {
       const failure = asFailure(await postAs('prix', seller, { bookId: String(bookId), price: '5', ...fields }));
       expect(failure.status).toBe(400);
     }
