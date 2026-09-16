@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { addBook, requireBookseller } from '$lib/server/catalogue';
+import { addBook, formatPrice, requireBookseller } from '$lib/server/catalogue';
 import { getDb } from '$lib/server/db';
 import type { Actions } from './$types';
 
@@ -15,12 +15,28 @@ export const actions: Actions = {
     const form = await request.formData();
     const title = form.get('title');
     const author = form.get('author');
+    const price = form.get('price');
+    const saleStock = form.get('saleStock');
 
-    const result = addBook(getDb(), { title, author });
+    const result = addBook(getDb(), { title, author, price, saleStock });
     if (!result.ok) {
-      return fail(400, { title: textValue(title), author: textValue(author), errors: result.errors });
+      return fail(400, {
+        title: textValue(title),
+        author: textValue(author),
+        price: textValue(price),
+        saleStock: textValue(saleStock),
+        errors: result.errors
+      });
     }
 
-    return { added: { title: result.book.title, author: result.book.author } };
+    const { book } = result;
+    return {
+      added: {
+        title: book.title,
+        author: book.author,
+        priceLabel: book.priceCents === null ? null : formatPrice(book.priceCents),
+        saleStock: book.saleStock
+      }
+    };
   }
 };
