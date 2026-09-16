@@ -128,7 +128,7 @@ describe('action /libraire/livres/nouveau', () => {
 
     expect(outcome).toEqual({ added: valid });
     expect(await publicCatalogue()).toEqual([
-      { id: expect.any(Number), ...valid, status: 'available' }
+      { id: expect.any(Number), ...valid, status: 'available', priceCents: null, saleStatus: 'sold-out' }
     ]);
   });
 

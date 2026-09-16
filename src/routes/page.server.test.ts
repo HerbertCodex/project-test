@@ -42,8 +42,12 @@ function insertUser(email: string, displayName: string, role: Role = 'borrower')
   return { id: Number(result.lastInsertRowid), email, displayName, role };
 }
 
-function createBook(title: string, author: string): number {
-  const created = addBook(getDb(), { title, author });
+function createBook(
+  title: string,
+  author: string,
+  sale: { price?: string; saleStock?: string } = {}
+): number {
+  const created = addBook(getDb(), { title, author, ...sale });
   if (!created.ok) throw new Error('Livre de test non créé.');
   return created.book.id;
 }
@@ -158,7 +162,7 @@ afterEach(() => {
 });
 
 describe('load / (catalogue public)', () => {
-  it('liste les livres sans connexion avec seulement id, titre, auteur et statut', async () => {
+  it('liste les livres sans connexion avec seulement id, titre, auteur, statut, prix et vente', async () => {
     const borrower = insertUser('lecteur@example.fr', 'Lecteur Secret');
     const borrowedId = createBook('Le Petit Prince', 'Antoine de Saint-Exupéry');
     createBook('Candide', 'Voltaire');
@@ -169,20 +173,62 @@ describe('load / (catalogue public)', () => {
     const books = await catalogueFor(null);
 
     expect(books).toEqual([
-      { id: expect.any(Number), title: 'Candide', author: 'Voltaire', status: 'available' },
+      {
+        id: expect.any(Number),
+        title: 'Candide',
+        author: 'Voltaire',
+        status: 'available',
+        priceCents: null,
+        saleStatus: 'sold-out'
+      },
       {
         id: borrowedId,
         title: 'Le Petit Prince',
         author: 'Antoine de Saint-Exupéry',
-        status: 'borrowed'
+        status: 'borrowed',
+        priceCents: null,
+        saleStatus: 'sold-out'
       }
     ]);
     for (const book of books) {
-      expect(Object.keys(book).sort()).toEqual(['author', 'id', 'status', 'title']);
+      expect(Object.keys(book).sort()).toEqual([
+        'author',
+        'id',
+        'priceCents',
+        'saleStatus',
+        'status',
+        'title'
+      ]);
     }
 
     const serialized = JSON.stringify(books);
     for (const secret of ['lecteur@example.fr', 'Lecteur Secret', '2026-10-01', '2026-09-01']) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
+  it('n’expose ni emprunteur ni stock chiffré pour un livre emprunté et en vente', async () => {
+    const borrower = insertUser('lecteur@example.fr', 'Lecteur Secret');
+    const bookId = createBook('Germinal', 'Émile Zola', { price: '12,50', saleStock: '137' });
+    getDb()
+      .prepare('INSERT INTO loans (book_id, user_id, borrowed_on, due_on) VALUES (?, ?, ?, ?)')
+      .run(bookId, borrower.id, '2026-09-01', '2026-10-01');
+
+    const books = await catalogueFor(null);
+
+    expect(books).toEqual([
+      {
+        id: bookId,
+        title: 'Germinal',
+        author: 'Émile Zola',
+        status: 'borrowed',
+        priceCents: 1250,
+        saleStatus: 'on-sale'
+      }
+    ]);
+    const serialized = JSON.stringify(books);
+    expect(serialized).not.toMatch(/stock/i);
+    for (const secret of ['137', 'lecteur@example.fr', 'Lecteur Secret', '2026-10-01']) {
       expect(serialized).not.toContain(secret);
     }
   });
@@ -197,7 +243,16 @@ describe('load / (catalogue public)', () => {
 
     const books = await catalogueFor(other);
 
-    expect(books).toEqual([{ id: bookId, title: 'Germinal', author: 'Émile Zola', status: 'borrowed' }]);
+    expect(books).toEqual([
+      {
+        id: bookId,
+        title: 'Germinal',
+        author: 'Émile Zola',
+        status: 'borrowed',
+        priceCents: null,
+        saleStatus: 'sold-out'
+      }
+    ]);
     expect(JSON.stringify(books)).not.toMatch(/a@example\.fr|Emprunteur A|2026-10-01/);
   });
 
@@ -218,7 +273,14 @@ describe('load / (catalogue public)', () => {
     const bookId = createBook(SQL_PAYLOAD, SQL_PAYLOAD);
 
     expect(await catalogueFor(null)).toEqual([
-      { id: bookId, title: SQL_PAYLOAD, author: SQL_PAYLOAD, status: 'available' }
+      {
+        id: bookId,
+        title: SQL_PAYLOAD,
+        author: SQL_PAYLOAD,
+        status: 'available',
+        priceCents: null,
+        saleStatus: 'sold-out'
+      }
     ]);
     expect(tableNames()).toEqual(before);
     expect(tableNames()).toContain('books');
@@ -227,8 +289,22 @@ describe('load / (catalogue public)', () => {
 
 describe('CatalogueTable', () => {
   const books: CatalogueEntry[] = [
-    { id: 1, title: HOSTILE_TITLE, author: '<img src=x onerror=alert(1)>', status: 'available' },
-    { id: 2, title: 'Candide', author: 'Voltaire', status: 'borrowed' }
+    {
+      id: 1,
+      title: HOSTILE_TITLE,
+      author: '<img src=x onerror=alert(1)>',
+      status: 'available',
+      priceCents: 1250,
+      saleStatus: 'on-sale'
+    },
+    {
+      id: 2,
+      title: 'Candide',
+      author: 'Voltaire',
+      status: 'borrowed',
+      priceCents: null,
+      saleStatus: 'sold-out'
+    }
   ];
 
   it('rend une table avec thead et en-têtes de colonne à portée explicite', () => {
