@@ -278,9 +278,12 @@ export function formatPriceInput(cents: number): string {
 }
 
 export const PRICE_MISSING_MESSAGE = 'Saisissez un prix.';
-export const PRICE_INVALID_MESSAGE = 'Saisissez un prix en euros, par exemple 12,50.';
-export const PRICE_NOT_POSITIVE_MESSAGE = 'Le prix doit être supérieur à zéro.';
-export const PRICE_DECIMALS_MESSAGE = 'Le prix ne peut pas avoir plus de deux décimales.';
+// Libellé de la maquette approuvée, commun aux saisies mal formées, nulles ou négatives.
+const PRICE_FORMAT_MESSAGE =
+  'Indiquez un montant positif avec au plus deux décimales, par exemple 12,50.';
+export const PRICE_INVALID_MESSAGE = PRICE_FORMAT_MESSAGE;
+export const PRICE_NOT_POSITIVE_MESSAGE = PRICE_FORMAT_MESSAGE;
+export const PRICE_DECIMALS_MESSAGE = PRICE_FORMAT_MESSAGE;
 export const PRICE_TOO_HIGH_MESSAGE = `Le prix ne doit pas dépasser ${formatPrice(PRICE_MAX_CENTS)}.`;
 
 export const SALE_STOCK_INVALID_MESSAGE =

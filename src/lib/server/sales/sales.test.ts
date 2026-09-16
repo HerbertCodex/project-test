@@ -22,13 +22,13 @@ import {
   QUANTITY_INVALID_MESSAGE,
   QUANTITY_TOO_HIGH_MESSAGE,
   QUANTITY_TOO_LOW_MESSAGE,
-  SALE_INSUFFICIENT_STOCK_MESSAGE,
   SALE_NO_PRICE_MESSAGE,
   SALE_QUANTITY_MAX,
   listSaleCounter,
   recordSale,
   removeBookPrice,
   restockBook,
+  saleInsufficientStockMessage,
   setBookPrice,
   validateQuantity
 } from '.';
@@ -271,8 +271,10 @@ describe('recordSale', () => {
     expect(second).toEqual({
       ok: false,
       reason: 'insufficient-stock',
-      message: SALE_INSUFFICIENT_STOCK_MESSAGE
+      field: 'quantity',
+      message: 'Stock insuffisant : 0 exemplaire disponible.'
     });
+    expect(saleInsufficientStockMessage(0)).toBe('Stock insuffisant : 0 exemplaire disponible.');
     expect(bookState(bookId).sale_stock).toBe(0);
     expect(salesRows()).toHaveLength(1);
   });
@@ -280,7 +282,12 @@ describe('recordSale', () => {
   it('refuse une quantité supérieure au stock sans rien écrire', () => {
     const bookId = createBook({ price: '9,90', saleStock: '2' });
 
-    expect(sell(bookId, '3')).toMatchObject({ ok: false, reason: 'insufficient-stock' });
+    expect(sell(bookId, '3')).toEqual({
+      ok: false,
+      reason: 'insufficient-stock',
+      field: 'quantity',
+      message: 'Stock insuffisant : 2 exemplaires disponibles.'
+    });
     expect(bookState(bookId).sale_stock).toBe(2);
     expect(salesRows()).toEqual([]);
   });

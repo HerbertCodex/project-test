@@ -149,8 +149,13 @@ export function listSaleCounter(db: Db): SaleCounterEntry[] {
 // ---------------------------------------------------------------------------
 
 export const SALE_NO_PRICE_MESSAGE = 'Ce livre n’a pas de prix : fixez-en un avant de le vendre.';
-export const SALE_INSUFFICIENT_STOCK_MESSAGE =
-  'Le stock de vente est insuffisant pour cette quantité. La liste est à jour.';
+/** Message rattaché au champ quantité, avec le stock encore disponible (réservé au libraire). */
+export function saleInsufficientStockMessage(available: number): string {
+  const count = frenchInteger.format(available);
+  return available > 1
+    ? `Stock insuffisant : ${count} exemplaires disponibles.`
+    : `Stock insuffisant : ${count} exemplaire disponible.`;
+}
 
 /**
  * Valeurs brutes du formulaire de vente. Seuls le livre et la quantité sont
@@ -179,11 +184,14 @@ const NO_PRICE: SalesFailure<'no-price'> = {
   message: SALE_NO_PRICE_MESSAGE
 };
 
-const INSUFFICIENT_STOCK: SalesFailure<'insufficient-stock'> = {
-  ok: false,
-  reason: 'insufficient-stock',
-  message: SALE_INSUFFICIENT_STOCK_MESSAGE
-};
+function insufficientStock(available: number): SalesFailure<'insufficient-stock'> {
+  return {
+    ok: false,
+    reason: 'insufficient-stock',
+    field: 'quantity',
+    message: saleInsufficientStockMessage(available)
+  };
+}
 
 /**
  * Enregistre la vente d'une quantité d'un livre à la date du jour (Paris).
@@ -215,12 +223,14 @@ export function recordSale(
     const book = findSaleBook(db, bookId);
     if (!book) return NOT_FOUND;
     if (book.price_cents === null) return NO_PRICE;
-    if (book.sale_stock < quantity) return INSUFFICIENT_STOCK;
+    if (book.sale_stock < quantity) return insufficientStock(book.sale_stock);
 
     const decremented = db
       .prepare('UPDATE books SET sale_stock = sale_stock - ? WHERE id = ? AND sale_stock >= ?')
       .run(quantity, bookId, quantity);
-    if (decremented.changes === 0) return INSUFFICIENT_STOCK;
+    if (decremented.changes === 0) {
+      return insufficientStock(findSaleBook(db, bookId)?.sale_stock ?? 0);
+    }
 
     const unitPriceCents = book.price_cents;
     const totalCents = unitPriceCents * quantity;
@@ -249,7 +259,9 @@ export function recordSale(
   try {
     return attempt.immediate();
   } catch (thrown) {
-    if (isCheckViolation(thrown)) return INSUFFICIENT_STOCK;
+    if (isCheckViolation(thrown)) {
+      return insufficientStock(findSaleBook(db, bookId)?.sale_stock ?? 0);
+    }
     throw thrown;
   }
 }

@@ -18,8 +18,8 @@ import {
   QUANTITY_INVALID_MESSAGE,
   QUANTITY_TOO_HIGH_MESSAGE,
   QUANTITY_TOO_LOW_MESSAGE,
-  SALE_INSUFFICIENT_STOCK_MESSAGE,
-  SALE_NO_PRICE_MESSAGE
+  SALE_NO_PRICE_MESSAGE,
+  saleInsufficientStockMessage
 } from '$lib/server/sales';
 import { actions as catalogueActions } from '../../+page.server';
 import { load as myLoansLoad } from '../../mes-prets/+page.server';
@@ -407,7 +407,8 @@ describe('action ?/vendre', () => {
     const second = asFailure(await postAs('vendre', seller, { bookId: String(bookId), quantity: '1' }));
 
     expect(second.status).toBe(409);
-    expect(second.data.counterError.message).toBe(SALE_INSUFFICIENT_STOCK_MESSAGE);
+    expect(second.data.counterError.message).toBe(saleInsufficientStockMessage(0));
+    expect(second.data.counterError.field).toBe('quantity');
     expect(bookState(bookId).sale_stock).toBe(0);
     expect(salesRows()).toHaveLength(1);
   });
@@ -422,8 +423,8 @@ describe('action ?/vendre', () => {
     expect(failure.data.counterError).toEqual({
       action: 'vendre',
       bookId,
-      field: null,
-      message: SALE_INSUFFICIENT_STOCK_MESSAGE,
+      field: 'quantity',
+      message: 'Stock insuffisant : 1 exemplaire disponible.',
       value: '3'
     });
     expect(bookState(bookId).sale_stock).toBe(1);
