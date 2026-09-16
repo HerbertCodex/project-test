@@ -185,6 +185,7 @@ describe('action /libraire/livres/nouveau', () => {
       { name: 'books' },
       { name: 'loans' },
       { name: 'login_failures' },
+      { name: 'sales' },
       { name: 'sessions' },
       { name: 'users' }
     ]);
