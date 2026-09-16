@@ -207,15 +207,15 @@ export function recordSale(
   const soldOn = todayInParis(clock);
 
   const attempt = db.transaction((): SaleResult => {
-    const book = findSaleBook(db, bookId);
-    if (!book) return NOT_FOUND;
-    if (book.price_cents === null) return NO_PRICE;
-    if (book.sale_stock < quantity) return INSUFFICIENT_STOCK;
-
     const seller = db
       .prepare("SELECT 1 FROM users WHERE id = ? AND role = 'bookseller'")
       .get(bookseller.id);
     if (!seller) return { ok: false, reason: 'forbidden', message: BOOKSELLER_ONLY_MESSAGE };
+
+    const book = findSaleBook(db, bookId);
+    if (!book) return NOT_FOUND;
+    if (book.price_cents === null) return NO_PRICE;
+    if (book.sale_stock < quantity) return INSUFFICIENT_STOCK;
 
     const decremented = db
       .prepare('UPDATE books SET sale_stock = sale_stock - ? WHERE id = ? AND sale_stock >= ?')

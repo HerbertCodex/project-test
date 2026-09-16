@@ -350,6 +350,20 @@ describe('recordSale', () => {
     expect(salesRows()).toEqual([]);
   });
 
+  it('refuse un enregistreur non libraire avant de vérifier prix et stock', () => {
+    const bookId = createBook({ saleStock: '0' });
+
+    const result = recordSale(
+      db,
+      { ...borrower, role: 'bookseller' },
+      { bookId: String(bookId), quantity: '1' },
+      clock
+    );
+
+    expect(result).toEqual({ ok: false, reason: 'forbidden', message: BOOKSELLER_ONLY_MESSAGE });
+    expect(salesRows()).toEqual([]);
+  });
+
   it('calcule le total à la borne haute sans perte de précision', () => {
     const bookId = createBook({ price: '10000', saleStock: String(SALE_STOCK_MAX) });
 
