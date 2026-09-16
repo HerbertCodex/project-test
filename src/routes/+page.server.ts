@@ -20,9 +20,10 @@ import type { Actions, PageServerLoad } from './$types';
  * Catalogue public, quel que soit le visiteur : id, titre, auteur, statut de prêt,
  * prix et état de vente, jamais de stock chiffré. Les filtres GET sont validés et
  * normalisés par le module catalogue ; seules leurs valeurs retenues sont renvoyées.
+ * Sans URL (appel direct du load, par exemple depuis un test), aucun filtre n'est appliqué.
  */
 export const load: PageServerLoad = ({ url }) => {
-  const filters = catalogueFiltersFromSearchParams(url.searchParams);
+  const filters = catalogueFiltersFromSearchParams(url?.searchParams ?? new URLSearchParams());
   return {
     books: listCatalogue(getDb(), filters),
     filters,

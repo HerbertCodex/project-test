@@ -340,6 +340,16 @@ describe('load / avec filtres d’URL', () => {
     expect(data.searchMaxLength).toBe(BOOK_TEXT_MAX_LENGTH);
   });
 
+  it('appelé sans URL (événement partiel) : liste complète, aucun filtre retenu', async () => {
+    seedCatalogue();
+
+    const data = (await load({ locals: { user: null } } as unknown as LoadEvent)) as CatalogueData;
+
+    expect(titles(data)).toEqual(['Candide', 'Germinal', "L'Œuvre", 'Nana']);
+    expect(data.filters).toEqual({});
+    expect(JSON.stringify(data)).not.toContain(STOCK);
+  });
+
   it('utilise les noms de paramètres du formulaire (q, pret, vente)', () => {
     expect(CATALOGUE_FILTER_PARAMS).toEqual({
       text: 'q',
