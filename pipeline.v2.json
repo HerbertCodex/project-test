@@ -50,7 +50,8 @@
     ],
     "maxQaRepairs": 2,
     "maxActiveMs": 3600000,
-    "reviewMode": "solo"
+    "reviewMode": "solo",
+    "maxSpecCostUsd": 25
   },
   "setup": [
     {
