@@ -137,7 +137,7 @@
   "concurrency": 3,
   "failFast": true,
   "maxRunMs": 1800000,
-  "maxRepairAttempts": 1,
+  "maxRepairAttempts": 3,
   "validationMaxAgeMs": 3600000,
   "risk": {
     "fastPaths": [
