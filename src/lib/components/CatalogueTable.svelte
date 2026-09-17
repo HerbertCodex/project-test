@@ -161,7 +161,7 @@
     -webkit-line-clamp: 4;
   }
 
-  /* Teintes profondes ; ratios de l'ivoire sur chacune listés dans app.css. */
+  /* L'ivoire posé sur ces teintes de couverture doit garder au moins 4,5:1 ; règle vérifiée par src/lib/styles/contrast.test.ts. */
   .cover--t1 {
     background: var(--ink);
   }
