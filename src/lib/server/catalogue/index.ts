@@ -83,6 +83,22 @@ type CatalogueRow = {
 const frenchCollator = new Intl.Collator('fr', { sensitivity: 'base', numeric: true });
 
 /**
+ * Ordre d'affichage des livres, partagé par le catalogue et l'écran de vente :
+ * titre puis auteur selon la collation française (sans casse ni accents,
+ * nombres dans l'ordre numérique), puis identifiant pour un ordre stable.
+ */
+export function compareBooksByTitle(
+  a: { id: number; title: string; author: string },
+  b: { id: number; title: string; author: string }
+): number {
+  return (
+    frenchCollator.compare(a.title, b.title) ||
+    frenchCollator.compare(a.author, b.author) ||
+    a.id - b.id
+  );
+}
+
+/**
  * Pliage du texte pour la recherche : minuscules, sans diacritiques, ligatures
  * développées, comme la comparaison de base de frenchCollator.
  */
@@ -193,12 +209,7 @@ export function listCatalogue(db: Db, rawFilters: CatalogueFilterInput = {}): Ca
         saleStatus: row.on_sale ? 'on-sale' : 'sold-out'
       })
     )
-    .sort(
-      (a, b) =>
-        frenchCollator.compare(a.title, b.title) ||
-        frenchCollator.compare(a.author, b.author) ||
-        a.id - b.id
-    );
+    .sort(compareBooksByTitle);
 }
 
 // ---------------------------------------------------------------------------
@@ -253,12 +264,20 @@ function validateBookText(field: 'title' | 'author', raw: unknown): Validation<s
 // Prix et stock de vente
 // ---------------------------------------------------------------------------
 
-/** Bornes techniques (choix Product) : prix de 0,01 € à 10 000,00 €, stock de 0 à 10 000. */
+/** Bornes techniques : prix de 0,01 € à 10 000,00 €, stock de 0 à 10 000. */
 export const PRICE_MAX_CENTS = 1_000_000;
 export const SALE_STOCK_MAX = 10_000;
 
 const euroFormatter = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
 const frenchInteger = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+
+/**
+ * Entier au format français, avec l'espace de groupement d'Intl
+ * (« 1 000 »), pour les messages qui citent une borne ou un stock.
+ */
+export function formatInteger(n: number): string {
+  return frenchInteger.format(n);
+}
 
 /**
  * Prix en centimes au format français, par exemple « 12,50 € ». Le montant est
@@ -278,7 +297,7 @@ export function formatPriceInput(cents: number): string {
 }
 
 export const PRICE_MISSING_MESSAGE = 'Saisissez un prix.';
-// Libellé de la maquette approuvée, commun aux saisies mal formées, nulles ou négatives.
+// Un seul libellé pour les saisies mal formées, nulles ou négatives : il dit quoi saisir.
 const PRICE_FORMAT_MESSAGE =
   'Indiquez un montant positif avec au plus deux décimales, par exemple 12,50.';
 export const PRICE_INVALID_MESSAGE = PRICE_FORMAT_MESSAGE;
@@ -289,12 +308,13 @@ export const PRICE_TOO_HIGH_MESSAGE = `Le prix ne doit pas dépasser ${formatPri
 export const SALE_STOCK_INVALID_MESSAGE =
   'Saisissez un stock de vente en nombre entier d’exemplaires, par exemple 3.';
 export const SALE_STOCK_NEGATIVE_MESSAGE = 'Le stock de vente ne peut pas être négatif.';
-export const SALE_STOCK_TOO_HIGH_MESSAGE = `Le stock de vente ne doit pas dépasser ${frenchInteger.format(SALE_STOCK_MAX)} exemplaires.`;
+export const SALE_STOCK_TOO_HIGH_MESSAGE = `Le stock de vente ne doit pas dépasser ${formatInteger(SALE_STOCK_MAX)} exemplaires.`;
 
 // Chiffres ASCII seulement ; un nombre démesuré devient Infinity et échoue à la borne haute.
 const PRICE_PATTERN = /^(\d+)(?:[.,](\d{1,2}))?$/;
 const PRICE_TOO_PRECISE = /^\d+[.,]\d{3,}$/;
-const NEGATIVE_NUMBER = /^-\s*\d/;
+/** Saisie qui commence par un signe moins suivi d'un chiffre, espaces tolérées (« -1 », « - 3 »). */
+export const NEGATIVE_NUMBER = /^-\s*\d/;
 const STOCK_PATTERN = /^\d+$/;
 
 function isBlank(raw: unknown): boolean {
