@@ -1,30 +1,13 @@
 /*
  * Direction « Maison d'édition » : papier ivoire, encre bleu nuit, laiton parcimonieux.
  *
- * Contrastes WCAG calculés des couples texte / fond :
- * - ink #14213d sur ivory #f8f4ea : 14,5:1 ; sur paper #f1eadb : 13,3:1 ;
- * - ink-2 #4a5068 sur ivory : 7,2:1 ; sur paper : 6,6:1 ;
- * - brass-text #7a5c1e sur ivory : 5,7:1 ;
- * - danger #9b2c2c sur ivory : 6,9:1 ; sur paper : 6,3:1 ; sur danger-wash #f6e4df : 6,1:1 ;
- * - ink sur danger-wash : 13,0:1 ;
- * - success #2f5d3a sur success-wash #e6eee0 : 6,4:1 ; sur ivory : 7,0:1 ; ink sur success-wash : 13,4:1 ;
- * - ivory sur ink (bandeau libraire, bouton principal) : 14,5:1 ; sur ink-hover #243659 : 10,9:1 ;
- * - ivory sur ink-2 (bouton en cours d'envoi) : 7,2:1 ;
- * - brass-light #c9a55a sur ink (étiquette « Espace libraire ») : 6,9:1 ;
- * - ivory sur les teintes de couverture (CatalogueTable, décoratives aria-hidden) : bleu nuit
- *   #14213d 14,5:1 ; bordeaux #6b1f2a 10,3:1 ; forêt #1f3d2e 10,8:1 ; brun ocre #6a4318 7,9:1 ;
- *   prune ardoise #3d3350 10,7:1.
- * Couples non textuels :
- * - repères de statut (LoanStatus) : pastille success sur ivory 7,0:1, sur paper 6,4:1 ;
- *   anneau ink-2 sur ivory 7,2:1 ;
- * - rule-strong #6f7486 (bordures de champ) sur ivory : 4,2:1 ; sur paper : 3,9:1 ;
- * - focus : contour ink sur ivory 14,5:1, sur paper 13,3:1 ; contour ivory sur ink 14,5:1 ;
- * - brass #a8843a sur ivory : 3,2:1 — filets et ornements uniquement, jamais du texte ni un fond
- *   sous du texte ; brass-light sur ink : 6,9:1 (repère de page active du bandeau libraire) ;
- * - rule #ddd3bf : séparateurs décoratifs, jamais seul porteur d'information.
+ * - `--brass` est réservé aux filets et ornements : jamais pour du texte, jamais comme fond
+ *   sous du texte. Les textes laiton utilisent `--brass-text` ou `--brass-light`.
+ * - `--rule` est décoratif : il n'est jamais seul porteur d'information.
+ * - Ce fichier porte la base partagée. Les styles propres à un composant ou à une page vont
+ *   dans le bloc <style> de ce composant ou de cette page.
  *
- * Ce fichier porte la base partagée ; les styles propres à un seul composant ou
- * à une seule page sont dans le bloc style de ce fichier.
+ * Les contrastes des couples utilisés sont vérifiés par contrast.test.ts.
  */
 
 /* ------------------------------------------------------------------------- */

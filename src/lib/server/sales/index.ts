@@ -10,9 +10,12 @@
 import type { AuthUser, Validation } from '../auth';
 import {
   BOOKSELLER_ONLY_MESSAGE,
+  NEGATIVE_NUMBER,
   PRICE_NOT_POSITIVE_MESSAGE,
   SALE_STOCK_MAX,
   SALE_STOCK_TOO_HIGH_MESSAGE,
+  compareBooksByTitle,
+  formatInteger,
   validatePrice,
   type BookSaleStatus
 } from '../catalogue';
@@ -24,18 +27,15 @@ import { BOOK_NOT_FOUND_MESSAGE, parseRecordId } from '../loans';
 // Validation
 // ---------------------------------------------------------------------------
 
-/** Borne technique (choix Product) d'une vente ou d'un réassort : de 1 à 1 000 exemplaires. */
+/** Borne technique d'une vente ou d'un réassort : de 1 à 1 000 exemplaires. */
 export const SALE_QUANTITY_MIN = 1;
 export const SALE_QUANTITY_MAX = 1_000;
-
-const frenchInteger = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
 
 export const QUANTITY_INVALID_MESSAGE =
   'Saisissez une quantité en nombre entier d’exemplaires, par exemple 1.';
 export const QUANTITY_TOO_LOW_MESSAGE = `La quantité doit être d’au moins ${SALE_QUANTITY_MIN} exemplaire.`;
-export const QUANTITY_TOO_HIGH_MESSAGE = `La quantité ne doit pas dépasser ${frenchInteger.format(SALE_QUANTITY_MAX)} exemplaires.`;
+export const QUANTITY_TOO_HIGH_MESSAGE = `La quantité ne doit pas dépasser ${formatInteger(SALE_QUANTITY_MAX)} exemplaires.`;
 
-const NEGATIVE_NUMBER = /^-\s*\d/;
 const QUANTITY_PATTERN = /^\d+$/;
 
 /** Quantité saisie : entier de SALE_QUANTITY_MIN à SALE_QUANTITY_MAX. */
@@ -117,8 +117,6 @@ type SaleCounterRow = {
   sale_stock: number;
 };
 
-const frenchCollator = new Intl.Collator('fr', { sensitivity: 'base', numeric: true });
-
 /** Tous les livres du catalogue, avec ou sans prix, triés par titre puis auteur. */
 export function listSaleCounter(db: Db): SaleCounterEntry[] {
   const rows = db
@@ -136,12 +134,7 @@ export function listSaleCounter(db: Db): SaleCounterEntry[] {
         saleStatus: row.price_cents !== null && row.sale_stock > 0 ? 'on-sale' : 'sold-out'
       })
     )
-    .sort(
-      (a, b) =>
-        frenchCollator.compare(a.title, b.title) ||
-        frenchCollator.compare(a.author, b.author) ||
-        a.id - b.id
-    );
+    .sort(compareBooksByTitle);
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +144,7 @@ export function listSaleCounter(db: Db): SaleCounterEntry[] {
 export const SALE_NO_PRICE_MESSAGE = 'Ce livre n’a pas de prix : fixez-en un avant de le vendre.';
 /** Message rattaché au champ quantité, avec le stock encore disponible (réservé au libraire). */
 export function saleInsufficientStockMessage(available: number): string {
-  const count = frenchInteger.format(available);
+  const count = formatInteger(available);
   return available > 1
     ? `Stock insuffisant : ${count} exemplaires disponibles.`
     : `Stock insuffisant : ${count} exemplaire disponible.`;
