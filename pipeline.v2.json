@@ -16,7 +16,7 @@
   "agent": {
     "type": "claude",
     "command": [],
-    "timeoutMs": 900000,
+    "timeoutMs": 1800000,
     "passEnv": [
       "HOME",
       "CLAUDE_CONFIG_DIR",
