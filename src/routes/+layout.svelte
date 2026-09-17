@@ -35,6 +35,7 @@
               Ajouter un livre
             </a>
           </li>
+          <li><a href="/libraire/vente" aria-current={current('/libraire/vente')}>Vente</a></li>
           <li><a href="/libraire/retours" aria-current={current('/libraire/retours')}>Retours</a></li>
         {:else}
           <li><a href="/mes-prets" aria-current={current('/mes-prets')}>Mes prêts</a></li>

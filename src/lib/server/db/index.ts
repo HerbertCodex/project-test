@@ -19,8 +19,11 @@ export const IN_MEMORY_DATABASE_PATH = ':memory:';
  * - aucune suppression en cascade de users vers loans : un compte sera
  *   anonymisé (incrément 3), jamais supprimé avec son historique de prêts ;
  * - l'index unique partiel garantit au plus un prêt actif par livre.
+ *
+ * Exporté uniquement pour que les tests reconstruisent une base d'une version
+ * antérieure ; l'application passe toujours par `migrate`.
  */
-const MIGRATIONS: readonly string[] = [
+export const MIGRATIONS: readonly string[] = [
   `
   CREATE TABLE users (
     id INTEGER PRIMARY KEY,
@@ -68,6 +71,31 @@ const MIGRATIONS: readonly string[] = [
   CREATE UNIQUE INDEX loans_one_active_per_book ON loans (book_id) WHERE returned_on IS NULL;
   CREATE INDEX loans_user_id ON loans (user_id);
   CREATE INDEX loans_active_due_on ON loans (due_on) WHERE returned_on IS NULL;
+  `,
+  // v2 : vente au comptoir. SQLite (>= 3.37) accepte les CHECK en ADD COLUMN
+  // et les vérifie sur les lignes existantes : aucune reconstruction de books.
+  // Le prix est en centimes, nul pour un livre non vendable ; le stock de vente
+  // est indépendant de l'exemplaire de prêt. Chaque vente fige le prix unitaire
+  // et reste conservée (ON DELETE RESTRICT, comme loans).
+  `
+  ALTER TABLE books ADD COLUMN price_cents INTEGER
+    CHECK (price_cents IS NULL OR price_cents > 0);
+  ALTER TABLE books ADD COLUMN sale_stock INTEGER NOT NULL DEFAULT 0
+    CHECK (sale_stock >= 0);
+
+  CREATE TABLE sales (
+    id INTEGER PRIMARY KEY,
+    book_id INTEGER NOT NULL REFERENCES books (id) ON DELETE RESTRICT,
+    bookseller_id INTEGER NOT NULL REFERENCES users (id) ON DELETE RESTRICT,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    unit_price_cents INTEGER NOT NULL CHECK (unit_price_cents > 0),
+    total_cents INTEGER NOT NULL
+      CHECK (total_cents > 0 AND total_cents = quantity * unit_price_cents),
+    sold_on TEXT NOT NULL CHECK (date(sold_on) IS sold_on)
+  ) STRICT;
+  CREATE INDEX sales_book_id ON sales (book_id);
+  CREATE INDEX sales_bookseller_id ON sales (bookseller_id);
+  CREATE INDEX sales_sold_on ON sales (sold_on);
   `
 ];
 

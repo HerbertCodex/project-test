@@ -10,8 +10,15 @@ import { actions } from './+page.server';
 type ActionEvent = Parameters<typeof actions.default>[0];
 type Failure = {
   status: number;
-  data: { title: string; author: string; errors: Partial<Record<'title' | 'author', string>> };
+  data: {
+    title: string;
+    author: string;
+    price: string;
+    saleStock: string;
+    errors: Partial<Record<BookField, string>>;
+  };
 };
+type BookField = 'title' | 'author' | 'price' | 'saleStock';
 
 const SQL_PAYLOAD = "'; DROP TABLE books;--";
 
@@ -126,9 +133,9 @@ describe('action /libraire/livres/nouveau', () => {
       author: ' Antoine de Saint-Exupéry  '
     });
 
-    expect(outcome).toEqual({ added: valid });
+    expect(outcome).toEqual({ added: { ...valid, priceLabel: null, saleStock: 0 } });
     expect(await publicCatalogue()).toEqual([
-      { id: expect.any(Number), ...valid, status: 'available' }
+      { id: expect.any(Number), ...valid, status: 'available', priceCents: null, saleStatus: 'sold-out' }
     ]);
   });
 
@@ -166,7 +173,64 @@ describe('action /libraire/livres/nouveau', () => {
 
     expect(failure.data.title).toBe('Candide');
     expect(failure.data.author).toBe('');
+    expect(failure.data.price).toBe('');
+    expect(failure.data.saleStock).toBe('');
     expect(Object.keys(failure.data.errors)).toEqual(['author']);
+  });
+
+  it('ajoute un livre avec prix et stock : en vente au catalogue, sans stock chiffré exposé', async () => {
+    const outcome = await addBookAs(BOOKSELLER, { ...valid, price: '12,50', saleStock: '137' });
+
+    expect(outcome).toEqual({
+      added: { ...valid, priceLabel: expect.stringMatching(/^12,50\s€$/), saleStock: 137 }
+    });
+    const stored = getDb().prepare('SELECT price_cents, sale_stock FROM books').all();
+    expect(stored).toEqual([{ price_cents: 1250, sale_stock: 137 }]);
+    const books = await publicCatalogue();
+    expect(books).toEqual([
+      { id: expect.any(Number), ...valid, status: 'available', priceCents: 1250, saleStatus: 'on-sale' }
+    ]);
+    expect(JSON.stringify(books)).not.toContain('137');
+  });
+
+  it('ajoute un livre sans prix ni stock : prix nul, stock 0', async () => {
+    await addBookAs(BOOKSELLER, { ...valid, price: '  ', saleStock: '' });
+
+    const stored = getDb().prepare('SELECT price_cents, sale_stock FROM books').all();
+    expect(stored).toEqual([{ price_cents: null, sale_stock: 0 }]);
+  });
+
+  const invalidSaleCases: [string, Record<string, string>, BookField][] = [
+    ['un prix négatif', { price: '-3' }, 'price'],
+    ['un prix nul', { price: '0' }, 'price'],
+    ['un prix à trois décimales', { price: '11,905' }, 'price'],
+    ['un prix alphabétique', { price: 'douze' }, 'price'],
+    ['un prix au-delà de 10 000 €', { price: '10000,01' }, 'price'],
+    ['un stock négatif', { saleStock: '-1' }, 'saleStock'],
+    ['un stock décimal', { saleStock: '1,5' }, 'saleStock'],
+    ['un stock non numérique', { saleStock: 'beaucoup' }, 'saleStock'],
+    ['un stock au-delà de 10 000', { saleStock: '10001' }, 'saleStock']
+  ];
+
+  for (const [label, sale, field] of invalidSaleCases) {
+    it(`refuse ${label} : 400, valeurs réaffichées et aucun livre créé`, async () => {
+      const fields = { ...valid, ...sale };
+
+      const failure = asFailure(await addBookAs(BOOKSELLER, fields));
+
+      expect(failure.status).toBe(400);
+      expect(Object.keys(failure.data.errors)).toEqual([field]);
+      expect(failure.data[field]).toBe(sale[field]);
+      expect(failure.data.title).toBe(valid.title);
+      expect(bookCount()).toBe(0);
+    });
+  }
+
+  it('refuse un emprunteur qui envoie un prix et un stock (403), sans livre créé', async () => {
+    expectForbidden(
+      await addBookAs(BORROWER, { ...valid, price: '5', saleStock: '3', userId: '1' })
+    );
+    expect(bookCount()).toBe(0);
   });
 
   it('stocke littéralement une charge utile SQL et un titre HTML, tables intactes', async () => {
@@ -185,6 +249,7 @@ describe('action /libraire/livres/nouveau', () => {
       { name: 'books' },
       { name: 'loans' },
       { name: 'login_failures' },
+      { name: 'sales' },
       { name: 'sessions' },
       { name: 'users' }
     ]);

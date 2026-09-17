@@ -2,26 +2,42 @@
   import type { Snippet } from 'svelte';
   import type { CatalogueEntry } from '$lib/server/catalogue';
   import LoanStatus from './LoanStatus.svelte';
+  import SaleStatus from './SaleStatus.svelte';
 
   /**
    * Table du catalogue. Les colonnes sont nommées par classe (.col-title,
-   * .col-author, .col-loan, .col-action ; à venir : .col-price, .col-sale).
-   * - `filters` : emplacement au-dessus de la table (filtres de l'incrément 2) ;
+   * .col-author, .col-price, .col-loan, .col-sale, .col-action).
+   * - `filters` : emplacement au-dessus de la table (filtres du catalogue) ;
+   * - `empty` : rendu à la place de la table quand `books` est vide, sous les filtres ;
    * - `action` : cellule de la colonne Action, rendue seulement si fournie.
+   * La colonne Vente n'affiche que « En vente » ou « Épuisé », jamais un stock.
    */
   type Props = {
     books: CatalogueEntry[];
     caption?: string;
     filters?: Snippet;
+    empty?: Snippet;
     action?: Snippet<[CatalogueEntry]>;
   };
 
   let {
     books,
-    caption = 'Livres du catalogue et disponibilité au prêt',
+    caption = 'Livres du catalogue, prix et disponibilité',
     filters,
+    empty,
     action
   }: Props = $props();
+
+  // Même rendu que formatPrice ($lib/server/catalogue, non importable côté client) :
+  // le montant passe à Intl en chaîne décimale, sans calcul en flottant.
+  const euroFormatter = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
+
+  /** Prix affiché, ou chaîne vide pour un livre sans prix (cellule vide, masquée en pile). */
+  function priceLabel(cents: number | null): string {
+    if (cents === null) return '';
+    const amount = `${Math.trunc(cents / 100)}.${String(cents % 100).padStart(2, '0')}`;
+    return euroFormatter.format(amount as `${number}`);
+  }
 
   /** Palette fixe des couvertures : la teinte vient de l'identifiant, jamais d'un style construit. */
   const COVER_TONES = ['cover--t1', 'cover--t2', 'cover--t3', 'cover--t4', 'cover--t5'] as const;
@@ -37,39 +53,48 @@
   </div>
 {/if}
 
-<!-- Rôles explicites : l'affichage en grille sous 40 rem peut effacer la sémantique native. -->
-<!-- svelte-ignore a11y_no_redundant_roles -->
-<table class="data data--stack catalogue" role="table">
-  <caption class="vh">{caption}</caption>
-  <thead role="rowgroup">
-    <tr role="row">
-      <th class="col-title" scope="col" role="columnheader">Titre</th>
-      <th class="col-author" scope="col" role="columnheader">Auteur</th>
-      <th class="col-loan" scope="col" role="columnheader">Prêt</th>
-      {#if action}
-        <th class="col-action" scope="col" role="columnheader">Action</th>
-      {/if}
-    </tr>
-  </thead>
-  <tbody role="rowgroup">
-    {#each books as book (book.id)}
+{#if books.length === 0 && empty}
+  {@render empty()}
+{:else}
+  <!-- Rôles explicites : l'affichage en grille sous 40 rem peut effacer la sémantique native. -->
+  <!-- svelte-ignore a11y_no_redundant_roles -->
+  <table class="data data--stack catalogue" role="table">
+    <caption class="vh">{caption}</caption>
+    <thead role="rowgroup">
       <tr role="row">
-        <th class="col-title" scope="row" role="rowheader">
-          <span class="book">
-            <!-- Couverture décorative : le titre y est interpolé en texte, masqué aux technologies d'assistance. -->
-            <span class="cover {toneClass(book.id)}" aria-hidden="true"><span class="cover__title">{book.title}</span></span>
-            <span class="book__title">{book.title}</span>
-          </span>
-        </th>
-        <td class="col-author" role="cell">{book.author}</td>
-        <td class="col-loan" role="cell"><LoanStatus status={book.status} /></td>
+        <th class="col-title" scope="col" role="columnheader">Titre</th>
+        <th class="col-author" scope="col" role="columnheader">Auteur</th>
+        <th class="col-price" scope="col" role="columnheader">Prix</th>
+        <th class="col-loan" scope="col" role="columnheader">Prêt</th>
+        <th class="col-sale" scope="col" role="columnheader">Vente</th>
         {#if action}
-          <td class="col-action" role="cell">{@render action(book)}</td>
+          <th class="col-action" scope="col" role="columnheader">Action</th>
         {/if}
       </tr>
-    {/each}
-  </tbody>
-</table>
+    </thead>
+    <tbody role="rowgroup">
+      {#each books as book (book.id)}
+        <tr role="row">
+          <th class="col-title" scope="row" role="rowheader">
+            <span class="book">
+              <!-- Couverture décorative : le titre y est interpolé en texte, masqué aux technologies d'assistance. -->
+              <span class="cover {toneClass(book.id)}" aria-hidden="true"><span class="cover__title">{book.title}</span></span>
+              <span class="book__title">{book.title}</span>
+            </span>
+          </th>
+          <td class="col-author" role="cell">{book.author}</td>
+          <!-- Sans espace dans la cellule : vide, td:empty la masque en pile. -->
+          <td class="col-price money" role="cell">{priceLabel(book.priceCents)}</td>
+          <td class="col-loan" role="cell"><LoanStatus status={book.status} /></td>
+          <td class="col-sale" role="cell"><SaleStatus status={book.saleStatus} /></td>
+          {#if action}
+            <td class="col-action" role="cell">{@render action(book)}</td>
+          {/if}
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+{/if}
 
 <style>
   .catalogue tbody th,
@@ -78,7 +103,7 @@
   }
 
   .catalogue .col-title {
-    width: 46%;
+    width: 38%;
   }
 
   .book {
@@ -161,7 +186,8 @@
     color: var(--ink-2);
   }
 
-  .col-loan {
+  .col-loan,
+  .col-sale {
     white-space: nowrap;
   }
 

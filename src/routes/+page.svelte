@@ -11,6 +11,17 @@
   const isBookseller = $derived(data.user?.role === 'bookseller');
   const isBorrower = $derived(data.user?.role === 'borrower');
 
+  const filtersActive = $derived(
+    data.filters.text !== undefined ||
+      data.filters.availableForLoan === true ||
+      data.filters.availableForSale === true
+  );
+  const resultLabel = $derived(
+    data.books.length === 1
+      ? '1 livre correspond.'
+      : `${data.books.length} livres correspondent.`
+  );
+
   /** Livre dont l'emprunt est en cours d'envoi ; un second envoi est ignoré. */
   let pendingBookId: string | null = $state(null);
 
@@ -82,7 +93,56 @@
   {/if}
 {/snippet}
 
-{#if data.books.length === 0}
+<!-- Formulaire GET sans JavaScript : noms q, pret et vente = CATALOGUE_FILTER_PARAMS. -->
+{#snippet filterBand()}
+  <form class="filters" method="GET" role="search" aria-label="Filtrer le catalogue">
+    <div class="field">
+      <label for="catalogue-q">Titre ou auteur</label>
+      <input
+        id="catalogue-q"
+        name="q"
+        type="search"
+        maxlength={data.searchMaxLength}
+        value={data.filters.text ?? ''}
+        autocomplete="off"
+      />
+    </div>
+    <fieldset class="filters__group">
+      <legend>Disponibilité</legend>
+      <div class="filters__checks">
+        <label class="check">
+          <input type="checkbox" name="pret" value="1" checked={data.filters.availableForLoan === true} />
+          Disponible au prêt
+        </label>
+        <label class="check">
+          <input type="checkbox" name="vente" value="1" checked={data.filters.availableForSale === true} />
+          En vente
+        </label>
+      </div>
+    </fieldset>
+    <div class="filters__actions">
+      <button class="btn btn--primary" type="submit">Filtrer</button>
+      {#if filtersActive}
+        <a href="/">Réinitialiser</a>
+      {/if}
+    </div>
+  </form>
+  {#if filtersActive && data.books.length > 0}
+    <p class="filters__result">{resultLabel}</p>
+  {/if}
+{/snippet}
+
+{#snippet noMatch()}
+  <div class="empty">
+    <p>Aucun livre ne correspond à ces filtres.</p>
+    <p>
+      Essayez un autre titre ou auteur, ou décochez une disponibilité.
+      <a href="/">Afficher tout le catalogue</a>
+    </p>
+  </div>
+{/snippet}
+
+{#if data.books.length === 0 && !filtersActive}
   <div class="empty">
     <p>Le catalogue ne contient encore aucun livre.</p>
     {#if isBookseller}
@@ -90,7 +150,12 @@
     {/if}
   </div>
 {:else}
-  <CatalogueTable books={data.books} action={isBorrower ? borrowAction : undefined} />
+  <CatalogueTable
+    books={data.books}
+    filters={filterBand}
+    empty={noMatch}
+    action={isBorrower ? borrowAction : undefined}
+  />
 {/if}
 
 <style>

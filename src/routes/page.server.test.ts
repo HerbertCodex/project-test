@@ -1,9 +1,18 @@
 import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
+import { createRawSnippet } from 'svelte';
 import { render } from 'svelte/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import CatalogueTable from '$lib/components/CatalogueTable.svelte';
 import type { AuthUser, Role } from '$lib/server/auth';
-import { addBook, BOOKSELLER_ONLY_MESSAGE, type CatalogueEntry } from '$lib/server/catalogue';
+import {
+  addBook,
+  BOOK_TEXT_MAX_LENGTH,
+  BOOKSELLER_ONLY_MESSAGE,
+  CATALOGUE_FILTER_PARAMS,
+  formatPrice,
+  type CatalogueEntry,
+  type CatalogueFilters
+} from '$lib/server/catalogue';
 import { closeDb, getDb } from '$lib/server/db';
 import {
   BOOK_NOT_FOUND_MESSAGE,
@@ -18,6 +27,7 @@ import {
   type BorrowerLoans
 } from '$lib/server/loans';
 import { actions as catalogueActions, load } from './+page.server';
+import CataloguePage from './+page.svelte';
 import { actions as returnActions, load as returnsLoad } from './libraire/retours/+page.server';
 import { load as myLoansLoad } from './mes-prets/+page.server';
 import MyLoansPage from './mes-prets/+page.svelte';
@@ -27,9 +37,21 @@ const HOSTILE_TITLE = '<script>alert(1)</script>';
 
 type LoadEvent = Parameters<typeof load>[0];
 
+type CatalogueData = {
+  books: CatalogueEntry[];
+  filters: CatalogueFilters;
+  searchMaxLength: number;
+};
+
+/** Load de / pour une chaîne de requête donnée (« ?q=… »). */
+async function catalogueAt(search: string, user: AuthUser | null = null): Promise<CatalogueData> {
+  const url = new URL(`http://localhost/${search}`);
+  const data = await load({ url, locals: { user } } as unknown as LoadEvent);
+  return data as CatalogueData;
+}
+
 async function catalogueFor(user: AuthUser | null): Promise<CatalogueEntry[]> {
-  const data = await load({ locals: { user } } as unknown as LoadEvent);
-  return (data as { books: CatalogueEntry[] }).books;
+  return (await catalogueAt('', user)).books;
 }
 
 function insertUser(email: string, displayName: string, role: Role = 'borrower'): AuthUser {
@@ -42,8 +64,12 @@ function insertUser(email: string, displayName: string, role: Role = 'borrower')
   return { id: Number(result.lastInsertRowid), email, displayName, role };
 }
 
-function createBook(title: string, author: string): number {
-  const created = addBook(getDb(), { title, author });
+function createBook(
+  title: string,
+  author: string,
+  sale: { price?: string; saleStock?: string } = {}
+): number {
+  const created = addBook(getDb(), { title, author, ...sale });
   if (!created.ok) throw new Error('Livre de test non créé.');
   return created.book.id;
 }
@@ -158,7 +184,7 @@ afterEach(() => {
 });
 
 describe('load / (catalogue public)', () => {
-  it('liste les livres sans connexion avec seulement id, titre, auteur et statut', async () => {
+  it('liste les livres sans connexion avec seulement id, titre, auteur, statut, prix et vente', async () => {
     const borrower = insertUser('lecteur@example.fr', 'Lecteur Secret');
     const borrowedId = createBook('Le Petit Prince', 'Antoine de Saint-Exupéry');
     createBook('Candide', 'Voltaire');
@@ -169,20 +195,62 @@ describe('load / (catalogue public)', () => {
     const books = await catalogueFor(null);
 
     expect(books).toEqual([
-      { id: expect.any(Number), title: 'Candide', author: 'Voltaire', status: 'available' },
+      {
+        id: expect.any(Number),
+        title: 'Candide',
+        author: 'Voltaire',
+        status: 'available',
+        priceCents: null,
+        saleStatus: 'sold-out'
+      },
       {
         id: borrowedId,
         title: 'Le Petit Prince',
         author: 'Antoine de Saint-Exupéry',
-        status: 'borrowed'
+        status: 'borrowed',
+        priceCents: null,
+        saleStatus: 'sold-out'
       }
     ]);
     for (const book of books) {
-      expect(Object.keys(book).sort()).toEqual(['author', 'id', 'status', 'title']);
+      expect(Object.keys(book).sort()).toEqual([
+        'author',
+        'id',
+        'priceCents',
+        'saleStatus',
+        'status',
+        'title'
+      ]);
     }
 
     const serialized = JSON.stringify(books);
     for (const secret of ['lecteur@example.fr', 'Lecteur Secret', '2026-10-01', '2026-09-01']) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
+  it('n’expose ni emprunteur ni stock chiffré pour un livre emprunté et en vente', async () => {
+    const borrower = insertUser('lecteur@example.fr', 'Lecteur Secret');
+    const bookId = createBook('Germinal', 'Émile Zola', { price: '12,50', saleStock: '137' });
+    getDb()
+      .prepare('INSERT INTO loans (book_id, user_id, borrowed_on, due_on) VALUES (?, ?, ?, ?)')
+      .run(bookId, borrower.id, '2026-09-01', '2026-10-01');
+
+    const books = await catalogueFor(null);
+
+    expect(books).toEqual([
+      {
+        id: bookId,
+        title: 'Germinal',
+        author: 'Émile Zola',
+        status: 'borrowed',
+        priceCents: 1250,
+        saleStatus: 'on-sale'
+      }
+    ]);
+    const serialized = JSON.stringify(books);
+    expect(serialized).not.toMatch(/stock/i);
+    for (const secret of ['137', 'lecteur@example.fr', 'Lecteur Secret', '2026-10-01']) {
       expect(serialized).not.toContain(secret);
     }
   });
@@ -197,7 +265,16 @@ describe('load / (catalogue public)', () => {
 
     const books = await catalogueFor(other);
 
-    expect(books).toEqual([{ id: bookId, title: 'Germinal', author: 'Émile Zola', status: 'borrowed' }]);
+    expect(books).toEqual([
+      {
+        id: bookId,
+        title: 'Germinal',
+        author: 'Émile Zola',
+        status: 'borrowed',
+        priceCents: null,
+        saleStatus: 'sold-out'
+      }
+    ]);
     expect(JSON.stringify(books)).not.toMatch(/a@example\.fr|Emprunteur A|2026-10-01/);
   });
 
@@ -218,8 +295,174 @@ describe('load / (catalogue public)', () => {
     const bookId = createBook(SQL_PAYLOAD, SQL_PAYLOAD);
 
     expect(await catalogueFor(null)).toEqual([
-      { id: bookId, title: SQL_PAYLOAD, author: SQL_PAYLOAD, status: 'available' }
+      {
+        id: bookId,
+        title: SQL_PAYLOAD,
+        author: SQL_PAYLOAD,
+        status: 'available',
+        priceCents: null,
+        saleStatus: 'sold-out'
+      }
     ]);
+    expect(tableNames()).toEqual(before);
+    expect(tableNames()).toContain('books');
+  });
+});
+
+describe('load / avec filtres d’URL', () => {
+  const STOCK = '137';
+
+  function query(params: Record<string, string>): string {
+    return `?${new URLSearchParams(params)}`;
+  }
+
+  function titles(data: CatalogueData): string[] {
+    return data.books.map((book) => book.title);
+  }
+
+  /** Candide épuisé, Germinal emprunté et en vente, L'Œuvre sans prix, Nana libre et en vente. */
+  function seedCatalogue() {
+    const borrower = insertUser('lecteur@example.fr', 'Lecteur Secret');
+    const germinal = createBook('Germinal', 'Émile Zola', { price: '12,50', saleStock: STOCK });
+    createBook('Candide', 'Voltaire', { price: '8', saleStock: '0' });
+    createBook("L'Œuvre", 'Émile Zola');
+    createBook('Nana', 'Émile Zola', { price: '9,20', saleStock: '2' });
+    insertLoan(germinal, borrower.id, '2026-09-01', '2026-10-01');
+  }
+
+  it('sans paramètre : liste complète triée, aucun filtre retenu, borne du champ texte fournie', async () => {
+    seedCatalogue();
+
+    const data = await catalogueAt('');
+
+    expect(titles(data)).toEqual(['Candide', 'Germinal', "L'Œuvre", 'Nana']);
+    expect(data.filters).toEqual({});
+    expect(data.searchMaxLength).toBe(BOOK_TEXT_MAX_LENGTH);
+  });
+
+  it('appelé sans URL (événement partiel) : liste complète, aucun filtre retenu', async () => {
+    seedCatalogue();
+
+    const data = (await load({ locals: { user: null } } as unknown as LoadEvent)) as CatalogueData;
+
+    expect(titles(data)).toEqual(['Candide', 'Germinal', "L'Œuvre", 'Nana']);
+    expect(data.filters).toEqual({});
+    expect(JSON.stringify(data)).not.toContain(STOCK);
+  });
+
+  it('utilise les noms de paramètres du formulaire (q, pret, vente)', () => {
+    expect(CATALOGUE_FILTER_PARAMS).toEqual({
+      text: 'q',
+      availableForLoan: 'pret',
+      availableForSale: 'vente'
+    });
+  });
+
+  it('recherche titre et auteur sans tenir compte de la casse ni des accents', async () => {
+    seedCatalogue();
+
+    expect(titles(await catalogueAt(query({ q: 'ZOLA' })))).toEqual(['Germinal', "L'Œuvre", 'Nana']);
+    expect(titles(await catalogueAt(query({ q: 'emile' })))).toEqual(['Germinal', "L'Œuvre", 'Nana']);
+    expect(titles(await catalogueAt(query({ q: 'oeuvre' })))).toEqual(["L'Œuvre"]);
+    expect(titles(await catalogueAt(query({ q: '  candide ' })))).toEqual(['Candide']);
+    expect((await catalogueAt(query({ q: '  candide ' }))).filters).toEqual({ text: 'candide' });
+  });
+
+  it('filtre « disponible au prêt » : exclut le livre emprunté', async () => {
+    seedCatalogue();
+
+    const data = await catalogueAt(query({ pret: '1' }));
+
+    expect(titles(data)).toEqual(['Candide', "L'Œuvre", 'Nana']);
+    expect(data.filters).toEqual({ availableForLoan: true });
+  });
+
+  it('filtre « en vente » : seuls les livres avec prix et stock, toujours sans stock chiffré', async () => {
+    seedCatalogue();
+
+    const data = await catalogueAt(query({ vente: '1' }));
+
+    expect(data.books).toEqual([
+      {
+        id: expect.any(Number),
+        title: 'Germinal',
+        author: 'Émile Zola',
+        status: 'borrowed',
+        priceCents: 1250,
+        saleStatus: 'on-sale'
+      },
+      {
+        id: expect.any(Number),
+        title: 'Nana',
+        author: 'Émile Zola',
+        status: 'available',
+        priceCents: 920,
+        saleStatus: 'on-sale'
+      }
+    ]);
+    const serialized = JSON.stringify(data);
+    expect(serialized).not.toMatch(/stock/i);
+    for (const secret of [STOCK, 'lecteur@example.fr', 'Lecteur Secret', '2026-10-01']) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
+  it('combine les filtres par ET', async () => {
+    seedCatalogue();
+
+    const data = await catalogueAt(query({ q: 'zola', pret: '1', vente: '1' }));
+
+    expect(titles(data)).toEqual(['Nana']);
+    expect(data.filters).toEqual({ text: 'zola', availableForLoan: true, availableForSale: true });
+    expect(titles(await catalogueAt(query({ q: 'zola', vente: '1' })))).toEqual(['Germinal', 'Nana']);
+  });
+
+  it('ignore les paramètres vides ou de valeur inconnue et renvoie la liste complète', async () => {
+    seedCatalogue();
+
+    for (const search of [
+      query({ q: '', pret: 'oui', vente: 'yes' }),
+      query({ q: '   ', pret: '0', vente: 'true' }),
+      query({ pret: '1 OR 1=1', vente: "1'--", inconnu: '1' })
+    ]) {
+      const data = await catalogueAt(search);
+      expect(titles(data)).toEqual(['Candide', 'Germinal', "L'Œuvre", 'Nana']);
+      expect(data.filters).toEqual({});
+    }
+  });
+
+  it('traite les jokers % et _ littéralement', async () => {
+    seedCatalogue();
+
+    expect((await catalogueAt(query({ q: '%' }))).books).toEqual([]);
+    expect((await catalogueAt(query({ q: '_' }))).books).toEqual([]);
+    const percentId = createBook('100 % Zola', 'Anonyme');
+    expect((await catalogueAt(query({ q: '%' }))).books.map((book) => book.id)).toEqual([percentId]);
+  });
+
+  it('borne le terme à BOOK_TEXT_MAX_LENGTH et retire les caractères de contrôle', async () => {
+    seedCatalogue();
+
+    const long = await catalogueAt(query({ q: 'x'.repeat(BOOK_TEXT_MAX_LENGTH + 50) }));
+    expect(long.filters.text).toHaveLength(BOOK_TEXT_MAX_LENGTH);
+    expect(long.books).toEqual([]);
+
+    const controlled = await catalogueAt(query({ q: 'Nana ' }));
+    expect(controlled.filters.text).toBe('Nana');
+    expect(controlled.filters.text).not.toMatch(/\p{Cc}/u);
+    expect(titles(controlled)).toEqual(['Nana']);
+  });
+
+  it('compare une charge utile SQL littéralement, tables intactes', async () => {
+    seedCatalogue();
+    const before = tableNames();
+
+    expect((await catalogueAt(query({ q: SQL_PAYLOAD }))).books).toEqual([]);
+    const payloadId = createBook(SQL_PAYLOAD, 'Auteur');
+    const found = await catalogueAt(query({ q: SQL_PAYLOAD }));
+
+    expect(found.books.map((book) => book.id)).toEqual([payloadId]);
+    expect(found.filters).toEqual({ text: SQL_PAYLOAD });
     expect(tableNames()).toEqual(before);
     expect(tableNames()).toContain('books');
   });
@@ -227,8 +470,22 @@ describe('load / (catalogue public)', () => {
 
 describe('CatalogueTable', () => {
   const books: CatalogueEntry[] = [
-    { id: 1, title: HOSTILE_TITLE, author: '<img src=x onerror=alert(1)>', status: 'available' },
-    { id: 2, title: 'Candide', author: 'Voltaire', status: 'borrowed' }
+    {
+      id: 1,
+      title: HOSTILE_TITLE,
+      author: '<img src=x onerror=alert(1)>',
+      status: 'available',
+      priceCents: 1250,
+      saleStatus: 'on-sale'
+    },
+    {
+      id: 2,
+      title: 'Candide',
+      author: 'Voltaire',
+      status: 'borrowed',
+      priceCents: null,
+      saleStatus: 'sold-out'
+    }
   ];
 
   it('rend une table avec thead et en-têtes de colonne à portée explicite', () => {
@@ -250,6 +507,167 @@ describe('CatalogueTable', () => {
     expect(body).not.toContain('<img');
     expect(body).toMatch(/&lt;script(>|&gt;)alert\(1\)&lt;\/script(>|&gt;)/);
     expect(body).toMatch(/&lt;img src=x onerror=alert\(1\)(>|&gt;)/);
+  });
+
+  it('rend les colonnes Prix et Vente dans l’ordre prévu', () => {
+    const { body } = render(CatalogueTable, { props: { books } });
+
+    const headers = [...body.matchAll(/<th[^>]*scope="col"[^>]*>([^<]*)<\/th>/g)].map(
+      (match) => match[1]
+    );
+    expect(headers).toEqual(['Titre', 'Auteur', 'Prix', 'Prêt', 'Vente']);
+    expect(body).toMatch(/<th class="col-price[^"]*"[^>]*>Prix<\/th>/);
+    expect(body).toMatch(/<th class="col-sale[^"]*"[^>]*>Vente<\/th>/);
+  });
+
+  it('affiche le prix au format français et une cellule vide pour un livre sans prix', () => {
+    const { body } = render(CatalogueTable, { props: { books } });
+
+    const priceCells = [...body.matchAll(/<td class="col-price[^"]*"[^>]*>([^<]*)<\/td>/g)].map(
+      (match) => match[1]
+    );
+    expect(priceCells).toEqual([formatPrice(1250), '']);
+    expect(formatPrice(1250)).toMatch(/^12,50\s€$/u);
+  });
+
+  it('n’affiche que « En vente » ou « Épuisé » dans la colonne Vente, jamais un stock', async () => {
+    const bookId = createBook('Germinal', 'Émile Zola', { price: '12,50', saleStock: '137' });
+    createBook('Candide', 'Voltaire', { price: '8', saleStock: '0' });
+    createBook('Nana', 'Émile Zola');
+    const { books: loaded } = await catalogueAt('');
+
+    const { body } = render(CatalogueTable, { props: { books: loaded } });
+
+    const saleCells = [...body.matchAll(/<td class="col-sale[^"]*"[^>]*>(.*?)<\/td>/g)].map((match) =>
+      match[1].replace(/<[^>]*>/g, '').trim()
+    );
+    expect(saleCells).toEqual(['Épuisé', 'En vente', 'Épuisé']);
+    expect(body).toContain('sale-status--on');
+    expect(body).toContain('sale-status--off');
+    // Les classes de portée Svelte (svelte-xxxx) sont retirées avant la recherche du nombre.
+    expect(body.replace(/svelte-[a-z0-9]+/g, '')).not.toMatch(/\b137\b/);
+    expect(loaded.find((book) => book.id === bookId)?.saleStatus).toBe('on-sale');
+  });
+
+  it('rend l’état vide fourni à la place de la table quand la liste est vide', () => {
+    const { body } = render(CatalogueTable, {
+      props: {
+        books: [],
+        empty: createRawSnippet(() => ({ render: () => '<p>Aucun résultat</p>' }))
+      }
+    });
+
+    expect(body).toContain('Aucun résultat');
+    expect(body).not.toContain('<table');
+  });
+});
+
+describe('page / (catalogue public)', () => {
+  type PageData = CatalogueData & { user: { displayName: string; role: Role } | null };
+
+  const onSale: CatalogueEntry = {
+    id: 1,
+    title: 'Germinal',
+    author: 'Émile Zola',
+    status: 'borrowed',
+    priceCents: 1250,
+    saleStatus: 'on-sale'
+  };
+
+  function renderPage(data: Partial<PageData>): string {
+    const props = {
+      data: { user: null, books: [], filters: {}, searchMaxLength: BOOK_TEXT_MAX_LENGTH, ...data },
+      form: null
+    };
+    return render(CataloguePage, { props: props as never }).body;
+  }
+
+  it('rend un formulaire GET étiqueté, sans lien de réinitialisation par défaut', () => {
+    const body = renderPage({ books: [onSale] });
+
+    expect(body).toMatch(/<form class="filters" method="GET" role="search"[^>]*>/);
+    expect(body).not.toMatch(/<form class="filters"[^>]*action=/);
+    expect(body).toContain('<label for="catalogue-q">Titre ou auteur</label>');
+    expect(body).toMatch(/<input id="catalogue-q" name="q" type="search"[^>]*maxlength="200"/);
+    expect(body).toMatch(/<legend>Disponibilité<\/legend>/);
+    expect(body).toMatch(
+      /<label class="check">\s*<input type="checkbox" name="pret" value="1"[^>]*>\s*Disponible au prêt\s*<\/label>/
+    );
+    expect(body).toMatch(
+      /<label class="check">\s*<input type="checkbox" name="vente" value="1"[^>]*>\s*En vente\s*<\/label>/
+    );
+    expect(body).not.toMatch(/name="(pret|vente)"[^>]*checked/);
+    expect(body).toMatch(/<button class="btn btn--primary" type="submit">Filtrer<\/button>/);
+    expect(body).not.toContain('Réinitialiser');
+    expect(body).not.toContain('filters__result');
+    expect(body).not.toMatch(/\son[a-z]+=/);
+    expect(body).toContain('<table');
+  });
+
+  it('réaffiche les filtres actifs, le nombre de résultats et le lien de réinitialisation', () => {
+    const body = renderPage({
+      books: [onSale, { ...onSale, id: 2, title: 'Nana' }],
+      filters: { text: 'zola', availableForSale: true }
+    });
+
+    expect(body).toMatch(/name="q"[^>]*value="zola"/);
+    expect(body).toMatch(/name="vente" value="1"[^>]*checked/);
+    expect(body).not.toMatch(/name="pret" value="1"[^>]*checked/);
+    expect(body).toMatch(/<a href="\/">Réinitialiser<\/a>/);
+    expect(body).toContain('2 livres correspondent.');
+    expect(renderPage({ books: [onSale], filters: { availableForLoan: true } })).toContain(
+      '1 livre correspond.'
+    );
+  });
+
+  it('affiche un état vide propre aux filtres, avec la bande de filtres et un lien vers tout le catalogue', () => {
+    const body = renderPage({ books: [], filters: { availableForLoan: true } });
+
+    expect(body).toContain('class="empty"');
+    expect(body).toContain('Aucun livre ne correspond à ces filtres.');
+    expect(body).toMatch(/<a href="\/">Afficher tout le catalogue<\/a>/);
+    expect(body).toContain('<form class="filters"');
+    expect(body).not.toContain('Le catalogue ne contient encore aucun livre.');
+    expect(body).not.toContain('<table');
+    expect(body).not.toContain('correspondent.');
+  });
+
+  it('garde l’état vide du catalogue réellement vide, sans bande de filtres', () => {
+    const body = renderPage({ books: [], filters: {} });
+
+    expect(body).toContain('Le catalogue ne contient encore aucun livre.');
+    expect(body).not.toContain('Aucun livre ne correspond');
+    expect(body).not.toContain('<form class="filters"');
+  });
+
+  it('rend un terme de recherche et un titre hostiles comme du texte', () => {
+    const hostileQuery = `"><script>alert(1)</script>%_`;
+    const body = renderPage({
+      books: [{ ...onSale, title: HOSTILE_TITLE }],
+      filters: { text: hostileQuery }
+    });
+
+    expect(body).not.toContain('<script');
+    expect(body).toMatch(/name="q"[^>]*value="&quot;(>|&gt;)&lt;script(>|&gt;)alert\(1\)&lt;\/script(>|&gt;)%_"/);
+    expect(body).toMatch(/&lt;script(>|&gt;)alert\(1\)&lt;\/script(>|&gt;)/);
+  });
+
+  it('rend prix et « En vente » depuis les données du load, sans stock chiffré', async () => {
+    const borrower = insertUser('lecteur@example.fr', 'Lecteur Secret');
+    createBook('Germinal', 'Émile Zola', { price: '12,50', saleStock: '137' });
+    const data = await catalogueAt('?vente=1');
+
+    const body = renderPage({
+      ...data,
+      user: { displayName: borrower.displayName, role: 'borrower' }
+    });
+
+    expect(body).toContain(formatPrice(1250));
+    expect(body).toContain('En vente');
+    expect(body).not.toContain('Épuisé');
+    expect(body.replace(/svelte-[a-z0-9]+/g, '')).not.toMatch(/\b137\b/);
+    // Livre disponible et emprunteur connecté : la colonne Action reste en place.
+    expect(body).toContain('col-action');
   });
 });
 

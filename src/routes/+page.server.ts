@@ -1,5 +1,9 @@
 import { error, fail } from '@sveltejs/kit';
-import { listCatalogue } from '$lib/server/catalogue';
+import {
+  BOOK_TEXT_MAX_LENGTH,
+  catalogueFiltersFromSearchParams,
+  listCatalogue
+} from '$lib/server/catalogue';
 import { getDb } from '$lib/server/db';
 import {
   BOOK_NOT_FOUND_MESSAGE,
@@ -12,10 +16,20 @@ import {
 } from '$lib/server/loans';
 import type { Actions, PageServerLoad } from './$types';
 
-/** Catalogue public : id, titre, auteur et statut, quel que soit le visiteur. */
-export const load: PageServerLoad = () => ({
-  books: listCatalogue(getDb())
-});
+/**
+ * Catalogue public, quel que soit le visiteur : id, titre, auteur, statut de prêt,
+ * prix et état de vente, jamais de stock chiffré. Les filtres GET sont validés et
+ * normalisés par le module catalogue ; seules leurs valeurs retenues sont renvoyées.
+ * Sans URL (appel direct du load, par exemple depuis un test), aucun filtre n'est appliqué.
+ */
+export const load: PageServerLoad = ({ url }) => {
+  const filters = catalogueFiltersFromSearchParams(url?.searchParams ?? new URLSearchParams());
+  return {
+    books: listCatalogue(getDb(), filters),
+    filters,
+    searchMaxLength: BOOK_TEXT_MAX_LENGTH
+  };
+};
 
 export const actions: Actions = {
   emprunter: async ({ request, locals }) => {
