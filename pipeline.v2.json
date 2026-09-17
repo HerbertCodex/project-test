@@ -24,7 +24,7 @@
       "CLAUDE_CODE_OAUTH_TOKEN"
     ],
     "model": "",
-    "maxTurns": 32,
+    "maxTurns": 200,
     "maxBudgetUsd": 5
   },
   "skills": {
