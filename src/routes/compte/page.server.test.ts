@@ -37,11 +37,10 @@ const ACTIVE_LOAN_MESSAGE =
 // 18 septembre 2026, 12 h UTC = 14 h à Paris (heure d'été).
 const T0 = Date.UTC(2026, 8, 18, 12, 0, 0);
 
-function fakeEvent(
-  path: string,
-  fields: Record<string, string> = {},
-  user: AuthUser | null = null
-) {
+/** `Blob` admis pour envoyer une valeur non textuelle, comme le ferait un fichier. */
+type FormFields = Record<string, string | Blob>;
+
+function fakeEvent(path: string, fields: FormFields = {}, user: AuthUser | null = null) {
   const body = new FormData();
   for (const [name, value] of Object.entries(fields)) body.set(name, value);
   const url = new URL(path, 'http://localhost');
@@ -128,7 +127,7 @@ function eventTypes(): string[] {
   );
 }
 
-async function remove(user: AuthUser, fields: Record<string, string>) {
+async function remove(user: AuthUser, fields: FormFields) {
   const { event, cookies } = fakeEvent('/compte', fields, user);
   const outcome = await outcomeOf(() =>
     actions.supprimer(event as unknown as Parameters<typeof actions.supprimer>[0])
@@ -204,12 +203,13 @@ describe('action ?/supprimer : refus', () => {
     expect(userRow(reader.id).deleted_at).toBeNull();
   });
 
-  it('refuse un mot de passe vide, absent ou trop long sans toucher au compte', async () => {
+  it('refuse un mot de passe vide, absent, non textuel ou trop long sans toucher au compte', async () => {
     const reader = await borrower();
 
-    const cases = [
+    const cases: FormFields[] = [
       { password: '' },
       {},
+      { password: new Blob([PASSWORD]) },
       { password: 'x'.repeat(PASSWORD_MAX_LENGTH + 1) },
       { password: 'x'.repeat(100_000) }
     ];
