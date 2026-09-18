@@ -11,8 +11,8 @@
  * appelants n'y placent que l'e-mail normalisé tenté ou le chemin demandé,
  * jamais un mot de passe, un hachage ou une empreinte de session.
  *
- * La purge est écrite et testée ici mais n'est appelée nulle part : son
- * déclenchement relève d'un incrément ultérieur.
+ * La rétention se compte en dates calendaires de Paris. Le module ne planifie
+ * rien : la purge s'exécute quand son appelant la déclenche.
  */
 import {
   startOfDayInParis,
@@ -27,10 +27,7 @@ import type { Db } from '../db';
 // Types d'événements
 // ---------------------------------------------------------------------------
 
-/**
- * Liste fermée des types journalisables, identique au CHECK de la migration 3.
- * `account_deleted` y figure sans qu'aucun code ne l'écrive encore.
- */
+/** Liste fermée des types journalisables, identique au CHECK de la migration 3. */
 export const SECURITY_EVENT_TYPES = [
   'login_success',
   'login_failure',
@@ -194,9 +191,12 @@ export function securityLogRetentionStart(clock: Clock = systemClock): number {
 }
 
 /**
- * Supprime les événements strictement antérieurs à `securityLogRetentionStart`
- * et renvoie leur nombre. Aucun appel automatique n'existe : la fonction est
- * déclenchée explicitement par son appelant.
+ * Supprime les événements strictement antérieurs à `securityLogRetentionStart`.
+ *
+ * La borne est recalculée à chaque appel depuis l'horloge fournie : la fonction
+ * ne planifie rien et se répète sans dommage.
+ *
+ * @returns le nombre d'événements supprimés.
  */
 export function purgeSecurityEvents(db: Db, clock: Clock = systemClock): number {
   const retentionStart = securityLogRetentionStart(clock);
