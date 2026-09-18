@@ -7,7 +7,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { AuthUser, Validation } from '../auth';
 import type { Db } from '../db';
-import { computeOffset, computePageCount, DEFAULT_PAGE_SIZE } from '../pagination';
+import { DEFAULT_PAGE_SIZE, pageWindow } from '../pagination';
 
 // ---------------------------------------------------------------------------
 // Contrôle d'accès
@@ -100,10 +100,12 @@ export function compareBooksByTitle(
 }
 
 /**
- * Pliage du texte pour la recherche : minuscules, sans diacritiques, ligatures
- * développées, comme la comparaison de base de frenchCollator.
+ * Pliage du texte pour la recherche et le tri : minuscules, sans diacritiques,
+ * ligatures développées, comme la comparaison de base de frenchCollator.
+ * Exportée pour être réutilisée par l'écran de vente, qui partage le même
+ * ordre SQL que le catalogue public.
  */
-function foldText(value: string): string {
+export function foldText(value: string): string {
   return value
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
@@ -112,11 +114,15 @@ function foldText(value: string): string {
     .replace(/æ/g, 'ae');
 }
 
-const FOLD_FUNCTION = 'catalogue_fold';
+export const FOLD_FUNCTION = 'catalogue_fold';
 const foldRegistered = new WeakSet<Db>();
 
-/** Déclare une fois par connexion la fonction SQL de pliage utilisée par la recherche. */
-function ensureFoldFunction(db: Db): void {
+/**
+ * Déclare une fois par connexion la fonction SQL de pliage utilisée par la
+ * recherche et le tri. Exportée pour être réutilisée par l'écran de vente sur
+ * la même connexion, sans réenregistrement concurrent de `catalogue_fold`.
+ */
+export function ensureFoldFunction(db: Db): void {
   if (foldRegistered.has(db)) return;
   db.function(FOLD_FUNCTION, { deterministic: true }, (value: unknown) =>
     typeof value === 'string' ? foldText(value) : null
@@ -175,13 +181,6 @@ export type CataloguePage = {
   totalPages: number;
 };
 
-/** Borne `page` à [1, totalPages] connaissant le total réel de lignes, et calcule l'offset SQL. */
-function pageWindow(page: number, totalItems: number) {
-  const totalPages = computePageCount(totalItems, DEFAULT_PAGE_SIZE);
-  const clampedPage = Math.min(Math.max(1, Math.trunc(page) || 1), totalPages);
-  return { clampedPage, totalPages, offset: computeOffset(clampedPage, DEFAULT_PAGE_SIZE) };
-}
-
 /**
  * Page de livres du catalogue, triée en SQL par titre puis auteur (pliage
  * partagé avec la recherche), puis identifiant pour un ordre total et stable
@@ -214,7 +213,7 @@ export function listCatalogue(
   const { count } = db.prepare(`SELECT COUNT(*) AS count FROM books ${where}`).get(...params) as {
     count: number;
   };
-  const { clampedPage, totalPages, offset } = pageWindow(page, count);
+  const { page: clampedPage, totalPages, offset } = pageWindow(page, count);
 
   const rows = db
     .prepare(

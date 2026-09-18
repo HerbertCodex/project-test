@@ -17,7 +17,7 @@ import {
   type Clock
 } from '../dates';
 import type { Db } from '../db';
-import { computeOffset, computePageCount, DEFAULT_PAGE_SIZE } from '../pagination';
+import { DEFAULT_PAGE_SIZE, pageWindow } from '../pagination';
 
 // ---------------------------------------------------------------------------
 // Contrôle d'accès et validation
@@ -206,13 +206,6 @@ export type LoanPage<T> = {
   totalPages: number;
 };
 
-/** Borne `page` à [1, totalPages] connaissant le total réel de lignes, et calcule l'offset SQL. */
-function pageWindow(page: number, totalItems: number) {
-  const totalPages = computePageCount(totalItems, DEFAULT_PAGE_SIZE);
-  const clampedPage = Math.min(Math.max(1, Math.trunc(page) || 1), totalPages);
-  return { clampedPage, totalPages, offset: computeOffset(clampedPage, DEFAULT_PAGE_SIZE) };
-}
-
 function toLoanPage<T>(
   items: T[],
   clampedPage: number,
@@ -248,7 +241,7 @@ export function listActiveLoans(
   const { overdueCount } = db
     .prepare('SELECT COUNT(*) AS overdueCount FROM loans WHERE returned_on IS NULL AND due_on < ?')
     .get(today) as { overdueCount: number };
-  const { clampedPage, totalPages, offset } = pageWindow(page, count);
+  const { page: clampedPage, totalPages, offset } = pageWindow(page, count);
 
   const rows = db
     .prepare(
@@ -330,7 +323,7 @@ export function listBorrowerActiveLoans(
        WHERE loans.user_id = ? AND loans.returned_on IS NULL AND loans.due_on < ?`
     )
     .get(userId, today) as { overdueCount: number };
-  const { clampedPage, totalPages, offset } = pageWindow(page, count);
+  const { page: clampedPage, totalPages, offset } = pageWindow(page, count);
 
   const rows = db
     .prepare(
@@ -372,7 +365,7 @@ export function listBorrowerReturnedLoans(
       'SELECT COUNT(*) AS count FROM loans WHERE loans.user_id = ? AND loans.returned_on IS NOT NULL'
     )
     .get(userId) as { count: number };
-  const { clampedPage, totalPages, offset } = pageWindow(page, count);
+  const { page: clampedPage, totalPages, offset } = pageWindow(page, count);
 
   const rows = db
     .prepare(

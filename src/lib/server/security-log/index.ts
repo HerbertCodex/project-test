@@ -22,7 +22,7 @@ import {
   type Clock
 } from '../dates';
 import type { Db } from '../db';
-import { computeOffset, computePageCount, DEFAULT_PAGE_SIZE } from '../pagination';
+import { DEFAULT_PAGE_SIZE, pageWindow } from '../pagination';
 
 // ---------------------------------------------------------------------------
 // Types d'événements
@@ -165,9 +165,7 @@ export function listRecentSecurityEvents(db: Db, page = 1): SecurityEventPage {
   const { count } = db.prepare('SELECT COUNT(*) AS count FROM security_events').get() as {
     count: number;
   };
-  const totalPages = computePageCount(count, DEFAULT_PAGE_SIZE);
-  const clampedPage = Math.min(Math.max(1, Math.trunc(page) || 1), totalPages);
-  const offset = computeOffset(clampedPage, DEFAULT_PAGE_SIZE);
+  const { page: clampedPage, totalPages, offset } = pageWindow(page, count);
 
   const rows = db
     .prepare(

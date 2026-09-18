@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PAGE_SIZE, computeOffset, computePageCount, parsePageParam } from './index';
+import {
+  DEFAULT_PAGE_SIZE,
+  computeOffset,
+  computePageCount,
+  pageWindow,
+  parsePageParam
+} from './index';
 
 describe('DEFAULT_PAGE_SIZE', () => {
   it('vaut 25', () => {
@@ -66,5 +72,29 @@ describe('computeOffset', () => {
     expect(computeOffset(1, 25)).toBe(0);
     expect(computeOffset(2, 25)).toBe(25);
     expect(computeOffset(4, 25)).toBe(75);
+  });
+});
+
+describe('pageWindow', () => {
+  it('borne la page et calcule l’offset ensemble', () => {
+    expect(pageWindow(2, 100, 25)).toEqual({ page: 2, totalPages: 4, offset: 25 });
+  });
+
+  it('ramène une page hors bornes à la dernière page connue', () => {
+    expect(pageWindow(999, 100, 25)).toEqual({ page: 4, totalPages: 4, offset: 75 });
+  });
+
+  it('ramène une page nulle, négative ou flottante à 1', () => {
+    expect(pageWindow(0, 100, 25).page).toBe(1);
+    expect(pageWindow(-1, 100, 25).page).toBe(1);
+    expect(pageWindow(1.5, 100, 25).page).toBe(1);
+  });
+
+  it('renvoie une page 1 et un offset 0 à total nul', () => {
+    expect(pageWindow(5, 0, 25)).toEqual({ page: 1, totalPages: 1, offset: 0 });
+  });
+
+  it('utilise DEFAULT_PAGE_SIZE quand pageSize est omis', () => {
+    expect(pageWindow(1, 30)).toEqual({ page: 1, totalPages: 2, offset: 0 });
   });
 });

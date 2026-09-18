@@ -1,33 +1,56 @@
+/**
+ * Module transverse de bornage de page et de calcul d'offset, réutilisé par
+ * les cinq listes paginées. Ne connaît ni Db ni SQL : chaque domaine garde son
+ * propre COUNT(*) et son propre SELECT ... LIMIT ? OFFSET ? à paramètres liés.
+ */
 export const DEFAULT_PAGE_SIZE = 25;
 
 /**
- * Clamps a raw `page` search-param value to a valid page number.
- * Anything absent, empty, non-numeric, non-integer or below 1 becomes 1.
- * Once `pageCount` is known, the result is also clamped to `pageCount`.
+ * Borne un paramètre `page` brut lu dans l'URL à un entier valide.
+ * Absent, vide, non numérique, non entier ou < 1 devient 1. Une fois
+ * `pageCount` connu, le résultat est aussi borné à `pageCount`.
  */
 export function parsePageParam(raw: string | null, pageCount?: number): number {
-	let page = 1;
-	if (raw !== null && raw.trim() !== '') {
-		const parsed = Number(raw);
-		if (Number.isInteger(parsed) && parsed >= 1) {
-			page = parsed;
-		}
-	}
-	if (pageCount !== undefined) {
-		page = Math.min(page, pageCount);
-	}
-	return page;
+  let page = 1;
+  if (raw !== null && raw.trim() !== '') {
+    const parsed = Number(raw);
+    if (Number.isInteger(parsed) && parsed >= 1) {
+      page = parsed;
+    }
+  }
+  if (pageCount !== undefined) {
+    page = Math.min(page, pageCount);
+  }
+  return page;
 }
 
 /**
- * Computes the total number of pages for `total` items at `pageSize` per page.
- * Always at least 1, so a page count remains defined even with 0 results.
+ * Calcule le nombre total de pages pour `total` éléments à `pageSize` par
+ * page. Toujours au moins 1, pour rester défini même à 0 résultat.
  */
 export function computePageCount(total: number, pageSize: number): number {
-	return Math.max(1, Math.ceil(total / pageSize));
+  return Math.max(1, Math.ceil(total / pageSize));
 }
 
-/** Computes the SQL OFFSET for a given (already clamped) 1-based page number. */
+/** Calcule l'OFFSET SQL pour un numéro de page déjà borné (base 1). */
 export function computeOffset(page: number, pageSize: number): number {
-	return (page - 1) * pageSize;
+  return (page - 1) * pageSize;
+}
+
+/** Fenêtre de pagination : page bornée, nombre de pages et offset SQL correspondant. */
+export type PageWindow = {
+  page: number;
+  totalPages: number;
+  offset: number;
+};
+
+/**
+ * Borne `page` à [1, totalPages] connaissant le total réel de lignes pour un
+ * domaine, et calcule l'offset SQL associé. Point d'entrée unique partagé par
+ * le catalogue, la vente, les prêts et le journal de sécurité.
+ */
+export function pageWindow(page: number, totalItems: number, pageSize = DEFAULT_PAGE_SIZE): PageWindow {
+  const totalPages = computePageCount(totalItems, pageSize);
+  const clampedPage = Math.min(Math.max(1, Math.trunc(page) || 1), totalPages);
+  return { page: clampedPage, totalPages, offset: computeOffset(clampedPage, pageSize) };
 }

@@ -547,8 +547,9 @@ describe('load / pagination du catalogue', () => {
 
     const data = await catalogueAt('');
 
-    // Un catalogue complet de 200 livres pèserait plusieurs Mo une fois rendu :
-    // seule la page demandée (25 lignes) est lue et renvoyée par le load.
+    // Rapport avant/après : un catalogue complet de 200 livres rendrait environ
+    // 200 lignes de HTML (de l'ordre de 150 à 200 Ko selon le gabarit) ; seule la
+    // page demandée (25 lignes, quelques dizaines de Ko) est lue et renvoyée ici.
     expect(data.books).toHaveLength(25);
     expect(data.totalItems).toBe(200);
     expect(data.totalPages).toBe(8);
@@ -802,6 +803,27 @@ describe('page / (catalogue public)', () => {
     expect(body).toContain('Le catalogue ne contient encore aucun livre.');
     expect(body).not.toContain('Aucun livre ne correspond');
     expect(body).not.toContain('<form class="filters"');
+  });
+
+  it('affiche la position et le total, et les liens Précédent/Suivant', () => {
+    const body = renderPage({
+      books: [onSale, { ...onSale, id: 2, title: 'Nana' }],
+      page: 2,
+      totalPages: 3,
+      totalItems: 60,
+      pageQuery: 'pret=1'
+    });
+
+    expect(body).toContain('26–27 sur 60');
+    expect(body).toMatch(/<a[^>]*href="\?pret=1"[^>]*>\s*Précédent\s*<\/a>/);
+    expect(body).toMatch(/<a[^>]*href="\?pret=1&amp;page=3"[^>]*>\s*Suivant\s*<\/a>/);
+  });
+
+  it('n’affiche pas la position ni la pagination pour une liste vide', () => {
+    const body = renderPage({ books: [], totalItems: 0, totalPages: 1 });
+
+    expect(body).not.toContain('catalogue-position');
+    expect(body).not.toContain('Suivant');
   });
 
   it('rend un terme de recherche et un titre hostiles comme du texte', () => {

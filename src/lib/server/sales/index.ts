@@ -10,6 +10,8 @@
 import type { AuthUser, Validation } from '../auth';
 import {
   BOOKSELLER_ONLY_MESSAGE,
+  ensureFoldFunction,
+  FOLD_FUNCTION,
   NEGATIVE_NUMBER,
   PRICE_NOT_POSITIVE_MESSAGE,
   SALE_STOCK_MAX,
@@ -21,37 +23,7 @@ import {
 import { systemClock, todayInParis, type Clock } from '../dates';
 import type { Db } from '../db';
 import { BOOK_NOT_FOUND_MESSAGE, parseRecordId } from '../loans';
-import { computeOffset, computePageCount, DEFAULT_PAGE_SIZE } from '../pagination';
-
-// ---------------------------------------------------------------------------
-// Pliage du texte pour le tri (identique à celui du catalogue)
-// ---------------------------------------------------------------------------
-
-/**
- * Pliage du texte pour le tri : minuscules, sans diacritiques, ligatures
- * développées. Identique à celui du catalogue (module non modifiable ici),
- * afin que le comptoir partage le même ordre SQL que le catalogue public.
- */
-function foldText(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLocaleLowerCase('fr')
-    .replace(/œ/g, 'oe')
-    .replace(/æ/g, 'ae');
-}
-
-const FOLD_FUNCTION = 'catalogue_fold';
-const foldRegistered = new WeakSet<Db>();
-
-/** Déclare une fois par connexion la fonction SQL de pliage utilisée pour le tri. */
-function ensureFoldFunction(db: Db): void {
-  if (foldRegistered.has(db)) return;
-  db.function(FOLD_FUNCTION, { deterministic: true }, (value: unknown) =>
-    typeof value === 'string' ? foldText(value) : null
-  );
-  foldRegistered.add(db);
-}
+import { DEFAULT_PAGE_SIZE, pageWindow } from '../pagination';
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -178,9 +150,7 @@ export function listSaleCounter(db: Db, page = 1): SaleCounterPage {
        FROM books`
     )
     .get() as { onSaleCount: number | null; noPriceCount: number | null };
-  const totalPages = computePageCount(count, DEFAULT_PAGE_SIZE);
-  const clampedPage = Math.min(Math.max(1, Math.trunc(page) || 1), totalPages);
-  const offset = computeOffset(clampedPage, DEFAULT_PAGE_SIZE);
+  const { page: clampedPage, totalPages, offset } = pageWindow(page, count);
 
   const rows = db
     .prepare(
