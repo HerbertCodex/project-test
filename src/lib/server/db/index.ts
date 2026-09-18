@@ -17,8 +17,10 @@ export const IN_MEMORY_DATABASE_PATH = ':memory:';
  * - les dates de prêt sont des dates calendaires AAAA-MM-JJ (Europe/Paris),
  *   les instants de session et de blocage des millisecondes epoch ;
  * - aucune suppression en cascade de users vers loans : un compte sera
- *   anonymisé (incrément 3), jamais supprimé avec son historique de prêts ;
- * - l'index unique partiel garantit au plus un prêt actif par livre.
+ *   anonymisé, jamais supprimé avec son historique de prêts ;
+ * - l'index unique partiel garantit au plus un prêt actif par livre ;
+ * - le journal de sécurité (incrément 3) ne retient jamais un compte : il perd
+ *   sa référence (ON DELETE SET NULL) plutôt que de bloquer une suppression.
  *
  * Exporté uniquement pour que les tests reconstruisent une base d'une version
  * antérieure ; l'application passe toujours par `migrate`.
@@ -96,6 +98,37 @@ export const MIGRATIONS: readonly string[] = [
   CREATE INDEX sales_book_id ON sales (book_id);
   CREATE INDEX sales_bookseller_id ON sales (bookseller_id);
   CREATE INDEX sales_sold_on ON sales (sold_on);
+  `,
+  // v3 : journal de sécurité. `last_login_at` et `deleted_at` sont des
+  // millisecondes epoch nullables : aucune valeur n'est inventée pour les
+  // comptes existants. `deleted_at` n'est écrit par personne pour l'instant ;
+  // il est ajouté ici pour que la suppression de compte n'ait pas à modifier
+  // une migration publiée ni à en ajouter une.
+  // La liste des types est fermée côté base : 'account_deleted' y figure déjà
+  // bien qu'aucun code ne l'écrive encore. `subject` porte l'e-mail normalisé
+  // tenté (ou un autre libellé court) ; sa borne est celle d'un e-mail.
+  // Le journal ne doit jamais empêcher une suppression de compte, d'où
+  // ON DELETE SET NULL plutôt que le RESTRICT des prêts et des ventes.
+  `
+  ALTER TABLE users ADD COLUMN last_login_at INTEGER;
+  ALTER TABLE users ADD COLUMN deleted_at INTEGER;
+
+  CREATE TABLE security_events (
+    id INTEGER PRIMARY KEY,
+    created_at INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK (type IN (
+      'login_success',
+      'login_failure',
+      'lockout_started',
+      'lockout_attempt',
+      'signup',
+      'access_denied',
+      'account_deleted'
+    )),
+    user_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
+    subject TEXT CHECK (subject IS NULL OR length(subject) <= 254)
+  ) STRICT;
+  CREATE INDEX security_events_created_at ON security_events (created_at);
   `
 ];
 

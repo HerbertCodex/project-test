@@ -1,16 +1,43 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SESSION_COOKIE_NAME, createBorrower, createSession, deleteSession } from '$lib/server/auth';
+import {
+  SESSION_COOKIE_NAME,
+  createBookseller,
+  createBorrower,
+  createSession,
+  deleteSession
+} from '$lib/server/auth';
+import { BOOKSELLER_ONLY_MESSAGE } from '$lib/server/catalogue';
 import { closeDb, getDb } from '$lib/server/db';
+import { BORROWER_ONLY_MESSAGE } from '$lib/server/loans';
+import {
+  SECURITY_EVENT_LABELS,
+  SECURITY_SUBJECT_MAX_LENGTH,
+  listRecentSecurityEvents
+} from '$lib/server/security-log';
 import config from '../svelte.config.js';
 import { handle } from './hooks.server';
 
-function fakeEvent(cookies: Record<string, string> = {}) {
+const EXPECTED_TABLES = [
+  'books',
+  'loans',
+  'login_failures',
+  'sales',
+  'security_events',
+  'sessions',
+  'users'
+];
+
+function fakeEvent(cookies: Record<string, string> = {}, path = '/') {
   const cookieJar = {
     get: vi.fn((name: string) => cookies[name]),
     delete: vi.fn()
   };
-  const event = { cookies: cookieJar, locals: {} } as unknown as RequestEvent;
+  const event = {
+    cookies: cookieJar,
+    locals: {},
+    url: new URL(path, 'http://localhost')
+  } as unknown as RequestEvent;
   return { event, cookieJar };
 }
 
@@ -23,6 +50,38 @@ async function borrowerSessionToken(createdAt = new Date()): Promise<string> {
   if (!created.ok) throw new Error('compte de test non créé');
   return createSession(getDb(), created.user.id, () => createdAt).token;
 }
+
+async function booksellerSessionToken(): Promise<string> {
+  const created = await createBookseller(getDb(), {
+    email: 'libraire@example.fr',
+    displayName: 'Libraire',
+    password: 'mot de passe solide'
+  });
+  if (!created.ok) throw new Error('compte de test non créé');
+  return createSession(getDb(), created.user.id).token;
+}
+
+/** Colonnes brutes des événements, pour vérifier ce qui est réellement stocké. */
+function storedEventColumns(): Record<string, unknown>[] {
+  return getDb().prepare('SELECT * FROM security_events ORDER BY id').all() as Record<
+    string,
+    unknown
+  >[];
+}
+
+function tableNames(): string[] {
+  return (
+    getDb()
+      .prepare(
+        `SELECT name FROM sqlite_master
+         WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+         ORDER BY name`
+      )
+      .all() as { name: string }[]
+  ).map((row) => row.name);
+}
+
+const forbidden = (message: string) => new Response(message, { status: 403 });
 
 afterEach(() => {
   closeDb();
@@ -113,6 +172,133 @@ describe('handle', () => {
     await handle({ event, resolve: async () => new Response('ok') });
 
     expect(event.locals.user).toBeNull();
+  });
+});
+
+describe('journalisation des refus d’accès', () => {
+  it('journalise la 403 rendue à un emprunteur sur /libraire/** une seule fois', async () => {
+    const token = await borrowerSessionToken();
+    const { event } = fakeEvent({ [SESSION_COOKIE_NAME]: token }, '/libraire/vente');
+
+    const response = await handle({
+      event,
+      resolve: async () => forbidden(BOOKSELLER_ONLY_MESSAGE)
+    });
+
+    expect(response.status).toBe(403);
+    expect(event.locals.user).not.toBeNull();
+    expect(listRecentSecurityEvents(getDb())).toEqual([
+      {
+        id: expect.any(Number),
+        createdAt: expect.any(Number),
+        type: 'access_denied',
+        label: SECURITY_EVENT_LABELS.access_denied,
+        userId: event.locals.user?.id,
+        userName: 'Lecteur',
+        subject: '/libraire/vente'
+      }
+    ]);
+  });
+
+  it('journalise la 403 rendue au libraire sur /mes-prets avec l’identifiant de sa session', async () => {
+    const token = await booksellerSessionToken();
+    const { event } = fakeEvent({ [SESSION_COOKIE_NAME]: token }, '/mes-prets');
+
+    await handle({ event, resolve: async () => forbidden(BORROWER_ONLY_MESSAGE) });
+
+    expect(event.locals.user).not.toBeNull();
+    expect(listRecentSecurityEvents(getDb())).toMatchObject([
+      {
+        type: 'access_denied',
+        userId: event.locals.user?.id,
+        userName: 'Libraire',
+        subject: '/mes-prets'
+      }
+    ]);
+  });
+
+  it('ne journalise rien pour un visiteur anonyme redirigé vers /connexion', async () => {
+    const { event } = fakeEvent({}, '/libraire/vente');
+
+    const response = await handle({
+      event,
+      resolve: async () => new Response(null, { status: 303, headers: { location: '/connexion' } })
+    });
+
+    expect(response.status).toBe(303);
+    expect(event.locals.user).toBeNull();
+    expect(storedEventColumns()).toEqual([]);
+  });
+
+  it('ne journalise rien pour une 403 sans utilisateur de session', async () => {
+    const { event } = fakeEvent({ [SESSION_COOKIE_NAME]: 'inconnu' }, '/libraire/vente');
+
+    await handle({ event, resolve: async () => forbidden(BOOKSELLER_ONLY_MESSAGE) });
+
+    expect(event.locals.user).toBeNull();
+    expect(storedEventColumns()).toEqual([]);
+  });
+
+  it.each([200, 204, 302, 400, 401, 404, 500])(
+    'ne journalise rien pour le statut %i rendu à un utilisateur connecté',
+    async (status) => {
+      const token = await borrowerSessionToken();
+      const { event } = fakeEvent({ [SESSION_COOKIE_NAME]: token }, '/libraire/vente');
+
+      await handle({
+        event,
+        resolve: async () => new Response(status === 204 ? null : 'corps', { status })
+      });
+
+      expect(event.locals.user).not.toBeNull();
+      expect(storedEventColumns()).toEqual([]);
+    }
+  );
+
+  it.each([
+    "/libraire/livres/1'; DROP TABLE security_events;--",
+    '/libraire/<script>alert(1)</script>'
+  ])('stocke littéralement le chemin hostile %s sans l’interpréter', async (path) => {
+    const token = await borrowerSessionToken();
+    const { event } = fakeEvent({ [SESSION_COOKIE_NAME]: token }, path);
+
+    await handle({ event, resolve: async () => forbidden(BOOKSELLER_ONLY_MESSAGE) });
+
+    const [stored] = storedEventColumns();
+    // Le chemin est stocké tel que SvelteKit le présente, encodage d'URL compris.
+    expect(stored.subject).toBe(event.url.pathname);
+    expect(decodeURIComponent(String(stored.subject))).toBe(path);
+    expect(tableNames()).toEqual(EXPECTED_TABLES);
+  });
+
+  it('borne le chemin journalisé à la longueur maximale du sujet', async () => {
+    const token = await borrowerSessionToken();
+    const path = `/libraire/${'a'.repeat(2 * SECURITY_SUBJECT_MAX_LENGTH)}`;
+    const { event } = fakeEvent({ [SESSION_COOKIE_NAME]: token }, path);
+
+    await handle({ event, resolve: async () => forbidden(BOOKSELLER_ONLY_MESSAGE) });
+
+    const [stored] = storedEventColumns();
+    expect(stored.subject).toBe(path.slice(0, SECURITY_SUBJECT_MAX_LENGTH));
+  });
+
+  it('n’écrit aucun secret dans les colonnes de l’événement', async () => {
+    const token = await borrowerSessionToken();
+    const { event } = fakeEvent({ [SESSION_COOKIE_NAME]: token }, '/libraire/vente');
+
+    await handle({ event, resolve: async () => forbidden(BOOKSELLER_ONLY_MESSAGE) });
+
+    const [stored] = storedEventColumns();
+    expect(Object.keys(stored).sort()).toEqual(['created_at', 'id', 'subject', 'type', 'user_id']);
+    expect(Number.isInteger(stored.created_at)).toBe(true);
+
+    const hash = getDb().prepare('SELECT password_hash FROM users LIMIT 1').get() as {
+      password_hash: string;
+    };
+    const written = Object.values(stored).map(String).join(' ');
+    for (const secret of [token, hash.password_hash, 'mot de passe solide', '$argon2']) {
+      expect(written).not.toContain(secret);
+    }
   });
 });
 

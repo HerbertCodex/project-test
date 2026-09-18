@@ -21,6 +21,17 @@ const parisDateParts = new Intl.DateTimeFormat('en-US', {
   day: '2-digit'
 });
 
+const parisDateTimeParts = new Intl.DateTimeFormat('en-US', {
+  timeZone: LIBRARY_TIME_ZONE,
+  hourCycle: 'h23',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit'
+});
+
 const frenchLongDate = new Intl.DateTimeFormat('fr-FR', {
   day: 'numeric',
   month: 'long',
@@ -69,6 +80,53 @@ export function addCalendarDays(isoDate: string, days: number): string {
   const date = toUtcMidnight(isoDate);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Recule une date calendaire d'une année, sur le modèle d'`addCalendarDays` :
+ * le même jour de l'année précédente. Le 29 février n'existant pas hors année
+ * bissextile, il devient le 28 février.
+ */
+export function subtractCalendarYear(isoDate: string): string {
+  const date = toUtcMidnight(isoDate);
+  const day = date.getUTCDate();
+  date.setUTCFullYear(date.getUTCFullYear() - 1);
+  // Date reporte au 1er mars un 29 février absent de l'année visée ; le jour 0
+  // ramène au dernier jour du mois précédent, soit le 28 février.
+  if (date.getUTCDate() !== day) date.setUTCDate(0);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Décalage de Paris sur UTC, en millisecondes, à l'instant donné. */
+function parisOffsetMs(instant: number): number {
+  // Les parties formatées s'arrêtent à la seconde : comparer à l'instant
+  // tronqué à la seconde, sinon les millisecondes fausseraient le décalage.
+  const truncated = Math.floor(instant / 1000) * 1000;
+  const parts = Object.fromEntries(
+    parisDateTimeParts.formatToParts(new Date(truncated)).map((part) => [part.type, part.value])
+  );
+  const asIfUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+  return asIfUtc - truncated;
+}
+
+/**
+ * Instant, en millisecondes epoch, où commence à Paris la date calendaire
+ * donnée : minuit local, heure d'été ou d'hiver comprise.
+ */
+export function startOfDayInParis(isoDate: string): number {
+  const utcMidnight = toUtcMidnight(isoDate).getTime();
+  // Le décalage à appliquer est celui de l'instant cherché, pas celui de minuit
+  // UTC : une première estimation en approche, la seconde la confirme de part
+  // et d'autre d'un changement d'heure.
+  const estimate = utcMidnight - parisOffsetMs(utcMidnight);
+  return utcMidnight - parisOffsetMs(estimate);
 }
 
 /**

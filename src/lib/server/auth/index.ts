@@ -1,12 +1,15 @@
 /**
- * Comptes, mots de passe (Argon2id), sessions et blocage des connexions.
+ * Comptes, mots de passe (Argon2id), sessions, blocage des connexions et
+ * journalisation des événements de connexion.
  *
  * Toutes les fonctions reçoivent la base en paramètre, et une horloge
  * injectable là où le temps compte.
  *
  * Ce module est aussi chargé tel quel par Node (suppression des types, sans
  * Vite) depuis `scripts/libraire-creer.ts` : il ne doit contenir aucun import
- * relatif ni alias `$lib` à l'exécution, seulement des `import type`.
+ * relatif ni alias `$lib` à l'exécution, seulement des `import type`. Le
+ * journal de sécurité fait exception par un import dynamique, résolu à la
+ * première connexion seulement (voir `loadSecurityLog`).
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { argon2id, hash, verify } from 'argon2';
@@ -14,6 +17,7 @@ import type { HashOptions } from 'argon2';
 import type { Cookies } from '@sveltejs/kit';
 import type { Clock } from '../dates';
 import type { Db } from '../db';
+import type { SecurityEventType } from '../security-log';
 
 export type Role = 'borrower' | 'bookseller';
 
@@ -377,6 +381,64 @@ export function clearLoginFailures(db: Db, email: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Journal de sécurité
+// ---------------------------------------------------------------------------
+
+type SecurityLog = typeof import('../security-log');
+
+let securityLog: Promise<SecurityLog> | undefined;
+
+/**
+ * Charge le module de journal à la demande, une seule fois par processus.
+ *
+ * L'import est dynamique parce qu'un import relatif statique rendrait ce
+ * module inutilisable par la commande locale, exécutée par Node sans Vite.
+ * Cette commande ne se connecte pas : elle ne déclenche jamais ce chargement.
+ * Un échec n'est pas mis en cache, pour qu'une tentative suivante réessaie.
+ */
+function loadSecurityLog(): Promise<SecurityLog> {
+  securityLog ??= import('../security-log').catch((error: unknown) => {
+    securityLog = undefined;
+    throw error;
+  });
+  return securityLog;
+}
+
+/**
+ * Journalise un événement de connexion daté de l'horloge de `login`.
+ *
+ * Le sujet est l'e-mail normalisé tenté, y compris quand aucun compte ne
+ * correspond : le journal doit dire quelle adresse est visée. Le module de
+ * journal borne ce sujet ; un e-mail vide y devient un sujet absent. Ni le mot
+ * de passe, ni le hachage, ni le jeton de session ne quittent `login`.
+ */
+async function recordLoginEvent(
+  db: Db,
+  type: SecurityEventType,
+  email: string,
+  userId: number | null,
+  clock: Clock
+): Promise<void> {
+  const { recordSecurityEvent } = await loadSecurityLog();
+  recordSecurityEvent(db, { type, userId, subject: email }, clock);
+}
+
+/**
+ * Ouvre la session du compte et date sa dernière connexion dans la même
+ * transaction : un succès laisse les deux traces, ou aucune.
+ */
+function openSession(db: Db, userId: number, clock: Clock): Session {
+  // Horloge lue une seule fois : la session et la date de connexion portent le
+  // même instant, même avec une horloge système qui avance entre deux appels.
+  const now = clock();
+  return db.transaction(() => {
+    const session = createSession(db, userId, () => now);
+    db.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').run(now.getTime(), userId);
+    return session;
+  })();
+}
+
+// ---------------------------------------------------------------------------
 // Connexion
 // ---------------------------------------------------------------------------
 
@@ -399,6 +461,10 @@ export type LoginOptions = {
 /**
  * Vérifie les identifiants sous le contrôle du blocage par e-mail normalisé
  * (compte existant ou non) et ouvre une nouvelle session en cas de succès.
+ *
+ * Chaque issue est journalisée : succès, échec, échec qui déclenche le
+ * blocage, et tentative reçue pendant un blocage (jamais comptée comme un
+ * échec, puisqu'elle n'est pas vérifiée).
  */
 export async function login(
   db: Db,
@@ -410,25 +476,43 @@ export async function login(
   const password = typeof input.password === 'string' ? input.password : '';
   const trackable = email.length > 0 && email.length <= EMAIL_MAX_LENGTH;
 
-  const lockedBefore = trackable ? getLockoutEnd(db, email, clock) : null;
-  if (lockedBefore !== null) return { ok: false, reason: 'locked', lockedUntil: lockedBefore };
-
+  // Le compte est lu avant la vérification du blocage pour que même une
+  // tentative bloquée désigne le compte visé dans le journal.
   const row = trackable ? findUserRowByEmail(db, email) : undefined;
+  const userId = row?.id ?? null;
+
+  const lockedBefore = trackable ? getLockoutEnd(db, email, clock) : null;
+  if (lockedBefore !== null) {
+    await recordLoginEvent(db, 'lockout_attempt', email, userId, clock);
+    return { ok: false, reason: 'locked', lockedUntil: lockedBefore };
+  }
+
   const passwordMatches = row
     ? await verifyPassword(row.password_hash, password)
     : await verifyDummyPassword(password);
 
   if (!row || !passwordMatches) {
     if (trackable) recordLoginFailure(db, email, clock);
+    await recordLoginEvent(db, 'login_failure', email, userId, clock);
+    // Un blocage en cours juste après l'échec ne peut venir que de cet échec :
+    // une fenêtre déjà bloquée aurait été refusée plus haut.
+    if (trackable && getLockoutEnd(db, email, clock) !== null) {
+      await recordLoginEvent(db, 'lockout_started', email, userId, clock);
+    }
     return { ok: false, reason: 'invalid' };
   }
 
   // Des tentatives parallèles ont pu déclencher le blocage pendant la vérification.
   const lockedAfter = getLockoutEnd(db, email, clock);
-  if (lockedAfter !== null) return { ok: false, reason: 'locked', lockedUntil: lockedAfter };
+  if (lockedAfter !== null) {
+    await recordLoginEvent(db, 'lockout_attempt', email, row.id, clock);
+    return { ok: false, reason: 'locked', lockedUntil: lockedAfter };
+  }
 
   clearLoginFailures(db, email);
   deleteSession(db, options.previousSessionToken);
   const user = toAuthUser(row);
-  return { ok: true, user, session: createSession(db, user.id, clock) };
+  const session = openSession(db, user.id, clock);
+  await recordLoginEvent(db, 'login_success', email, user.id, clock);
+  return { ok: true, user, session };
 }

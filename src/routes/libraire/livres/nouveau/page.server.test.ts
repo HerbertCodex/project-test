@@ -250,6 +250,7 @@ describe('action /libraire/livres/nouveau', () => {
       { name: 'loans' },
       { name: 'login_failures' },
       { name: 'sales' },
+      { name: 'security_events' },
       { name: 'sessions' },
       { name: 'users' }
     ]);
