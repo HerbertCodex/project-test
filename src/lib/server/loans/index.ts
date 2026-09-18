@@ -228,6 +228,17 @@ export function listActiveLoans(db: Db, today: string = todayInParis()): ActiveL
   }));
 }
 
+/**
+ * Vrai si ce compte a au moins un prêt non rendu. Une obligation en cours
+ * interdit la suppression du compte : le livre doit revenir d'abord.
+ */
+export function hasActiveLoan(db: Db, userId: number): boolean {
+  const active = db
+    .prepare('SELECT 1 FROM loans WHERE user_id = ? AND returned_on IS NULL LIMIT 1')
+    .get(userId);
+  return active !== undefined;
+}
+
 export type BorrowerActiveLoan = {
   id: number;
   title: string;

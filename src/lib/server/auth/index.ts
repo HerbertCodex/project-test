@@ -42,9 +42,17 @@ function toAuthUser(row: Omit<UserRow, 'password_hash'>): AuthUser {
   return { id: row.id, email: row.email, displayName: row.display_name, role: row.role };
 }
 
+/**
+ * Compte portant cet e-mail normalisé, ou undefined. Une ligne anonymisée est
+ * ignorée : son e-mail substitut ne doit ni se connecter, ni bloquer une
+ * inscription reprenant l'ancienne adresse.
+ */
 function findUserRowByEmail(db: Db, email: string): UserRow | undefined {
   return db
-    .prepare('SELECT id, email, display_name, password_hash, role FROM users WHERE email = ?')
+    .prepare(
+      `SELECT id, email, display_name, password_hash, role FROM users
+       WHERE email = ? AND deleted_at IS NULL`
+    )
     .get(email) as UserRow | undefined;
 }
 
@@ -300,7 +308,8 @@ export function createSession(db: Db, userId: number, clock: Clock = currentTime
 
 /**
  * Utilisateur de la session désignée par le jeton, ou null (jeton absent,
- * mal formé, inconnu ou expiré). L'usage ne prolonge jamais la session.
+ * mal formé, inconnu, expiré, ou rattaché à un compte anonymisé). L'usage ne
+ * prolonge jamais la session.
  */
 export function validateSessionToken(
   db: Db,
@@ -314,7 +323,7 @@ export function validateSessionToken(
     .prepare(
       `SELECT users.id, users.email, users.display_name, users.role, sessions.expires_at
        FROM sessions JOIN users ON users.id = sessions.user_id
-       WHERE sessions.token_hash = ?`
+       WHERE sessions.token_hash = ? AND users.deleted_at IS NULL`
     )
     .get(tokenHash) as (Omit<UserRow, 'password_hash'> & { expires_at: number }) | undefined;
   if (!row) return null;
