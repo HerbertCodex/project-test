@@ -8,7 +8,7 @@ import {
   deleteSession
 } from '$lib/server/auth';
 import { BOOKSELLER_ONLY_MESSAGE } from '$lib/server/catalogue';
-import { closeDb, getDb } from '$lib/server/db';
+import { closeDb, getDb, type Db } from '$lib/server/db';
 import { BORROWER_ONLY_MESSAGE } from '$lib/server/loans';
 import {
   SECURITY_EVENT_LABELS,
@@ -82,6 +82,21 @@ function tableNames(): string[] {
 }
 
 const forbidden = (message: string) => new Response(message, { status: 403 });
+
+/**
+ * Charge une copie neuve de `./hooks.server` avec un module de rétention doublé,
+ * seule façon d'observer ce que fait le chargement du module lui-même. La copie
+ * a son propre graphe de modules, donc sa propre connexion, que `close` referme.
+ */
+async function loadHooksModule(purge: (db: Db) => void = () => {}) {
+  vi.resetModules();
+  const runRetentionPurges = vi.fn(purge);
+  vi.doMock('$lib/server/retention', () => ({ runRetentionPurges }));
+
+  const { handle: freshHandle } = await import('./hooks.server');
+  const { closeDb: closeFresh, getDb: freshDb } = await import('$lib/server/db');
+  return { handle: freshHandle, runRetentionPurges, db: freshDb(), close: closeFresh };
+}
 
 afterEach(() => {
   closeDb();
@@ -172,6 +187,63 @@ describe('handle', () => {
     await handle({ event, resolve: async () => new Response('ok') });
 
     expect(event.locals.user).toBeNull();
+  });
+});
+
+describe('purges de rétention au chargement du module', () => {
+  let closeFreshDb: (() => void) | undefined;
+
+  afterEach(() => {
+    closeFreshDb?.();
+    closeFreshDb = undefined;
+    vi.doUnmock('$lib/server/retention');
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it('exécute les purges sur la base de l’application dès le chargement', async () => {
+    const loaded = await loadHooksModule();
+    closeFreshDb = loaded.close;
+
+    expect(loaded.runRetentionPurges).toHaveBeenCalledTimes(1);
+    // La base purgée est bien la connexion partagée que le hook utilise ensuite.
+    expect(loaded.runRetentionPurges.mock.calls[0][0]).toBe(loaded.db);
+  });
+
+  it('ne relance pas les purges aux requêtes suivantes', async () => {
+    const loaded = await loadHooksModule();
+    closeFreshDb = loaded.close;
+
+    for (const path of ['/', '/mes-prets', '/libraire/vente']) {
+      const { event } = fakeEvent({}, path);
+      const response = await loaded.handle({ event, resolve: async () => new Response('ok') });
+
+      expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    }
+
+    expect(loaded.runRetentionPurges).toHaveBeenCalledTimes(1);
+  });
+
+  it('répond malgré un échec de purge au démarrage, sans divulguer l’erreur', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failure = "SELECT password_hash FROM users; échec de purge illisible pour l'exploitant";
+    const loaded = await loadHooksModule(() => {
+      throw new Error(failure);
+    });
+    closeFreshDb = loaded.close;
+
+    const { event } = fakeEvent();
+    const response = await loaded.handle({ event, resolve: async () => new Response('ok') });
+
+    expect(loaded.runRetentionPurges).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('ok');
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('x-frame-options')).toBe('DENY');
+    expect(event.locals.user).toBeNull();
+    // L'échec est signalé à l'exploitant, mais sans SQL ni pile.
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged.mock.calls.flat().map(String).join(' ')).not.toContain(failure);
   });
 });
 
