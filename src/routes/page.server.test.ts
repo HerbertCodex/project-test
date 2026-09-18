@@ -43,9 +43,12 @@ const HOSTILE_TITLE = '<script>alert(1)</script>';
 type LoanPageInfo = { page: number; pageSize: number; totalItems: number; totalPages: number };
 type MyLoansData = {
   active: BorrowerActiveLoan[];
+  activeOverdueCount: number;
   activePageInfo: LoanPageInfo;
+  activePageQuery: string;
   returned: BorrowerReturnedLoan[];
   returnedPageInfo: LoanPageInfo;
+  returnedPageQuery: string;
 };
 
 type LoadEvent = Parameters<typeof load>[0];
@@ -1189,7 +1192,9 @@ describe('load /mes-prets', () => {
           overdue: false
         }
       ],
+      activeOverdueCount: 0,
       activePageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
+      activePageQuery: `userId=${a.id}&user=${a.id}`,
       returned: [
         {
           id: bReturned,
@@ -1198,7 +1203,8 @@ describe('load /mes-prets', () => {
           returnedOn: { iso: '2026-03-15', label: '15 mars 2026' }
         }
       ],
-      returnedPageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 }
+      returnedPageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
+      returnedPageQuery: `userId=${a.id}&user=${a.id}`
     });
     expect(JSON.stringify(data)).not.toMatch(/Livre de A|a@example\.fr|Emprunteur A/);
   });
@@ -1242,9 +1248,12 @@ describe('load /mes-prets', () => {
           overdue: true
         }
       ],
+      activeOverdueCount: 1,
       activePageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
+      activePageQuery: '',
       returned: [],
-      returnedPageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 0, totalPages: 1 }
+      returnedPageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 0, totalPages: 1 },
+      returnedPageQuery: ''
     };
 
     const { body } = render(MyLoansPage, {

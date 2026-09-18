@@ -147,13 +147,18 @@ type SaleCounterRow = {
   sale_stock: number;
 };
 
-/** Page du comptoir de vente : les lignes de la page demandée et le total réel. */
+/**
+ * Page du comptoir de vente : les lignes de la page demandée et le total réel,
+ * ainsi que les deux comptes affichés en tête d'écran (toutes pages confondues).
+ */
 export type SaleCounterPage = {
   items: SaleCounterEntry[];
   page: number;
   pageSize: number;
   totalItems: number;
   totalPages: number;
+  onSaleCount: number;
+  noPriceCount: number;
 };
 
 /**
@@ -165,6 +170,14 @@ export function listSaleCounter(db: Db, page = 1): SaleCounterPage {
   ensureFoldFunction(db);
 
   const { count } = db.prepare('SELECT COUNT(*) AS count FROM books').get() as { count: number };
+  const { onSaleCount, noPriceCount } = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN price_cents IS NOT NULL AND sale_stock > 0 THEN 1 ELSE 0 END) AS onSaleCount,
+         SUM(CASE WHEN price_cents IS NULL THEN 1 ELSE 0 END) AS noPriceCount
+       FROM books`
+    )
+    .get() as { onSaleCount: number | null; noPriceCount: number | null };
   const totalPages = computePageCount(count, DEFAULT_PAGE_SIZE);
   const clampedPage = Math.min(Math.max(1, Math.trunc(page) || 1), totalPages);
   const offset = computeOffset(clampedPage, DEFAULT_PAGE_SIZE);
@@ -188,7 +201,15 @@ export function listSaleCounter(db: Db, page = 1): SaleCounterPage {
     })
   );
 
-  return { items, page: clampedPage, pageSize: DEFAULT_PAGE_SIZE, totalItems: count, totalPages };
+  return {
+    items,
+    page: clampedPage,
+    pageSize: DEFAULT_PAGE_SIZE,
+    totalItems: count,
+    totalPages,
+    onSaleCount: onSaleCount ?? 0,
+    noPriceCount: noPriceCount ?? 0
+  };
 }
 
 // ---------------------------------------------------------------------------

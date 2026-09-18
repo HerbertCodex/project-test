@@ -233,15 +233,21 @@ export type ActiveLoan = {
 
 type ActiveLoanRow = { id: number; title: string; display_name: string; due_on: string };
 
+/** Page de prêts en cours, avec le nombre total de retards toutes pages confondues. */
+export type ActiveLoanPage = LoanPage<ActiveLoan> & { overdueCount: number };
+
 /** Prêts en cours, par échéance croissante puis id : les retards viennent en tête. */
 export function listActiveLoans(
   db: Db,
   page = 1,
   today: string = todayInParis()
-): LoanPage<ActiveLoan> {
+): ActiveLoanPage {
   const { count } = db
     .prepare('SELECT COUNT(*) AS count FROM loans WHERE returned_on IS NULL')
     .get() as { count: number };
+  const { overdueCount } = db
+    .prepare('SELECT COUNT(*) AS overdueCount FROM loans WHERE returned_on IS NULL AND due_on < ?')
+    .get(today) as { overdueCount: number };
   const { clampedPage, totalPages, offset } = pageWindow(page, count);
 
   const rows = db
@@ -264,7 +270,7 @@ export function listActiveLoans(
     overdue: isOverdue(row.due_on, today)
   }));
 
-  return toLoanPage(items, clampedPage, count, totalPages);
+  return { ...toLoanPage(items, clampedPage, count, totalPages), overdueCount };
 }
 
 /**
@@ -303,18 +309,27 @@ export type BorrowerReturnedLoan = {
 
 type BorrowerActiveLoanRow = { id: number; title: string; borrowed_on: string; due_on: string };
 
+/** Page des prêts en cours d'un emprunteur, avec le nombre total de ses retards. */
+export type BorrowerActiveLoanPage = LoanPage<BorrowerActiveLoan> & { overdueCount: number };
+
 /** Prêts en cours d'un seul utilisateur, par échéance croissante puis id. */
 export function listBorrowerActiveLoans(
   db: Db,
   userId: number,
   page = 1,
   today: string = todayInParis()
-): LoanPage<BorrowerActiveLoan> {
+): BorrowerActiveLoanPage {
   const { count } = db
     .prepare(
       'SELECT COUNT(*) AS count FROM loans WHERE loans.user_id = ? AND loans.returned_on IS NULL'
     )
     .get(userId) as { count: number };
+  const { overdueCount } = db
+    .prepare(
+      `SELECT COUNT(*) AS overdueCount FROM loans
+       WHERE loans.user_id = ? AND loans.returned_on IS NULL AND loans.due_on < ?`
+    )
+    .get(userId, today) as { overdueCount: number };
   const { clampedPage, totalPages, offset } = pageWindow(page, count);
 
   const rows = db
@@ -336,7 +351,7 @@ export function listBorrowerActiveLoans(
     overdue: isOverdue(row.due_on, today)
   }));
 
-  return toLoanPage(items, clampedPage, count, totalPages);
+  return { ...toLoanPage(items, clampedPage, count, totalPages), overdueCount };
 }
 
 type BorrowerReturnedLoanRow = {

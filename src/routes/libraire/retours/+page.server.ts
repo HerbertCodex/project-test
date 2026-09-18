@@ -28,7 +28,8 @@ export const load: PageServerLoad = ({ locals, url }) => {
     page: loansPage.page,
     pageSize: loansPage.pageSize,
     totalItems: loansPage.totalItems,
-    totalPages: loansPage.totalPages
+    totalPages: loansPage.totalPages,
+    overdueCount: loansPage.overdueCount
   };
 };
 

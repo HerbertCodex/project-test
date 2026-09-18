@@ -91,7 +91,9 @@ export const load: PageServerLoad = ({ locals, url }) => {
     page: counter.page,
     pageSize: counter.pageSize,
     totalItems: counter.totalItems,
-    totalPages: counter.totalPages
+    totalPages: counter.totalPages,
+    onSaleCount: counter.onSaleCount,
+    noPriceCount: counter.noPriceCount
   };
 };
 

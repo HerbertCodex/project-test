@@ -7,8 +7,6 @@
 
   let { data, form }: PageProps = $props();
 
-  const overdueCount = $derived(data.loans.filter((loan) => loan.overdue).length);
-
   /** Position affichée de la page courante dans le total, par exemple « 26–50 sur 137 ». */
   const firstItem = $derived(data.loans.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
   const lastItem = $derived((data.page - 1) * data.pageSize + data.loans.length);
@@ -41,10 +39,10 @@
 
   <ul class="tally">
     <li class="tally__item">
-      <span class="tally__value">{data.loans.length}</span> en cours
+      <span class="tally__value">{data.totalItems}</span> en cours
     </li>
-    <li class="tally__item" class:tally__item--alert={overdueCount > 0}>
-      <span class="tally__value">{overdueCount}</span> en retard
+    <li class="tally__item" class:tally__item--alert={data.overdueCount > 0}>
+      <span class="tally__value">{data.overdueCount}</span> en retard
     </li>
   </ul>
 

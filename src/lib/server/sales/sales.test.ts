@@ -203,7 +203,9 @@ describe('listSaleCounter', () => {
       page: 1,
       pageSize: 25,
       totalItems: 0,
-      totalPages: 1
+      totalPages: 1,
+      onSaleCount: 0,
+      noPriceCount: 0
     });
   });
 

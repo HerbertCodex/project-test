@@ -15,24 +15,37 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = ({ locals, url }) => {
   const borrower = requireBorrower(locals.user);
   const db = getDb();
-  const pageActifs = parsePageParam(url?.searchParams.get('pageActifs') ?? null);
-  const pageRendus = parsePageParam(url?.searchParams.get('pageRendus') ?? null);
+  const searchParams = url?.searchParams ?? new URLSearchParams();
+  const pageActifs = parsePageParam(searchParams.get('pageActifs'));
+  const pageRendus = parsePageParam(searchParams.get('pageRendus'));
   const activePage = listBorrowerActiveLoans(db, borrower.id, pageActifs);
   const returnedPage = listBorrowerReturnedLoans(db, borrower.id, pageRendus);
+
+  // Chaque pagination reconduit l'autre paramètre de page (pageRendus pour la
+  // section active et inversement), sinon changer de page dans une section
+  // effacerait silencieusement la page affichée par l'autre (voir Pagination.svelte).
+  const activePageQuery = new URLSearchParams(searchParams);
+  activePageQuery.delete('pageActifs');
+  const returnedPageQuery = new URLSearchParams(searchParams);
+  returnedPageQuery.delete('pageRendus');
+
   return {
     active: activePage.items,
+    activeOverdueCount: activePage.overdueCount,
     activePageInfo: {
       page: activePage.page,
       pageSize: activePage.pageSize,
       totalItems: activePage.totalItems,
       totalPages: activePage.totalPages
     },
+    activePageQuery: activePageQuery.toString(),
     returned: returnedPage.items,
     returnedPageInfo: {
       page: returnedPage.page,
       pageSize: returnedPage.pageSize,
       totalItems: returnedPage.totalItems,
       totalPages: returnedPage.totalPages
-    }
+    },
+    returnedPageQuery: returnedPageQuery.toString()
   };
 };

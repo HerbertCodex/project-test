@@ -1,10 +1,12 @@
 import { isHttpError, isRedirect } from '@sveltejs/kit';
+import { render } from 'svelte/server';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AuthUser, Role } from '$lib/server/auth';
 import { addBook } from '$lib/server/catalogue';
 import { closeDb, getDb } from '$lib/server/db';
 import { BORROWER_ONLY_MESSAGE } from '$lib/server/loans';
 import { load } from './+page.server';
+import MyLoansPage from './+page.svelte';
 
 type LoanPageInfo = { page: number; pageSize: number; totalItems: number; totalPages: number };
 type ActiveLoan = {
@@ -22,9 +24,12 @@ type ReturnedLoan = {
 };
 type LoadData = {
   active: ActiveLoan[];
+  activeOverdueCount: number;
   activePageInfo: LoanPageInfo;
+  activePageQuery: string;
   returned: ReturnedLoan[];
   returnedPageInfo: LoanPageInfo;
+  returnedPageQuery: string;
 };
 
 function insertUser(email: string, role: Role): AuthUser {
@@ -129,6 +134,40 @@ describe('pagination indépendante de /mes-prets', () => {
     expect(secondReturned.returned).toHaveLength(5);
     expect(secondReturned.active).toEqual(first.active);
     expect(secondReturned.activePageInfo).toEqual(first.activePageInfo);
+  });
+
+  it('conserve le paramètre de page de l’autre section dans les liens Suivant', async () => {
+    const reader = borrower();
+    for (let i = 0; i < 30; i++) {
+      insertActiveLoan(reader.id, `Actif ${String(i).padStart(2, '0')}`, '2026-06-01');
+    }
+    for (let i = 0; i < 30; i++) {
+      insertReturnedLoan(reader.id, `Rendu ${String(i).padStart(2, '0')}`, '2025-01-01');
+    }
+
+    const data = (await loadAs(reader, '?pageActifs=1&pageRendus=1')) as LoadData;
+    const { body } = render(MyLoansPage, {
+      props: { data: { ...data, user: { displayName: 'Lecteur', role: 'borrower' } } } as never
+    });
+
+    // Le lien « Suivant » de la section active doit garder pageRendus=1, et
+    // celui de la section rendus doit garder pageActifs=1, sinon cliquer dans
+    // une section remet silencieusement l'autre en page 1.
+    expect(body).toContain('href="?pageRendus=1&amp;pageActifs=2"');
+    expect(body).toContain('href="?pageActifs=1&amp;pageRendus=2"');
+  });
+
+  it('affiche le total exact de prêts en cours et de retards, au-delà d’une seule page', async () => {
+    const reader = borrower();
+    for (let i = 0; i < 30; i++) {
+      // Toutes en retard : échéance dépassée par rapport à aujourd'hui.
+      insertActiveLoan(reader.id, `Actif ${String(i).padStart(2, '0')}`, '2026-02-01');
+    }
+
+    const data = (await loadAs(reader, '')) as LoadData;
+
+    expect(data.activePageInfo.totalItems).toBe(30);
+    expect(data.activeOverdueCount).toBe(30);
   });
 
   it.each(['0', '999', 'abc', '1.5'])(

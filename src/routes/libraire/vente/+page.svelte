@@ -9,9 +9,6 @@
 
   type CounterAction = 'prix' | 'vendre' | 'reassortir';
 
-  const onSaleCount = $derived(data.books.filter((book) => book.saleStatus === 'on-sale').length);
-  const noPriceCount = $derived(data.books.filter((book) => book.priceCents === null).length);
-
   /** Position affichée de la page courante dans le total, par exemple « 26–50 sur 137 ». */
   const firstItem = $derived(data.books.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
   const lastItem = $derived((data.page - 1) * data.pageSize + data.books.length);
@@ -83,10 +80,10 @@
 
 <ul class="tally">
   <li class="tally__item">
-    <span class="tally__value">{onSaleCount}</span> en vente
+    <span class="tally__value">{data.onSaleCount}</span> en vente
   </li>
   <li class="tally__item">
-    <span class="tally__value">{noPriceCount}</span> sans prix
+    <span class="tally__value">{data.noPriceCount}</span> sans prix
   </li>
 </ul>
 
