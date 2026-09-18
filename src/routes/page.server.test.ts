@@ -40,7 +40,13 @@ import MyLoansPage from './mes-prets/+page.svelte';
 const SQL_PAYLOAD = "'; DROP TABLE books;--";
 const HOSTILE_TITLE = '<script>alert(1)</script>';
 
-type MyLoansData = { active: BorrowerActiveLoan[]; returned: BorrowerReturnedLoan[] };
+type LoanPageInfo = { page: number; pageSize: number; totalItems: number; totalPages: number };
+type MyLoansData = {
+  active: BorrowerActiveLoan[];
+  activePageInfo: LoanPageInfo;
+  returned: BorrowerReturnedLoan[];
+  returnedPageInfo: LoanPageInfo;
+};
 
 type LoadEvent = Parameters<typeof load>[0];
 
@@ -1183,6 +1189,7 @@ describe('load /mes-prets', () => {
           overdue: false
         }
       ],
+      activePageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
       returned: [
         {
           id: bReturned,
@@ -1190,7 +1197,8 @@ describe('load /mes-prets', () => {
           borrowedOn: { iso: '2026-03-01', label: '1 mars 2026' },
           returnedOn: { iso: '2026-03-15', label: '15 mars 2026' }
         }
-      ]
+      ],
+      returnedPageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 }
     });
     expect(JSON.stringify(data)).not.toMatch(/Livre de A|a@example\.fr|Emprunteur A/);
   });
@@ -1234,7 +1242,9 @@ describe('load /mes-prets', () => {
           overdue: true
         }
       ],
-      returned: []
+      activePageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
+      returned: [],
+      returnedPageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 0, totalPages: 1 }
     };
 
     const { body } = render(MyLoansPage, {
