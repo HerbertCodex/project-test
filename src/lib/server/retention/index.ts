@@ -120,3 +120,22 @@ export function runRetentionPurges(db: Db, clock: Clock = systemClock): Retentio
 
   return { loans, securityEvents, accounts };
 }
+
+/**
+ * Exécute les purges de rétention en contenant tout échec : l'appelant reste
+ * indifférent à l'issue, aucun de ses trois déclencheurs (démarrage, après un
+ * emprunt, après un retour) ne devant transformer un échec de purge en erreur
+ * pour l'utilisateur. En cas d'échec, `failureMessage` est journalisé via
+ * `console.error`, sans SQL ni pile, et l'erreur n'est jamais relancée.
+ */
+export function runRetentionPurgesSafely(
+  db: Db,
+  failureMessage: string,
+  clock: Clock = systemClock
+): void {
+  try {
+    runRetentionPurges(db, clock);
+  } catch {
+    console.error(failureMessage);
+  }
+}

@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ANONYMIZED_DISPLAY_NAME, anonymizedEmail } from '../account';
 import { addCalendarDays, startOfDayInParis, type Clock } from '../dates';
 import { openDatabase, type Db } from '../db';
 import { listRecentSecurityEvents, recordSecurityEvent } from '../security-log';
-import { runRetentionPurges } from './index';
+import { runRetentionPurges, runRetentionPurgesSafely } from './index';
 
 // 18 septembre 2026, 12 h UTC = 14 h à Paris (heure d'été).
 const NOW = Date.UTC(2026, 8, 18, 12, 0, 0);
@@ -378,5 +378,39 @@ describe('purges réunies', () => {
 
   it('se passe d’horloge fournie, l’horloge système servant de défaut', () => {
     expect(runRetentionPurges(db)).toEqual({ loans: 0, securityEvents: 0, accounts: 0 });
+  });
+});
+
+describe('runRetentionPurgesSafely', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('purge silencieusement sans rien journaliser quand la purge réussit', () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const user = createUser({ email: 'dormeur@example.fr', createdOn: '2014-05-05' });
+
+    runRetentionPurgesSafely(db, 'message inutilisé', clock);
+
+    expect(userRow(user).deleted_at).toBe(NOW);
+    expect(logged).not.toHaveBeenCalled();
+  });
+
+  it('journalise le message fourni par l’appelant et ne relance pas l’erreur en cas d’échec', () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failingDb = { prepare: () => ({ all: () => { throw new Error('SELECT échec'); } }) } as unknown as Db;
+
+    expect(() =>
+      runRetentionPurgesSafely(failingDb, "Purges de rétention : échec après un emprunt, la base n'a pas été purgée.", clock)
+    ).not.toThrow();
+
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledWith(
+      "Purges de rétention : échec après un emprunt, la base n'a pas été purgée."
+    );
+  });
+
+  it('se passe d’horloge fournie, l’horloge système servant de défaut', () => {
+    expect(() => runRetentionPurgesSafely(db, 'message inutilisé')).not.toThrow();
   });
 });

@@ -16,7 +16,7 @@ import {
   listRecentSecurityEvents
 } from '$lib/server/security-log';
 import config from '../svelte.config.js';
-import { handle } from './hooks.server';
+import { handle, init } from './hooks.server';
 
 const EXPECTED_TABLES = [
   'books',
@@ -85,17 +85,30 @@ const forbidden = (message: string) => new Response(message, { status: 403 });
 
 /**
  * Charge une copie neuve de `./hooks.server` avec un module de rétention doublé,
- * seule façon d'observer ce que fait le chargement du module lui-même. La copie
- * a son propre graphe de modules, donc sa propre connexion, que `close` referme.
+ * seule façon d'observer ce que fait le chargement du module lui-même, séparément
+ * de l'appel explicite à `init`. La copie a son propre graphe de modules, donc sa
+ * propre connexion, que `close` referme.
  */
 async function loadHooksModule(purge: (db: Db) => void = () => {}) {
   vi.resetModules();
-  const runRetentionPurges = vi.fn(purge);
-  vi.doMock('$lib/server/retention', () => ({ runRetentionPurges }));
+  const runRetentionPurgesSafely = vi.fn((db: Db, failureMessage: string) => {
+    try {
+      purge(db);
+    } catch {
+      console.error(failureMessage);
+    }
+  });
+  vi.doMock('$lib/server/retention', () => ({ runRetentionPurgesSafely }));
 
-  const { handle: freshHandle } = await import('./hooks.server');
+  const { handle: freshHandle, init: freshInit } = await import('./hooks.server');
   const { closeDb: closeFresh, getDb: freshDb } = await import('$lib/server/db');
-  return { handle: freshHandle, runRetentionPurges, db: freshDb(), close: closeFresh };
+  return {
+    handle: freshHandle,
+    init: freshInit,
+    runRetentionPurgesSafely,
+    db: freshDb(),
+    close: closeFresh
+  };
 }
 
 afterEach(() => {
@@ -190,7 +203,7 @@ describe('handle', () => {
   });
 });
 
-describe('purges de rétention au chargement du module', () => {
+describe('purges de rétention au hook init', () => {
   let closeFreshDb: (() => void) | undefined;
 
   afterEach(() => {
@@ -201,18 +214,29 @@ describe('purges de rétention au chargement du module', () => {
     vi.restoreAllMocks();
   });
 
-  it('exécute les purges sur la base de l’application dès le chargement', async () => {
+  it("n'exécute aucune purge à la simple évaluation du module", async () => {
     const loaded = await loadHooksModule();
     closeFreshDb = loaded.close;
 
-    expect(loaded.runRetentionPurges).toHaveBeenCalledTimes(1);
+    expect(loaded.runRetentionPurgesSafely).not.toHaveBeenCalled();
+  });
+
+  it('exécute les purges sur la base de l’application quand `init` est appelé', async () => {
+    const loaded = await loadHooksModule();
+    closeFreshDb = loaded.close;
+
+    await loaded.init();
+
+    expect(loaded.runRetentionPurgesSafely).toHaveBeenCalledTimes(1);
     // La base purgée est bien la connexion partagée que le hook utilise ensuite.
-    expect(loaded.runRetentionPurges.mock.calls[0][0]).toBe(loaded.db);
+    expect(loaded.runRetentionPurgesSafely.mock.calls[0][0]).toBe(loaded.db);
   });
 
   it('ne relance pas les purges aux requêtes suivantes', async () => {
     const loaded = await loadHooksModule();
     closeFreshDb = loaded.close;
+
+    await loaded.init();
 
     for (const path of ['/', '/mes-prets', '/libraire/vente']) {
       const { event } = fakeEvent({}, path);
@@ -221,7 +245,7 @@ describe('purges de rétention au chargement du module', () => {
       expect(response.headers.get('x-content-type-options')).toBe('nosniff');
     }
 
-    expect(loaded.runRetentionPurges).toHaveBeenCalledTimes(1);
+    expect(loaded.runRetentionPurgesSafely).toHaveBeenCalledTimes(1);
   });
 
   it('répond malgré un échec de purge au démarrage, sans divulguer l’erreur', async () => {
@@ -232,10 +256,12 @@ describe('purges de rétention au chargement du module', () => {
     });
     closeFreshDb = loaded.close;
 
+    await loaded.init();
+
     const { event } = fakeEvent();
     const response = await loaded.handle({ event, resolve: async () => new Response('ok') });
 
-    expect(loaded.runRetentionPurges).toHaveBeenCalledTimes(1);
+    expect(loaded.runRetentionPurgesSafely).toHaveBeenCalledTimes(1);
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('ok');
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
