@@ -1,7 +1,8 @@
 import { requireBookseller } from '$lib/server/catalogue';
 import { LIBRARY_TIME_ZONE } from '$lib/server/dates';
 import { getDb } from '$lib/server/db';
-import { SECURITY_EVENT_LIST_LIMIT, listRecentSecurityEvents } from '$lib/server/security-log';
+import { parsePageParam } from '$lib/server/pagination';
+import { listRecentSecurityEvents } from '$lib/server/security-log';
 import type { PageServerLoad } from './$types';
 
 const parisDateTime = new Intl.DateTimeFormat('fr-FR', {
@@ -44,16 +45,19 @@ export type JournalEntry = {
 };
 
 /**
- * Derniers événements de sécurité, du plus récent au plus ancien. Contrôle refait
- * ici en plus du layout /libraire. La page est en lecture seule : aucune action
- * n'est exportée, donc tout POST est refusé par SvelteKit.
+ * Une page des événements de sécurité, du plus récent au plus ancien. Contrôle
+ * refait ici en plus du layout /libraire. La page est en lecture seule : aucune
+ * action n'est exportée, donc tout POST est refusé par SvelteKit.
  *
- * Rien n'est lu de l'URL : ni filtre, ni limite, ni identifiant de compte.
+ * `page` est bornée silencieusement : jamais d'erreur pour une valeur invalide
+ * ou hors bornes.
  */
-export const load: PageServerLoad = ({ locals }) => {
+export const load: PageServerLoad = ({ locals, url }) => {
   requireBookseller(locals.user);
 
-  const events: JournalEntry[] = listRecentSecurityEvents(getDb()).map((event) => ({
+  const page = parsePageParam(url?.searchParams.get('page') ?? null);
+  const eventsPage = listRecentSecurityEvents(getDb(), page);
+  const events: JournalEntry[] = eventsPage.items.map((event) => ({
     id: event.id,
     label: event.label,
     when: parisInstant(event.createdAt),
@@ -61,5 +65,11 @@ export const load: PageServerLoad = ({ locals }) => {
     subject: event.subject
   }));
 
-  return { events, limit: SECURITY_EVENT_LIST_LIMIT };
+  return {
+    events,
+    page: eventsPage.page,
+    pageSize: eventsPage.pageSize,
+    totalItems: eventsPage.totalItems,
+    totalPages: eventsPage.totalPages
+  };
 };

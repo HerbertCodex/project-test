@@ -1,7 +1,14 @@
 <script lang="ts">
+  import Pagination from '$lib/components/Pagination.svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
+
+  /** Position affichée de la page courante dans le total, par exemple « 26–50 sur 137 ». */
+  const firstItem = $derived(
+    data.events.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1
+  );
+  const lastItem = $derived((data.page - 1) * data.pageSize + data.events.length);
 </script>
 
 <svelte:head>
@@ -11,8 +18,8 @@
 <h1>Journal de sécurité</h1>
 
 <p class="lead">
-  Les {data.limit} derniers événements de connexion et d’accès, du plus récent au plus ancien. Page
-  en lecture seule ; les événements de plus d’un an sont effacés.
+  Les événements de connexion et d’accès, du plus récent au plus ancien. Page en lecture seule ;
+  les événements de plus d’un an sont effacés.
 </p>
 
 {#if data.events.length === 0}
@@ -65,6 +72,8 @@
       {/each}
     </tbody>
   </table>
+  <p class="journal-position">{firstItem}–{lastItem} sur {data.totalItems}</p>
+  <Pagination page={data.page} totalPages={data.totalPages} totalItems={data.totalItems} />
 {/if}
 
 <style>
@@ -92,5 +101,11 @@
     .journal.data--stack tbody th.col-event {
       grid-column: 1 / -1;
     }
+  }
+
+  .journal-position {
+    margin-block-start: 1rem;
+    color: var(--ink-2);
+    text-align: center;
   }
 </style>

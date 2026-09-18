@@ -285,7 +285,7 @@ describe('journalisation des refus d’accès', () => {
 
     expect(response.status).toBe(403);
     expect(event.locals.user).not.toBeNull();
-    expect(listRecentSecurityEvents(getDb())).toEqual([
+    expect(listRecentSecurityEvents(getDb()).items).toEqual([
       {
         id: expect.any(Number),
         createdAt: expect.any(Number),
@@ -305,7 +305,7 @@ describe('journalisation des refus d’accès', () => {
     await handle({ event, resolve: async () => forbidden(BORROWER_ONLY_MESSAGE) });
 
     expect(event.locals.user).not.toBeNull();
-    expect(listRecentSecurityEvents(getDb())).toMatchObject([
+    expect(listRecentSecurityEvents(getDb()).items).toMatchObject([
       {
         type: 'access_denied',
         userId: event.locals.user?.id,

@@ -209,7 +209,10 @@ describe('purge du journal de sécurité', () => {
 
     expect(runRetentionPurges(db, clock).securityEvents).toBe(1);
 
-    expect(listRecentSecurityEvents(db).map((event) => event.createdAt)).toEqual([NOW, boundary]);
+    expect(listRecentSecurityEvents(db).items.map((event) => event.createdAt)).toEqual([
+      NOW,
+      boundary
+    ]);
   });
 });
 

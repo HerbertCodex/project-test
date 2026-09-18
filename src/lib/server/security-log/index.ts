@@ -22,6 +22,7 @@ import {
   type Clock
 } from '../dates';
 import type { Db } from '../db';
+import { computeOffset, computePageCount, DEFAULT_PAGE_SIZE } from '../pagination';
 
 // ---------------------------------------------------------------------------
 // Types d'événements
@@ -126,9 +127,6 @@ export function recordSecurityEvent(
 // Lecture
 // ---------------------------------------------------------------------------
 
-/** Nombre d'événements rendus par `listRecentSecurityEvents`. */
-export const SECURITY_EVENT_LIST_LIMIT = 100;
-
 /** Événement affichable : `userName` est nul si aucun compte n'y est rattaché. */
 export type SecurityEvent = {
   id: number;
@@ -149,11 +147,28 @@ type SecurityEventRow = {
   subject: string | null;
 };
 
+/** Page d'événements du journal : les lignes de la page demandée et le total réel. */
+export type SecurityEventPage = {
+  items: SecurityEvent[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
 /**
- * Les SECURITY_EVENT_LIST_LIMIT derniers événements, du plus récent au plus
- * ancien, avec le nom affiché du compte concerné quand il existe encore.
+ * Une page des événements, du plus récent au plus ancien, avec le nom affiché
+ * du compte concerné quand il existe encore. `page` est bornée silencieusement
+ * à [1, totalPages] : aucune valeur invalide ou hors bornes ne lève d'erreur.
  */
-export function listRecentSecurityEvents(db: Db): SecurityEvent[] {
+export function listRecentSecurityEvents(db: Db, page = 1): SecurityEventPage {
+  const { count } = db.prepare('SELECT COUNT(*) AS count FROM security_events').get() as {
+    count: number;
+  };
+  const totalPages = computePageCount(count, DEFAULT_PAGE_SIZE);
+  const clampedPage = Math.min(Math.max(1, Math.trunc(page) || 1), totalPages);
+  const offset = computeOffset(clampedPage, DEFAULT_PAGE_SIZE);
+
   const rows = db
     .prepare(
       `SELECT security_events.id, security_events.created_at, security_events.type,
@@ -161,11 +176,11 @@ export function listRecentSecurityEvents(db: Db): SecurityEvent[] {
        FROM security_events
        LEFT JOIN users ON users.id = security_events.user_id
        ORDER BY security_events.created_at DESC, security_events.id DESC
-       LIMIT ?`
+       LIMIT ? OFFSET ?`
     )
-    .all(SECURITY_EVENT_LIST_LIMIT) as SecurityEventRow[];
+    .all(DEFAULT_PAGE_SIZE, offset) as SecurityEventRow[];
 
-  return rows.map((row) => ({
+  const items = rows.map((row) => ({
     id: row.id,
     createdAt: row.created_at,
     // Le CHECK de la table garantit l'appartenance à la liste fermée.
@@ -175,6 +190,8 @@ export function listRecentSecurityEvents(db: Db): SecurityEvent[] {
     userName: row.display_name,
     subject: row.subject
   }));
+
+  return { items, page: clampedPage, pageSize: DEFAULT_PAGE_SIZE, totalItems: count, totalPages };
 }
 
 // ---------------------------------------------------------------------------
