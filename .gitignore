@@ -23,3 +23,5 @@ data/
 coverage/
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+test-results/
+playwright-report/
