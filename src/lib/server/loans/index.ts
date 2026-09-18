@@ -11,6 +11,7 @@ import {
   addCalendarDays,
   formatDateFr,
   isOverdue,
+  subtractCalendarYear,
   systemClock,
   todayInParis,
   type Clock
@@ -228,6 +229,17 @@ export function listActiveLoans(db: Db, today: string = todayInParis()): ActiveL
   }));
 }
 
+/**
+ * Vrai si ce compte a au moins un prêt non rendu. Une obligation en cours
+ * interdit la suppression du compte : le livre doit revenir d'abord.
+ */
+export function hasActiveLoan(db: Db, userId: number): boolean {
+  const active = db
+    .prepare('SELECT 1 FROM loans WHERE user_id = ? AND returned_on IS NULL LIMIT 1')
+    .get(userId);
+  return active !== undefined;
+}
+
 export type BorrowerActiveLoan = {
   id: number;
   title: string;
@@ -302,4 +314,32 @@ export function listBorrowerLoans(
     (a, b) => b.returnedOn.iso.localeCompare(a.returnedOn.iso) || b.id - a.id
   );
   return { active, returned };
+}
+
+// ---------------------------------------------------------------------------
+// Purge
+// ---------------------------------------------------------------------------
+
+/**
+ * Première date calendaire de prêt rendu que la purge conserve : la date du jour
+ * à Paris reculée d'une année calendaire. La rétention se compte en dates
+ * calendaires, jamais en 365 jours.
+ */
+export function returnedLoanRetentionStart(clock: Clock = systemClock): string {
+  return subtractCalendarYear(todayInParis(clock));
+}
+
+/**
+ * Supprime les prêts rendus dont `returned_on` est strictement antérieur à
+ * `returnedLoanRetentionStart` et renvoie leur nombre.
+ *
+ * Un prêt en cours n'est jamais supprimé, si ancien soit-il : il reste une
+ * obligation. Les livres et les ventes ne sont pas touchés.
+ */
+export function purgeReturnedLoans(db: Db, clock: Clock = systemClock): number {
+  // Des dates AAAA-MM-JJ valides se comparent dans l'ordre lexicographique.
+  const retentionStart = returnedLoanRetentionStart(clock);
+  return db
+    .prepare('DELETE FROM loans WHERE returned_on IS NOT NULL AND returned_on < ?')
+    .run(retentionStart).changes;
 }

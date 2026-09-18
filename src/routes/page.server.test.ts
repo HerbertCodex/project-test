@@ -13,16 +13,19 @@ import {
   type CatalogueEntry,
   type CatalogueFilters
 } from '$lib/server/catalogue';
+import { addCalendarDays, formatDateFr, todayInParis } from '$lib/server/dates';
 import { closeDb, getDb } from '$lib/server/db';
 import {
   BOOK_NOT_FOUND_MESSAGE,
   BOOK_UNAVAILABLE_MESSAGE,
   BORROWER_ONLY_MESSAGE,
+  LOAN_DURATION_DAYS,
   LOAN_NOT_RETURNABLE_MESSAGE,
   borrowBook,
   listBorrowerLoans,
   parseRecordId,
   recordReturn,
+  returnedLoanRetentionStart,
   type ActiveLoan,
   type BorrowerLoans
 } from '$lib/server/loans';
@@ -54,13 +57,18 @@ async function catalogueFor(user: AuthUser | null): Promise<CatalogueEntry[]> {
   return (await catalogueAt('', user)).books;
 }
 
+/**
+ * Compte de test créé à l'instant de l'horloge du test : une date de création
+ * absolue le rendrait inactif depuis des années et la purge déclenchée par les
+ * actions l'anonymiserait au milieu du scénario.
+ */
 function insertUser(email: string, displayName: string, role: Role = 'borrower'): AuthUser {
   const result = getDb()
     .prepare(
       `INSERT INTO users (email, display_name, password_hash, role, created_at)
-       VALUES (?, ?, ?, ?, 0)`
+       VALUES (?, ?, ?, ?, ?)`
     )
-    .run(email, displayName, 'hash-factice', role);
+    .run(email, displayName, 'hash-factice', role, Date.now());
   return { id: Number(result.lastInsertRowid), email, displayName, role };
 }
 
@@ -86,6 +94,15 @@ function tableNames(): string[] {
 function setNow(iso: string): void {
   if (!vi.isFakeTimers()) vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(iso));
+}
+
+/**
+ * Date calendaire de Paris décalée de `days` par rapport à l'horloge du test.
+ * Les prêts attendus sont datés ainsi : une date absolue finirait hors de la
+ * borne de rétention et la purge déclenchée par les actions les effacerait.
+ */
+function parisDay(days: number): string {
+  return addCalendarDays(todayInParis(), days);
 }
 
 /** Exécute un load ou une action et capture la redirection ou l'erreur HTTP levée. */
@@ -159,6 +176,26 @@ function insertLoan(
     )
     .run(bookId, userId, borrowedOn, dueOn, returnedOn);
   return Number(result.lastInsertRowid);
+}
+
+/**
+ * Prêt rendu la veille de la borne de rétention des prêts rendus : il est hors
+ * borne, donc candidat à la purge, quelle que soit l'horloge du test.
+ */
+function insertStaleReturnedLoan(userId: number): number {
+  const returnedOn = addCalendarDays(returnedLoanRetentionStart(), -1);
+  const borrowedOn = addCalendarDays(returnedOn, -30);
+  const bookId = createBook('Prêt hors borne', 'Auteur');
+  return insertLoan(bookId, userId, borrowedOn, returnedOn, returnedOn);
+}
+
+/** Prêt en cours de « Nana », emprunté 32 jours plus tôt et échu depuis 2 jours. */
+function setupActiveLoan() {
+  const bookseller = insertUser('libraire@example.fr', 'Libraire', 'bookseller');
+  const borrower = insertUser('lecteur@example.fr', 'Lectrice Martin');
+  const bookId = createBook('Nana', 'Émile Zola');
+  const loanId = insertLoan(bookId, borrower.id, parisDay(-32), parisDay(-2));
+  return { bookseller, borrower, bookId, loanId };
 }
 
 function asFailure(outcome: unknown): { status: number; data: Record<string, unknown> } {
@@ -281,11 +318,7 @@ describe('load / (catalogue public)', () => {
   it('montre de nouveau « disponible » un livre rendu', async () => {
     const borrower = insertUser('lecteur@example.fr', 'Lecteur');
     const bookId = createBook('Nana', 'Émile Zola');
-    getDb()
-      .prepare(
-        'INSERT INTO loans (book_id, user_id, borrowed_on, due_on, returned_on) VALUES (?, ?, ?, ?, ?)'
-      )
-      .run(bookId, borrower.id, '2026-09-01', '2026-10-01', '2026-09-10');
+    insertLoan(bookId, borrower.id, parisDay(-30), parisDay(0), parisDay(-9));
 
     expect((await catalogueFor(null))[0].status).toBe('available');
   });
@@ -806,22 +839,14 @@ describe('action ?/emprunter du catalogue', () => {
 });
 
 describe('/libraire/retours', () => {
-  function setupActiveLoan() {
-    const bookseller = insertUser('libraire@example.fr', 'Libraire', 'bookseller');
-    const borrower = insertUser('lecteur@example.fr', 'Lectrice Martin');
-    const bookId = createBook('Nana', 'Émile Zola');
-    const loanId = insertLoan(bookId, borrower.id, '2026-04-01', '2026-05-01');
-    return { bookseller, borrower, bookId, loanId };
-  }
-
   it('liste les prêts en cours par échéance avec le badge de retard dès le lendemain', async () => {
+    // 22:30 UTC le 9 mai = 00:30 le 10 mai à Paris.
+    setNow('2026-05-09T22:30:00Z');
     const bookseller = insertUser('libraire@example.fr', 'Libraire', 'bookseller');
     const borrower = insertUser('lecteur@example.fr', 'Lectrice Martin');
     const dueToday = insertLoan(createBook('A', 'Auteur'), borrower.id, '2026-04-10', '2026-05-10');
     const dueYesterday = insertLoan(createBook('B', 'Auteur'), borrower.id, '2026-04-09', '2026-05-09');
     insertLoan(createBook('C', 'Auteur'), borrower.id, '2026-04-01', '2026-05-01', '2026-04-20');
-    // 22:30 UTC le 9 mai = 00:30 le 10 mai à Paris.
-    setNow('2026-05-09T22:30:00Z');
 
     const data = (await returnsLoadAs(bookseller)) as { loans: ActiveLoan[] };
 
@@ -852,8 +877,9 @@ describe('/libraire/retours', () => {
   });
 
   it('enregistre un retour du jour à Paris, garde le prêt et rend le livre disponible', async () => {
-    const { bookseller, bookId, loanId } = setupActiveLoan();
+    // 22:30 UTC le 2 mai = 00:30 le 3 mai à Paris : le retour porte le 3 mai.
     setNow('2026-05-02T22:30:00Z');
+    const { bookseller, bookId, loanId } = setupActiveLoan();
 
     const outcome = await returnAs(bookseller, { loanId: String(loanId) });
 
@@ -862,8 +888,8 @@ describe('/libraire/retours', () => {
       expect.objectContaining({
         id: loanId,
         book_id: bookId,
-        borrowed_on: '2026-04-01',
-        due_on: '2026-05-01',
+        borrowed_on: parisDay(-32),
+        due_on: parisDay(-2),
         returned_on: '2026-05-03'
       })
     ]);
@@ -872,8 +898,8 @@ describe('/libraire/retours', () => {
   });
 
   it('refuse un double retour sans modifier la date enregistrée', async () => {
-    const { bookseller, loanId } = setupActiveLoan();
     setNow('2026-05-02T10:00:00Z');
+    const { bookseller, loanId } = setupActiveLoan();
     await returnAs(bookseller, { loanId: String(loanId) });
     setNow('2026-05-20T10:00:00Z');
 
@@ -918,6 +944,92 @@ describe('/libraire/retours', () => {
     const { loanId } = setupActiveLoan();
 
     expectLoginRedirect(await returnAs(null, { loanId: String(loanId) }));
+    expect(loanRows()[0].returned_on).toBeNull();
+  });
+});
+
+describe('purges de rétention déclenchées par les actions', () => {
+  function loanIds(): number[] {
+    return loanRows().map((row) => row.id);
+  }
+
+  it('efface un prêt rendu hors borne après un emprunt réussi, sans toucher au prêt créé', async () => {
+    setNow('2026-06-15T09:00:00Z');
+    const borrower = insertUser('lecteur@example.fr', 'Lecteur');
+    const bookId = createBook('Candide', 'Voltaire');
+    const stale = insertStaleReturnedLoan(borrower.id);
+    expect(loanIds()).toContain(stale);
+
+    const outcome = await borrowAs(borrower, { bookId: String(bookId) });
+
+    const dueOn = parisDay(LOAN_DURATION_DAYS);
+    expect(outcome).toEqual({
+      borrowed: { title: 'Candide', dueOn: { iso: dueOn, label: formatDateFr(dueOn) } }
+    });
+    expect(loanIds()).not.toContain(stale);
+    expect(loanRows()).toEqual([
+      expect.objectContaining({
+        book_id: bookId,
+        user_id: borrower.id,
+        borrowed_on: parisDay(0),
+        due_on: dueOn,
+        returned_on: null
+      })
+    ]);
+  });
+
+  it('efface un prêt rendu hors borne après un retour réussi, sans toucher au prêt rendu', async () => {
+    setNow('2026-06-15T09:00:00Z');
+    const { bookseller, borrower, loanId } = setupActiveLoan();
+    const stale = insertStaleReturnedLoan(borrower.id);
+
+    const outcome = await returnAs(bookseller, { loanId: String(loanId) });
+
+    expect(outcome).toEqual({ returned: { title: 'Nana', borrowerName: 'Lectrice Martin' } });
+    expect(loanIds()).toEqual([loanId]);
+    expect(loanIds()).not.toContain(stale);
+    expect(loanRows()[0].returned_on).toBe(parisDay(0));
+  });
+
+  it('garde un prêt rendu hors borne après un emprunt refusé (400, 403, 404, 409)', async () => {
+    setNow('2026-06-15T09:00:00Z');
+    const borrower = insertUser('lecteur@example.fr', 'Lecteur');
+    const bookseller = insertUser('libraire@example.fr', 'Libraire', 'bookseller');
+    const bookId = createBook('Candide', 'Voltaire');
+    const stale = insertStaleReturnedLoan(borrower.id);
+
+    expect(asFailure(await borrowAs(borrower, { bookId: 'abc' })).status).toBe(400);
+    expect(asFailure(await borrowAs(borrower, { bookId: '999999' })).status).toBe(404);
+    expectForbidden(await borrowAs(bookseller, { bookId: String(bookId) }), BORROWER_ONLY_MESSAGE);
+    expectLoginRedirect(await borrowAs(null, { bookId: String(bookId) }));
+    // Prêt actif posé sans passer par l'action : le conflit ne suit donc aucun succès.
+    const active = insertLoan(bookId, borrower.id, parisDay(-1), parisDay(29));
+    expect(asFailure(await borrowAs(borrower, { bookId: String(bookId) })).status).toBe(409);
+
+    expect(loanIds()).toEqual([stale, active]);
+  });
+
+  it('garde un prêt rendu hors borne après un retour refusé (400, 403, 404, 409)', async () => {
+    setNow('2026-06-15T09:00:00Z');
+    const { bookseller, borrower, loanId } = setupActiveLoan();
+    const stale = insertStaleReturnedLoan(borrower.id);
+    const alreadyReturned = insertLoan(
+      createBook('Rendu récemment', 'Auteur'),
+      borrower.id,
+      parisDay(-10),
+      parisDay(20),
+      parisDay(0)
+    );
+
+    expect(asFailure(await returnAs(bookseller, { loanId: 'abc' })).status).toBe(400);
+    expect(asFailure(await returnAs(bookseller, { loanId: '424242' })).status).toBe(404);
+    expect(asFailure(await returnAs(bookseller, { loanId: String(alreadyReturned) })).status).toBe(
+      409
+    );
+    expectForbidden(await returnAs(borrower, { loanId: String(loanId) }), BOOKSELLER_ONLY_MESSAGE);
+    expectLoginRedirect(await returnAs(null, { loanId: String(loanId) }));
+
+    expect(loanIds()).toEqual([loanId, stale, alreadyReturned]);
     expect(loanRows()[0].returned_on).toBeNull();
   });
 });

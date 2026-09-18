@@ -634,6 +634,20 @@ time {
   width: 100%;
 }
 
+/* Action irréversible (suppression de compte) : bordure de 2 px et texte
+   cramoisi, jamais un plein bleu nuit, qui désigne partout ailleurs l'action
+   principale sûre. Le libellé du bouton porte le sens, la couleur le redouble.
+   Déclarée avant les états ci-dessous, pour qu'occupé et empêché l'emportent. */
+.btn--danger {
+  border: 2px solid var(--danger);
+  background: var(--ivory);
+  color: var(--danger);
+}
+
+.btn--danger:hover {
+  background: var(--danger-wash);
+}
+
 /* Envoi en cours : fond gris bleuté plein plutôt qu'une opacité réduite. */
 .btn[aria-busy='true'],
 .btn[aria-disabled='true'],
@@ -951,6 +965,7 @@ time {
   }
 
   .btn,
+  .btn--danger,
   .field input,
   .notice,
   .auth__form,

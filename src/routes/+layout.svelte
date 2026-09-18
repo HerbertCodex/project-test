@@ -38,8 +38,10 @@
           <li><a href="/libraire/vente" aria-current={current('/libraire/vente')}>Vente</a></li>
           <li><a href="/libraire/retours" aria-current={current('/libraire/retours')}>Retours</a></li>
           <li><a href="/libraire/journal" aria-current={current('/libraire/journal')}>Journal</a></li>
+          <li><a href="/compte" aria-current={current('/compte')}>Mon compte</a></li>
         {:else}
           <li><a href="/mes-prets" aria-current={current('/mes-prets')}>Mes prêts</a></li>
+          <li><a href="/compte" aria-current={current('/compte')}>Mon compte</a></li>
         {/if}
       </ul>
     </nav>
