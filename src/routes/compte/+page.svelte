@@ -71,7 +71,7 @@
       <dt>Prêts en cours</dt>
       <dd>
         {#if data.hasActiveLoan}
-          Au moins un — <a href="/mes-prets">voir mes prêts</a>
+          {data.activeLoanCount} — <a href="/mes-prets">voir mes prêts</a>
         {:else}
           Aucun
         {/if}
