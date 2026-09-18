@@ -25,7 +25,7 @@
     ],
     "model": "",
     "maxTurns": 200,
-    "maxBudgetUsd": 5
+    "maxBudgetUsd": 10
   },
   "skills": {
     "enabled": [
