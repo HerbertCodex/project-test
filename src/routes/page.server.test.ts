@@ -22,12 +22,13 @@ import {
   LOAN_DURATION_DAYS,
   LOAN_NOT_RETURNABLE_MESSAGE,
   borrowBook,
-  listBorrowerLoans,
+  listBorrowerReturnedLoans,
   parseRecordId,
   recordReturn,
   returnedLoanRetentionStart,
   type ActiveLoan,
-  type BorrowerLoans
+  type BorrowerActiveLoan,
+  type BorrowerReturnedLoan
 } from '$lib/server/loans';
 import { actions as catalogueActions, load } from './+page.server';
 import CataloguePage from './+page.svelte';
@@ -37,6 +38,8 @@ import MyLoansPage from './mes-prets/+page.svelte';
 
 const SQL_PAYLOAD = "'; DROP TABLE books;--";
 const HOSTILE_TITLE = '<script>alert(1)</script>';
+
+type MyLoansData = { active: BorrowerActiveLoan[]; returned: BorrowerReturnedLoan[] };
 
 type LoadEvent = Parameters<typeof load>[0];
 
@@ -1049,7 +1052,7 @@ describe('load /mes-prets', () => {
     );
     setNow('2026-05-02T12:00:00Z');
 
-    const data = (await myLoansAs(b, `?userId=${a.id}&user=${a.id}`)) as BorrowerLoans;
+    const data = (await myLoansAs(b, `?userId=${a.id}&user=${a.id}`)) as MyLoansData;
 
     expect(data).toEqual({
       active: [
@@ -1078,10 +1081,10 @@ describe('load /mes-prets', () => {
     insertLoan(createBook('Nana', 'Émile Zola'), borrower.id, '2026-04-01', '2026-05-01');
 
     setNow('2026-05-01T21:59:59Z');
-    expect(((await myLoansAs(borrower)) as BorrowerLoans).active[0].overdue).toBe(false);
+    expect(((await myLoansAs(borrower)) as MyLoansData).active[0].overdue).toBe(false);
 
     setNow('2026-05-01T22:00:00Z');
-    expect(((await myLoansAs(borrower)) as BorrowerLoans).active[0].overdue).toBe(true);
+    expect(((await myLoansAs(borrower)) as MyLoansData).active[0].overdue).toBe(true);
   });
 
   it('redirige un anonyme vers /connexion et refuse le libraire (403)', async () => {
@@ -1096,13 +1099,13 @@ describe('load /mes-prets', () => {
     insertLoan(createBook('Ancien', 'Auteur'), borrower.id, '2026-01-01', '2026-01-31', '2026-01-10');
     insertLoan(createBook('Récent', 'Auteur'), borrower.id, '2026-02-01', '2026-03-03', '2026-02-10');
 
-    const { returned } = listBorrowerLoans(getDb(), borrower.id, '2026-03-01');
+    const { items: returned } = listBorrowerReturnedLoans(getDb(), borrower.id, 1);
 
     expect(returned.map((loan) => loan.title)).toEqual(['Récent', 'Ancien']);
   });
 
   it('affiche le badge « En retard » et un titre hostile comme du texte', () => {
-    const data: BorrowerLoans = {
+    const data: MyLoansData = {
       active: [
         {
           id: 1,

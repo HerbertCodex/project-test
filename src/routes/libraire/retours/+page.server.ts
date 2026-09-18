@@ -13,7 +13,7 @@ import type { Actions, PageServerLoad } from './$types';
 /** Prêts en cours, retards en tête. Contrôle refait ici en plus du layout /libraire. */
 export const load: PageServerLoad = ({ locals }) => {
   requireBookseller(locals.user);
-  return { loans: listActiveLoans(getDb()) };
+  return { loans: listActiveLoans(getDb()).items };
 };
 
 /**

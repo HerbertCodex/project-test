@@ -17,6 +17,7 @@ import {
   type Clock
 } from '../dates';
 import type { Db } from '../db';
+import { computeOffset, computePageCount, DEFAULT_PAGE_SIZE } from '../pagination';
 
 // ---------------------------------------------------------------------------
 // Contrôle d'accès et validation
@@ -196,6 +197,31 @@ export function recordReturn(db: Db, loanId: number, clock: Clock = systemClock)
 // Listes
 // ---------------------------------------------------------------------------
 
+/** Page d'une liste de prêts : les lignes de la page demandée et le total réel. */
+export type LoanPage<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+/** Borne `page` à [1, totalPages] connaissant le total réel de lignes, et calcule l'offset SQL. */
+function pageWindow(page: number, totalItems: number) {
+  const totalPages = computePageCount(totalItems, DEFAULT_PAGE_SIZE);
+  const clampedPage = Math.min(Math.max(1, Math.trunc(page) || 1), totalPages);
+  return { clampedPage, totalPages, offset: computeOffset(clampedPage, DEFAULT_PAGE_SIZE) };
+}
+
+function toLoanPage<T>(
+  items: T[],
+  clampedPage: number,
+  totalItems: number,
+  totalPages: number
+): LoanPage<T> {
+  return { items, page: clampedPage, pageSize: DEFAULT_PAGE_SIZE, totalItems, totalPages };
+}
+
 /** Prêt en cours vu au comptoir. */
 export type ActiveLoan = {
   id: number;
@@ -207,8 +233,17 @@ export type ActiveLoan = {
 
 type ActiveLoanRow = { id: number; title: string; display_name: string; due_on: string };
 
-/** Tous les prêts en cours, par échéance croissante : les retards viennent en tête. */
-export function listActiveLoans(db: Db, today: string = todayInParis()): ActiveLoan[] {
+/** Prêts en cours, par échéance croissante puis id : les retards viennent en tête. */
+export function listActiveLoans(
+  db: Db,
+  page = 1,
+  today: string = todayInParis()
+): LoanPage<ActiveLoan> {
+  const { count } = db
+    .prepare('SELECT COUNT(*) AS count FROM loans WHERE returned_on IS NULL')
+    .get() as { count: number };
+  const { clampedPage, totalPages, offset } = pageWindow(page, count);
+
   const rows = db
     .prepare(
       `SELECT loans.id, books.title, users.display_name, loans.due_on
@@ -216,17 +251,20 @@ export function listActiveLoans(db: Db, today: string = todayInParis()): ActiveL
        JOIN books ON books.id = loans.book_id
        JOIN users ON users.id = loans.user_id
        WHERE loans.returned_on IS NULL
-       ORDER BY loans.due_on, loans.id`
+       ORDER BY loans.due_on, loans.id
+       LIMIT ? OFFSET ?`
     )
-    .all() as ActiveLoanRow[];
+    .all(DEFAULT_PAGE_SIZE, offset) as ActiveLoanRow[];
 
-  return rows.map((row) => ({
+  const items = rows.map((row) => ({
     id: row.id,
     title: row.title,
     borrowerName: row.display_name,
     dueOn: loanDate(row.due_on),
     overdue: isOverdue(row.due_on, today)
   }));
+
+  return toLoanPage(items, clampedPage, count, totalPages);
 }
 
 /**
@@ -238,6 +276,14 @@ export function hasActiveLoan(db: Db, userId: number): boolean {
     .prepare('SELECT 1 FROM loans WHERE user_id = ? AND returned_on IS NULL LIMIT 1')
     .get(userId);
   return active !== undefined;
+}
+
+/** Nombre exact de prêts en cours d'un compte, pour /compte. */
+export function countActiveLoans(db: Db, userId: number): number {
+  const { count } = db
+    .prepare('SELECT COUNT(*) AS count FROM loans WHERE user_id = ? AND returned_on IS NULL')
+    .get(userId) as { count: number };
+  return count;
 }
 
 export type BorrowerActiveLoan = {
@@ -255,65 +301,83 @@ export type BorrowerReturnedLoan = {
   returnedOn: LoanDate;
 };
 
-export type BorrowerLoans = {
-  active: BorrowerActiveLoan[];
-  returned: BorrowerReturnedLoan[];
-};
+type BorrowerActiveLoanRow = { id: number; title: string; borrowed_on: string; due_on: string };
 
-type BorrowerLoanRow = {
+/** Prêts en cours d'un seul utilisateur, par échéance croissante puis id. */
+export function listBorrowerActiveLoans(
+  db: Db,
+  userId: number,
+  page = 1,
+  today: string = todayInParis()
+): LoanPage<BorrowerActiveLoan> {
+  const { count } = db
+    .prepare(
+      'SELECT COUNT(*) AS count FROM loans WHERE loans.user_id = ? AND loans.returned_on IS NULL'
+    )
+    .get(userId) as { count: number };
+  const { clampedPage, totalPages, offset } = pageWindow(page, count);
+
+  const rows = db
+    .prepare(
+      `SELECT loans.id, books.title, loans.borrowed_on, loans.due_on
+       FROM loans
+       JOIN books ON books.id = loans.book_id
+       WHERE loans.user_id = ? AND loans.returned_on IS NULL
+       ORDER BY loans.due_on, loans.id
+       LIMIT ? OFFSET ?`
+    )
+    .all(userId, DEFAULT_PAGE_SIZE, offset) as BorrowerActiveLoanRow[];
+
+  const items = rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    borrowedOn: loanDate(row.borrowed_on),
+    dueOn: loanDate(row.due_on),
+    overdue: isOverdue(row.due_on, today)
+  }));
+
+  return toLoanPage(items, clampedPage, count, totalPages);
+}
+
+type BorrowerReturnedLoanRow = {
   id: number;
   title: string;
   borrowed_on: string;
-  due_on: string;
-  returned_on: string | null;
+  returned_on: string;
 };
 
-/**
- * Prêts d'un seul utilisateur, identifié par l'appelant à partir de la
- * session : en cours par échéance croissante, rendus du plus récent au plus ancien.
- */
-export function listBorrowerLoans(
+/** Prêts rendus d'un seul utilisateur, du plus récent au plus ancien puis id décroissant. */
+export function listBorrowerReturnedLoans(
   db: Db,
   userId: number,
-  today: string = todayInParis()
-): BorrowerLoans {
+  page = 1
+): LoanPage<BorrowerReturnedLoan> {
+  const { count } = db
+    .prepare(
+      'SELECT COUNT(*) AS count FROM loans WHERE loans.user_id = ? AND loans.returned_on IS NOT NULL'
+    )
+    .get(userId) as { count: number };
+  const { clampedPage, totalPages, offset } = pageWindow(page, count);
+
   const rows = db
     .prepare(
-      `SELECT loans.id, books.title, loans.borrowed_on, loans.due_on, loans.returned_on
+      `SELECT loans.id, books.title, loans.borrowed_on, loans.returned_on
        FROM loans
        JOIN books ON books.id = loans.book_id
-       WHERE loans.user_id = ?
-       ORDER BY loans.due_on, loans.id`
+       WHERE loans.user_id = ? AND loans.returned_on IS NOT NULL
+       ORDER BY loans.returned_on DESC, loans.id DESC
+       LIMIT ? OFFSET ?`
     )
-    .all(userId) as BorrowerLoanRow[];
+    .all(userId, DEFAULT_PAGE_SIZE, offset) as BorrowerReturnedLoanRow[];
 
-  const active: BorrowerActiveLoan[] = [];
-  const returned: BorrowerReturnedLoan[] = [];
+  const items = rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    borrowedOn: loanDate(row.borrowed_on),
+    returnedOn: loanDate(row.returned_on)
+  }));
 
-  for (const row of rows) {
-    if (row.returned_on === null) {
-      active.push({
-        id: row.id,
-        title: row.title,
-        borrowedOn: loanDate(row.borrowed_on),
-        dueOn: loanDate(row.due_on),
-        overdue: isOverdue(row.due_on, today)
-      });
-    } else {
-      returned.push({
-        id: row.id,
-        title: row.title,
-        borrowedOn: loanDate(row.borrowed_on),
-        returnedOn: loanDate(row.returned_on)
-      });
-    }
-  }
-
-  // Des dates AAAA-MM-JJ se comparent dans l'ordre lexicographique.
-  returned.sort(
-    (a, b) => b.returnedOn.iso.localeCompare(a.returnedOn.iso) || b.id - a.id
-  );
-  return { active, returned };
+  return toLoanPage(items, clampedPage, count, totalPages);
 }
 
 // ---------------------------------------------------------------------------
