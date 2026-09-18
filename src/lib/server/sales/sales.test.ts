@@ -34,6 +34,15 @@ import {
 } from '.';
 
 const SQL_PAYLOAD = "'; DROP TABLE books;--";
+const EXPECTED_TABLES = [
+  'books',
+  'loans',
+  'login_failures',
+  'sales',
+  'security_events',
+  'sessions',
+  'users'
+];
 
 // 22 h 30 UTC le 31 mars : déjà le 1er avril à Paris (heure d'été).
 const clock: Clock = () => new Date('2026-03-31T22:30:00Z');
@@ -529,7 +538,7 @@ describe('prix : fixer, modifier, retirer', () => {
       message
     });
     expect(bookState(bookId)).toEqual({ price_cents: 1000, sale_stock: 2 });
-    expect(tableNames()).toEqual(['books', 'loans', 'login_failures', 'sales', 'sessions', 'users']);
+    expect(tableNames()).toEqual(EXPECTED_TABLES);
   });
 
   it('refuse un livre inexistant ou un identifiant invalide', () => {
@@ -606,6 +615,6 @@ describe('injection SQL', () => {
     ]);
     const sale = sell(bookId, '1');
     expect(sale.ok && sale.sale.title).toBe(SQL_PAYLOAD);
-    expect(tableNames()).toEqual(['books', 'loans', 'login_failures', 'sales', 'sessions', 'users']);
+    expect(tableNames()).toEqual(EXPECTED_TABLES);
   });
 });

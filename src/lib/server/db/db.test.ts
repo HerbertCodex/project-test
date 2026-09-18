@@ -15,7 +15,25 @@ import {
 } from './index';
 
 const SQL_PAYLOAD = "'; DROP TABLE books;--";
-const EXPECTED_TABLES = ['books', 'loans', 'login_failures', 'sales', 'sessions', 'users'];
+const EXPECTED_TABLES = [
+  'books',
+  'loans',
+  'login_failures',
+  'sales',
+  'security_events',
+  'sessions',
+  'users'
+];
+const SECURITY_EVENT_TYPES = [
+  'login_success',
+  'login_failure',
+  'lockout_started',
+  'lockout_attempt',
+  'signup',
+  'access_denied',
+  'account_deleted'
+];
+const SUBJECT_MAX_LENGTH = 254;
 
 function tableNames(db: Db): string[] {
   return (
@@ -74,6 +92,20 @@ function insertSale(
     );
 }
 
+function insertSecurityEvent(
+  db: Db,
+  event: { type?: string; createdAt?: number; userId?: number | null; subject?: string | null } = {}
+) {
+  return db
+    .prepare('INSERT INTO security_events (created_at, type, user_id, subject) VALUES (?, ?, ?, ?)')
+    .run(
+      event.createdAt ?? 1_770_000_000_000,
+      event.type ?? 'login_success',
+      event.userId ?? null,
+      event.subject ?? null
+    );
+}
+
 function insertLoan(
   db: Db,
   loan: { bookId: number; userId: number; borrowedOn?: string; dueOn?: string; returnedOn?: string | null }
@@ -108,7 +140,7 @@ describe('openDatabase et migrate', () => {
 
   it('crée les tables et fixe user_version à la dernière version', () => {
     expect(LATEST_SCHEMA_VERSION).toBeGreaterThan(0);
-    expect(LATEST_SCHEMA_VERSION).toBe(2);
+    expect(LATEST_SCHEMA_VERSION).toBe(3);
     expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
     expect(tableNames(db)).toEqual(EXPECTED_TABLES);
   });
@@ -362,9 +394,117 @@ describe('openDatabase et migrate', () => {
     ).map((row) => row.name);
     expect(indexes).toEqual(['sales_book_id', 'sales_bookseller_id', 'sales_sold_on']);
   });
+
+  it('laisse last_login_at et deleted_at nuls sur un compte créé sans eux', () => {
+    const userId = insertUser(db, 'a@example.fr');
+
+    expect(
+      db.prepare('SELECT last_login_at, deleted_at FROM users WHERE id = ?').get(userId)
+    ).toEqual({ last_login_at: null, deleted_at: null });
+  });
+
+  it('accepte des millisecondes epoch dans last_login_at et deleted_at, refuse du texte', () => {
+    const userId = insertUser(db, 'a@example.fr');
+
+    db.prepare('UPDATE users SET last_login_at = ?, deleted_at = ? WHERE id = ?').run(
+      1_770_000_000_000,
+      1_770_000_001_000,
+      userId
+    );
+    expect(
+      db.prepare('SELECT last_login_at, deleted_at FROM users WHERE id = ?').get(userId)
+    ).toEqual({ last_login_at: 1_770_000_000_000, deleted_at: 1_770_000_001_000 });
+
+    // Table STRICT : une charge utile textuelle est refusée, pas convertie.
+    expect(() =>
+      db.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').run(SQL_PAYLOAD, userId)
+    ).toThrow();
+  });
+
+  it('enregistre un événement de sécurité pour chaque type de la liste fermée', () => {
+    const userId = insertUser(db, 'a@example.fr');
+
+    for (const type of SECURITY_EVENT_TYPES) {
+      expect(() => insertSecurityEvent(db, { type, userId })).not.toThrow();
+    }
+
+    expect(db.prepare('SELECT count(*) AS n FROM security_events').get()).toEqual({
+      n: SECURITY_EVENT_TYPES.length
+    });
+    expect(db.prepare('SELECT * FROM security_events WHERE id = 1').get()).toEqual({
+      id: 1,
+      created_at: 1_770_000_000_000,
+      type: 'login_success',
+      user_id: userId,
+      subject: null
+    });
+  });
+
+  it('refuse un type hors de la liste fermée sans rien insérer', () => {
+    for (const type of ['', 'admin_login', 'LOGIN_SUCCESS', SQL_PAYLOAD]) {
+      expect(() => insertSecurityEvent(db, { type })).toThrow(/CHECK/);
+    }
+
+    expect(db.prepare('SELECT count(*) AS n FROM security_events').get()).toEqual({ n: 0 });
+    expect(tableNames(db)).toEqual(EXPECTED_TABLES);
+  });
+
+  it('refuse un événement sans instant ni type, et un instant textuel', () => {
+    expect(() =>
+      db
+        .prepare('INSERT INTO security_events (created_at, type) VALUES (?, ?)')
+        .run(null, 'login_success')
+    ).toThrow(/NOT NULL/);
+    expect(() =>
+      db.prepare('INSERT INTO security_events (created_at, type) VALUES (?, ?)').run(0, null)
+    ).toThrow(/NOT NULL/);
+    // Table STRICT : un instant textuel est refusé, pas converti.
+    expect(() => insertSecurityEvent(db, { createdAt: '2026-03-10' as unknown as number })).toThrow();
+  });
+
+  it('stocke littéralement un sujet borné et refuse au-delà de la borne', () => {
+    insertSecurityEvent(db, { type: 'login_failure', subject: SQL_PAYLOAD });
+    insertSecurityEvent(db, { type: 'login_failure', subject: 'x'.repeat(SUBJECT_MAX_LENGTH) });
+
+    expect(
+      db.prepare('SELECT subject FROM security_events ORDER BY id').all()
+    ).toEqual([{ subject: SQL_PAYLOAD }, { subject: 'x'.repeat(SUBJECT_MAX_LENGTH) }]);
+    expect(() =>
+      insertSecurityEvent(db, { subject: 'x'.repeat(SUBJECT_MAX_LENGTH + 1) })
+    ).toThrow(/CHECK/);
+    expect(db.prepare('SELECT count(*) AS n FROM security_events').get()).toEqual({ n: 2 });
+    expect(tableNames(db)).toEqual(EXPECTED_TABLES);
+  });
+
+  it('refuse une référence vers un compte inexistant et accepte un événement sans compte', () => {
+    expect(() => insertSecurityEvent(db, { userId: 404 })).toThrow(/FOREIGN KEY/);
+    expect(() => insertSecurityEvent(db, { type: 'login_failure', userId: null })).not.toThrow();
+  });
+
+  it('détache l’événement du compte supprimé sans bloquer la suppression', () => {
+    const userId = insertUser(db, 'a@example.fr');
+    insertSecurityEvent(db, { userId, subject: 'a@example.fr' });
+
+    expect(() => db.prepare('DELETE FROM users WHERE id = ?').run(userId)).not.toThrow();
+
+    expect(db.prepare('SELECT user_id, subject FROM security_events').all()).toEqual([
+      { user_id: null, subject: 'a@example.fr' }
+    ]);
+  });
+
+  it('crée l’index sur la date des événements de sécurité', () => {
+    const indexes = (
+      db
+        .prepare(
+          "SELECT name FROM sqlite_schema WHERE type = 'index' AND tbl_name = 'security_events' ORDER BY name"
+        )
+        .all() as { name: string }[]
+    ).map((row) => row.name);
+    expect(indexes).toEqual(['security_events_created_at']);
+  });
 });
 
-describe('migration d’une base v1 existante', () => {
+describe('migration d’une base existante', () => {
   let db: Db;
 
   beforeEach(() => {
@@ -378,7 +518,7 @@ describe('migration d’une base v1 existante', () => {
     db.close();
   });
 
-  it('passe en v2 sans perdre les livres, prêts et comptes existants', () => {
+  it('passe en v3 sans perdre les livres, prêts et comptes existants', () => {
     const firstBook = insertBook(db, 'Le Petit Prince', 'Saint-Exupéry');
     const payloadBook = insertBook(db, SQL_PAYLOAD, SQL_PAYLOAD);
     const userId = insertUser(db, 'a@example.fr');
@@ -387,7 +527,7 @@ describe('migration d’une base v1 existante', () => {
 
     migrate(db);
 
-    expect(getSchemaVersion(db)).toBe(2);
+    expect(getSchemaVersion(db)).toBe(3);
     expect(tableNames(db)).toEqual(EXPECTED_TABLES);
     expect(db.prepare('SELECT * FROM books ORDER BY id').all()).toEqual([
       { id: firstBook, title: 'Le Petit Prince', author: 'Saint-Exupéry', price_cents: null, sale_stock: 0 },
@@ -398,6 +538,12 @@ describe('migration d’une base v1 existante', () => {
     ]);
     expect(db.prepare('SELECT count(*) AS n FROM users').get()).toEqual({ n: 1 });
     expect(db.prepare('SELECT count(*) AS n FROM sales').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT count(*) AS n FROM security_events').get()).toEqual({ n: 0 });
+    // Aucune date de connexion ni de suppression n'est inventée pour un compte
+    // antérieur au journal.
+    expect(
+      db.prepare('SELECT last_login_at, deleted_at FROM users WHERE id = ?').get(userId)
+    ).toEqual({ last_login_at: null, deleted_at: null });
     // L'invariant du prêt actif unique survit à la migration.
     expect(() => insertLoan(db, { bookId: firstBook, userId })).toThrow(/UNIQUE/);
   });
@@ -413,6 +559,52 @@ describe('migration d’une base v1 existante', () => {
     expect(() => setBookForSale(db, bookId, 990, -1)).toThrow(/CHECK/);
     expect(() => setBookForSale(db, bookId, 990, 4)).not.toThrow();
     expect(db.prepare('SELECT count(*) AS n FROM books').get()).toEqual({ n: 1 });
+  });
+
+  it('rejoue la migration du journal sans effacer les événements déjà écrits', () => {
+    migrate(db);
+    const userId = insertUser(db, 'a@example.fr');
+    insertSecurityEvent(db, { userId, subject: 'a@example.fr' });
+
+    migrate(db);
+
+    expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
+    expect(db.prepare('SELECT user_id, subject FROM security_events').all()).toEqual([
+      { user_id: userId, subject: 'a@example.fr' }
+    ]);
+  });
+
+  it('passe une base restée en v2 à la v3 sans perdre comptes, livres, prêts ni ventes', () => {
+    // Base d'une installation qui n'avait reçu que les deux premières migrations.
+    db.exec(MIGRATIONS[1]);
+    db.pragma('user_version = 2');
+    const bookId = insertBook(db);
+    const booksellerId = insertUser(db, 'libraire@example.fr', 'bookseller');
+    const borrowerId = insertUser(db, 'a@example.fr');
+    setBookForSale(db, bookId, 1250, 3);
+    insertSale(db, { bookId, booksellerId });
+    insertLoan(db, { bookId, userId: borrowerId });
+    expect(tableNames(db)).toEqual(['books', 'loans', 'login_failures', 'sales', 'sessions', 'users']);
+
+    migrate(db);
+
+    expect(getSchemaVersion(db)).toBe(3);
+    expect(tableNames(db)).toEqual(EXPECTED_TABLES);
+    expect(db.prepare('SELECT count(*) AS n FROM users').get()).toEqual({ n: 2 });
+    expect(db.prepare('SELECT price_cents, sale_stock FROM books WHERE id = ?').get(bookId)).toEqual({
+      price_cents: 1250,
+      sale_stock: 3
+    });
+    expect(db.prepare('SELECT count(*) AS n FROM sales').get()).toEqual({ n: 1 });
+    expect(db.prepare('SELECT book_id, user_id, returned_on FROM loans').all()).toEqual([
+      { book_id: bookId, user_id: borrowerId, returned_on: null }
+    ]);
+    expect(db.prepare('SELECT last_login_at, deleted_at FROM users ORDER BY id').all()).toEqual([
+      { last_login_at: null, deleted_at: null },
+      { last_login_at: null, deleted_at: null }
+    ]);
+    expect(() => insertSecurityEvent(db, { userId: borrowerId })).not.toThrow();
+    expect(() => insertSecurityEvent(db, { type: 'inconnu' })).toThrow(/CHECK/);
   });
 });
 

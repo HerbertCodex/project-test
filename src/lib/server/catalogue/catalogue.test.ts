@@ -30,6 +30,15 @@ import {
 
 const SQL_PAYLOAD = "'; DROP TABLE books;--";
 const DISTINCTIVE_STOCK = 137;
+const EXPECTED_TABLES = [
+  'books',
+  'loans',
+  'login_failures',
+  'sales',
+  'security_events',
+  'sessions',
+  'users'
+];
 
 let db: Db;
 
@@ -282,7 +291,7 @@ describe('listCatalogue : valeurs hostiles', () => {
     expect(titles(listCatalogue(db, { text: SQL_PAYLOAD }))).toEqual([SQL_PAYLOAD]);
     expect(titles(listCatalogue(db, { text: "' OR 1=1 --" }))).toEqual([]);
     expect(tableNames()).toEqual(before);
-    expect(tableNames()).toEqual(['books', 'loans', 'login_failures', 'sales', 'sessions', 'users']);
+    expect(tableNames()).toEqual(EXPECTED_TABLES);
   });
 
   it('borne le texte à BOOK_TEXT_MAX_LENGTH caractères', () => {
@@ -520,7 +529,7 @@ describe('validateBook et addBook : prix et stock initial', () => {
       expect(created).toEqual(validation);
       if (!created.ok) expect(Object.keys(created.errors)).toEqual([field]);
       expect(storedBooks()).toEqual([]);
-      expect(tableNames()).toEqual(['books', 'loans', 'login_failures', 'sales', 'sessions', 'users']);
+      expect(tableNames()).toEqual(EXPECTED_TABLES);
     });
   }
 });
