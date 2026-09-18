@@ -2,6 +2,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import Pagination from '$lib/components/Pagination.svelte';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -10,6 +11,10 @@
 
   const onSaleCount = $derived(data.books.filter((book) => book.saleStatus === 'on-sale').length);
   const noPriceCount = $derived(data.books.filter((book) => book.priceCents === null).length);
+
+  /** Position affichée de la page courante dans le total, par exemple « 26–50 sur 137 ». */
+  const firstItem = $derived(data.books.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
+  const lastItem = $derived((data.page - 1) * data.pageSize + data.books.length);
 
   const counterError = $derived(form?.counterError ?? null);
   const errorBookId = $derived(counterError?.bookId ?? null);
@@ -281,6 +286,8 @@
       {/each}
     </tbody>
   </table>
+  <p class="ledger-position">{firstItem}–{lastItem} sur {data.totalItems}</p>
+  <Pagination page={data.page} totalPages={data.totalPages} totalItems={data.totalItems} />
 {/if}
 
 <style>
@@ -291,6 +298,12 @@
 
   .ledger td {
     vertical-align: top;
+  }
+
+  .ledger-position {
+    margin-block-start: 1rem;
+    color: var(--ink-2);
+    text-align: center;
   }
 
   .ledger tr.is-flagged {
