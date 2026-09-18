@@ -504,7 +504,7 @@ describe('action ?/reassortir', () => {
 
     expect(outcome).toEqual({ restocked: { bookId, title: 'Germinal', saleStock: 6 } });
     expect(bookState(bookId)).toEqual({ price_cents: 900, sale_stock: 6 });
-    expect(listCatalogue(getDb())[0].saleStatus).toBe('on-sale');
+    expect(listCatalogue(getDb()).items[0].saleStatus).toBe('on-sale');
   });
 
   it('réassortit un livre sans prix, qui reste « Épuisé »', async () => {
@@ -514,7 +514,7 @@ describe('action ?/reassortir', () => {
     await postAs('reassortir', seller, { bookId: String(bookId), quantity: '2' });
 
     expect(bookState(bookId)).toEqual({ price_cents: null, sale_stock: 2 });
-    expect(listCatalogue(getDb())[0].saleStatus).toBe('sold-out');
+    expect(listCatalogue(getDb()).items[0].saleStatus).toBe('sold-out');
   });
 
   const badRestocks: [string, string][] = [
@@ -592,7 +592,7 @@ describe('action ?/prix', () => {
     expect(outcome).toEqual({ priced: { bookId, title: 'Germinal', priceLabel: null } });
     expect(bookState(bookId)).toEqual({ price_cents: null, sale_stock: 2 });
     expect(salesRows()).toEqual(salesBefore);
-    expect(listCatalogue(getDb())[0].saleStatus).toBe('sold-out');
+    expect(listCatalogue(getDb()).items[0].saleStatus).toBe('sold-out');
   });
 
   const badPrices: [string, string, string][] = [

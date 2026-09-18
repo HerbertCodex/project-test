@@ -3,6 +3,7 @@
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import CatalogueTable from '$lib/components/CatalogueTable.svelte';
+  import Pagination from '$lib/components/Pagination.svelte';
   import type { CatalogueEntry } from '$lib/server/catalogue';
   import type { PageProps } from './$types';
 
@@ -17,10 +18,12 @@
       data.filters.availableForSale === true
   );
   const resultLabel = $derived(
-    data.books.length === 1
-      ? '1 livre correspond.'
-      : `${data.books.length} livres correspondent.`
+    data.totalItems === 1 ? '1 livre correspond.' : `${data.totalItems} livres correspondent.`
   );
+
+  /** Position affichée de la page courante dans le total, par exemple « 26–50 sur 5 000 ». */
+  const firstItem = $derived(data.books.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
+  const lastItem = $derived((data.page - 1) * data.pageSize + data.books.length);
 
   /** Livre dont l'emprunt est en cours d'envoi ; un second envoi est ignoré. */
   let pendingBookId: string | null = $state(null);
@@ -156,6 +159,15 @@
     empty={noMatch}
     action={isBorrower ? borrowAction : undefined}
   />
+  {#if data.books.length > 0}
+    <p class="catalogue-position">{firstItem}–{lastItem} sur {data.totalItems}</p>
+  {/if}
+  <Pagination
+    page={data.page}
+    totalPages={data.totalPages}
+    totalItems={data.totalItems}
+    searchParams={new URLSearchParams(data.pageQuery)}
+  />
 {/if}
 
 <style>
@@ -166,5 +178,11 @@
   /* Action principale de la ligne : le libellé reste sur une ligne, pleine largeur sous 40 rem (app.css). */
   .borrow .btn {
     white-space: nowrap;
+  }
+
+  .catalogue-position {
+    margin-block-start: 1rem;
+    color: var(--ink-2);
+    text-align: center;
   }
 </style>

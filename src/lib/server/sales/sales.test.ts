@@ -102,11 +102,11 @@ function tableNames(): string[] {
 }
 
 function loanStatus(bookId: number) {
-  return listCatalogue(db).find((entry) => entry.id === bookId)?.status;
+  return listCatalogue(db).items.find((entry) => entry.id === bookId)?.status;
 }
 
 function saleStatus(bookId: number) {
-  return listCatalogue(db).find((entry) => entry.id === bookId)?.saleStatus;
+  return listCatalogue(db).items.find((entry) => entry.id === bookId)?.saleStatus;
 }
 
 function sell(bookId: number | string, quantity: string, extra: Record<string, unknown> = {}) {

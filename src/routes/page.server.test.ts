@@ -15,6 +15,7 @@ import {
 } from '$lib/server/catalogue';
 import { addCalendarDays, formatDateFr, todayInParis } from '$lib/server/dates';
 import { closeDb, getDb } from '$lib/server/db';
+import { DEFAULT_PAGE_SIZE } from '$lib/server/pagination';
 import {
   BOOK_NOT_FOUND_MESSAGE,
   BOOK_UNAVAILABLE_MESSAGE,
@@ -45,6 +46,11 @@ type LoadEvent = Parameters<typeof load>[0];
 
 type CatalogueData = {
   books: CatalogueEntry[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  pageQuery: string;
   filters: CatalogueFilters;
   searchMaxLength: number;
 };
@@ -504,6 +510,107 @@ describe('load / avec filtres d’URL', () => {
   });
 });
 
+describe('load / pagination du catalogue', () => {
+  function query(params: Record<string, string>): string {
+    return `?${new URLSearchParams(params)}`;
+  }
+
+  function seedBooks(count: number): void {
+    for (let i = 0; i < count; i += 1) {
+      createBook(`Livre ${String(i).padStart(4, '0')}`, 'Auteur');
+    }
+  }
+
+  it('page 1 par défaut, avec le total, la taille de page et le nombre de pages', async () => {
+    seedBooks(60);
+
+    const data = await catalogueAt('');
+
+    expect(data.books).toHaveLength(25);
+    expect(data.page).toBe(1);
+    expect(data.pageSize).toBe(25);
+    expect(data.totalItems).toBe(60);
+    expect(data.totalPages).toBe(3);
+  });
+
+  it('la première page d’une base d’au moins 200 livres ne renvoie jamais plus de 25 lignes', async () => {
+    seedBooks(200);
+
+    const data = await catalogueAt('');
+
+    // Un catalogue complet de 200 livres pèserait plusieurs Mo une fois rendu :
+    // seule la page demandée (25 lignes) est lue et renvoyée par le load.
+    expect(data.books).toHaveLength(25);
+    expect(data.totalItems).toBe(200);
+    expect(data.totalPages).toBe(8);
+  });
+
+  it('change de page avec ?page=2, filtres conservés dans pageQuery', async () => {
+    seedBooks(30);
+
+    const data = await catalogueAt(query({ page: '2', pret: '1' }));
+
+    expect(data.page).toBe(2);
+    expect(data.books).toHaveLength(5);
+    expect(data.pageQuery).toBe('pret=1');
+  });
+
+  for (const raw of ['0', '999', 'abc', '1.5', '-3']) {
+    it(`borne silencieusement ?page=${raw} sans erreur serveur`, async () => {
+      seedBooks(30);
+
+      const data = await catalogueAt(query({ page: raw }));
+
+      expect(data.page).toBeGreaterThanOrEqual(1);
+      expect(data.page).toBeLessThanOrEqual(data.totalPages);
+      expect(data.books.length).toBeGreaterThan(0);
+    });
+  }
+
+  it('changer de filtre revient à la page 1 même avec un ancien numéro de page hors bornes', async () => {
+    seedBooks(30);
+    createBook('Zola en vente', 'Émile Zola', { price: '5', saleStock: '1' });
+
+    // Page 2 valide pour la liste complète, mais hors bornes une fois le filtre appliqué.
+    const data = await catalogueAt(query({ page: '2', vente: '1' }));
+
+    expect(data.page).toBe(1);
+    expect(data.totalItems).toBe(1);
+    expect(data.books).toHaveLength(1);
+  });
+
+  it('un paramètre de page manipulé dans l’URL ne contourne pas le contrôle d’accès de l’emprunt', async () => {
+    const bookseller = insertUser('libraire@example.fr', 'Libraire', 'bookseller');
+    const bookId = createBook('Candide', 'Voltaire');
+
+    const asBookseller = {
+      ...postForm('/?/emprunter&page=999', { bookId: String(bookId) }),
+      locals: { user: bookseller }
+    };
+    expectForbidden(
+      await outcomeOf(() =>
+        catalogueActions.emprunter(
+          asBookseller as unknown as Parameters<typeof catalogueActions.emprunter>[0]
+        )
+      ),
+      BORROWER_ONLY_MESSAGE
+    );
+
+    const asAnonymous = {
+      ...postForm('/?/emprunter&page=abc', { bookId: String(bookId) }),
+      locals: { user: null }
+    };
+    expectLoginRedirect(
+      await outcomeOf(() =>
+        catalogueActions.emprunter(
+          asAnonymous as unknown as Parameters<typeof catalogueActions.emprunter>[0]
+        )
+      )
+    );
+    expect(loanRows()).toEqual([]);
+  });
+});
+
 describe('CatalogueTable', () => {
   const books: CatalogueEntry[] = [
     {
@@ -611,8 +718,20 @@ describe('page / (catalogue public)', () => {
   };
 
   function renderPage(data: Partial<PageData>): string {
+    const books = data.books ?? [];
     const props = {
-      data: { user: null, books: [], filters: {}, searchMaxLength: BOOK_TEXT_MAX_LENGTH, ...data },
+      data: {
+        user: null,
+        books,
+        page: 1,
+        pageSize: DEFAULT_PAGE_SIZE,
+        totalItems: books.length,
+        totalPages: 1,
+        pageQuery: '',
+        filters: {},
+        searchMaxLength: BOOK_TEXT_MAX_LENGTH,
+        ...data
+      },
       form: null
     };
     return render(CataloguePage, { props: props as never }).body;
