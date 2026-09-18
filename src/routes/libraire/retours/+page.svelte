@@ -2,11 +2,16 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import Pagination from '$lib/components/Pagination.svelte';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
 
   const overdueCount = $derived(data.loans.filter((loan) => loan.overdue).length);
+
+  /** Position affichée de la page courante dans le total, par exemple « 26–50 sur 137 ». */
+  const firstItem = $derived(data.loans.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
+  const lastItem = $derived((data.page - 1) * data.pageSize + data.loans.length);
 
   /** Prêts dont le retour est en cours d'envoi ; un second envoi de la même ligne est ignoré. */
   let pendingLoanIds: string[] = $state([]);
@@ -104,6 +109,8 @@
         {/each}
       </tbody>
     </table>
+    <p class="counter-position">{firstItem}–{lastItem} sur {data.totalItems}</p>
+    <Pagination page={data.page} totalPages={data.totalPages} totalItems={data.totalItems} />
   {/if}
 </div>
 
@@ -111,5 +118,11 @@
   /* Bouton de retour à droite de la ligne, libellé sur une ligne ; pleine largeur sous 40 rem (app.css). */
   .col-action .btn {
     white-space: nowrap;
+  }
+
+  .counter-position {
+    margin-block-start: 1rem;
+    color: var(--ink-2);
+    text-align: center;
   }
 </style>
