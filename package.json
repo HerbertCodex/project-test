@@ -15,7 +15,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "libraire:creer": "node --experimental-strip-types scripts/libraire-creer.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:integration": "vitest run src/routes"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

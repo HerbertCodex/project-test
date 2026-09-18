@@ -115,6 +115,11 @@
       "cacheTtlMs": 0,
       "covers": [
         "unit"
+      ],
+      "testPaths": [
+        "src/lib/server/**/*.test.ts",
+        "src/*.test.ts",
+        "src/routes/**/*.test.ts"
       ]
     },
     {
@@ -141,6 +146,29 @@
       "covers": [
         "typecheck"
       ]
+    },
+    {
+      "id": "integration",
+      "covers": [
+        "integration"
+      ],
+      "command": [
+        "npm",
+        "run",
+        "test:integration"
+      ],
+      "testPaths": [
+        "src/routes/**/*.test.ts"
+      ],
+      "timeoutMs": 300000,
+      "lanes": [
+        "standard",
+        "high"
+      ],
+      "passEnv": [
+        "HOME"
+      ],
+      "cacheTtlMs": 0
     },
     {
       "id": "build",
@@ -180,7 +208,10 @@
       "passEnv": [
         "HOME"
       ],
-      "cacheTtlMs": 0
+      "cacheTtlMs": 0,
+      "testPaths": [
+        "e2e/**/*.spec.ts"
+      ]
     }
   ],
   "concurrency": 3,
