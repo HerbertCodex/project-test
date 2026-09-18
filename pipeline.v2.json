@@ -51,7 +51,9 @@
     "maxQaRepairs": 2,
     "maxActiveMs": 3600000,
     "reviewMode": "solo",
-    "maxSpecCostUsd": 25
+    "maxSpecCostUsd": 25,
+    "planningMode": "adaptive",
+    "qualityReview": "evidence"
   },
   "setup": [
     {
@@ -110,7 +112,10 @@
         "high"
       ],
       "mandatory": false,
-      "cacheTtlMs": 0
+      "cacheTtlMs": 0,
+      "covers": [
+        "unit"
+      ]
     },
     {
       "id": "check",
@@ -132,12 +137,55 @@
         "high"
       ],
       "mandatory": false,
+      "cacheTtlMs": 0,
+      "covers": [
+        "typecheck"
+      ]
+    },
+    {
+      "id": "build",
+      "covers": [
+        "build"
+      ],
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "timeoutMs": 300000,
+      "lanes": [
+        "standard",
+        "high"
+      ],
+      "passEnv": [
+        "HOME"
+      ],
+      "cacheTtlMs": 0
+    },
+    {
+      "id": "e2e",
+      "covers": [
+        "browser"
+      ],
+      "command": [
+        "npm",
+        "run",
+        "test:e2e"
+      ],
+      "timeoutMs": 300000,
+      "lanes": [
+        "standard",
+        "high"
+      ],
+      "passEnv": [
+        "HOME"
+      ],
       "cacheTtlMs": 0
     }
   ],
   "concurrency": 3,
   "failFast": true,
-  "maxRunMs": 1800000,
+  "maxRunMs": 2700000,
   "maxRepairAttempts": 3,
   "validationMaxAgeMs": 3600000,
   "risk": {
@@ -148,5 +196,63 @@
     "highPaths": [],
     "maxFastFiles": 5,
     "maxFastLines": 100
-  }
+  },
+  "feedback": {
+    "gateIds": [
+      "test",
+      "check"
+    ],
+    "maxCalls": 4,
+    "maxTotalMs": 120000
+  },
+  "roleProfiles": [
+    {
+      "provider": "claude",
+      "role": "product",
+      "quick": {
+        "model": "claude-sonnet-5",
+        "effort": "low"
+      },
+      "deep": {
+        "model": "claude-sonnet-5",
+        "effort": "medium"
+      }
+    },
+    {
+      "provider": "claude",
+      "role": "design",
+      "quick": {
+        "model": "claude-sonnet-5",
+        "effort": "low"
+      },
+      "deep": {
+        "model": "claude-sonnet-5",
+        "effort": "medium"
+      }
+    },
+    {
+      "provider": "claude",
+      "role": "implementer",
+      "quick": {
+        "model": "claude-sonnet-5",
+        "effort": "low"
+      },
+      "deep": {
+        "model": "claude-sonnet-5",
+        "effort": "medium"
+      }
+    },
+    {
+      "provider": "claude",
+      "role": "qa",
+      "quick": {
+        "model": "claude-sonnet-5",
+        "effort": "low"
+      },
+      "deep": {
+        "model": "claude-sonnet-5",
+        "effort": "medium"
+      }
+    }
+  ]
 }
