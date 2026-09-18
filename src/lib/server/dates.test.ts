@@ -5,6 +5,8 @@ import {
   isCalendarDate,
   isOverdue,
   parisDateOf,
+  startOfDayInParis,
+  subtractCalendarYear,
   todayInParis,
   type Clock
 } from './dates';
@@ -68,6 +70,72 @@ describe('addCalendarDays', () => {
     expect(() => addCalendarDays('2026-4-1', 30)).toThrow(RangeError);
     expect(() => addCalendarDays("'; DROP TABLE books;--", 30)).toThrow(RangeError);
     expect(() => addCalendarDays('2026-04-01', 1.5)).toThrow(RangeError);
+  });
+});
+
+describe('subtractCalendarYear', () => {
+  it('rend le même jour de l’année précédente', () => {
+    expect(subtractCalendarYear('2026-09-18')).toBe('2025-09-18');
+    expect(subtractCalendarYear('2026-01-01')).toBe('2025-01-01');
+    expect(subtractCalendarYear('2026-12-31')).toBe('2025-12-31');
+  });
+
+  it('ramène un 29 février au 28 février', () => {
+    expect(subtractCalendarYear('2028-02-29')).toBe('2027-02-28');
+    expect(subtractCalendarYear('2028-02-28')).toBe('2027-02-28');
+    expect(subtractCalendarYear('2028-03-01')).toBe('2027-03-01');
+  });
+
+  it('garde le 28 février quand l’année d’arrivée est bissextile', () => {
+    expect(subtractCalendarYear('2029-02-28')).toBe('2028-02-28');
+    expect(subtractCalendarYear('2029-03-01')).toBe('2028-03-01');
+  });
+
+  it('part de la date de Paris, changement d’heure compris', () => {
+    // 22 h 30 UTC le 31 mars : déjà le 1er avril à Paris (heure d'été).
+    expect(subtractCalendarYear(todayInParis(clockAt('2026-03-31T22:30:00Z')))).toBe('2025-04-01');
+    expect(subtractCalendarYear(todayInParis(clockAt('2026-10-25T23:00:00Z')))).toBe('2025-10-26');
+  });
+
+  it('rejette une date mal formée ou inexistante', () => {
+    expect(() => subtractCalendarYear('2026-02-30')).toThrow(RangeError);
+    expect(() => subtractCalendarYear('2026-4-1')).toThrow(RangeError);
+    expect(() => subtractCalendarYear("'; DROP TABLE security_events;--")).toThrow(RangeError);
+  });
+});
+
+describe('startOfDayInParis', () => {
+  it('place minuit à 23 h UTC la veille en heure d’hiver', () => {
+    expect(startOfDayInParis('2026-01-15')).toBe(Date.parse('2026-01-14T23:00:00Z'));
+    expect(startOfDayInParis('2027-02-28')).toBe(Date.parse('2027-02-27T23:00:00Z'));
+  });
+
+  it('place minuit à 22 h UTC la veille en heure d’été', () => {
+    expect(startOfDayInParis('2026-07-15')).toBe(Date.parse('2026-07-14T22:00:00Z'));
+    expect(startOfDayInParis('2026-04-01')).toBe(Date.parse('2026-03-31T22:00:00Z'));
+  });
+
+  it('suit le changement d’heure de mars et celui d’octobre', () => {
+    // Le 29 mars 2026 commence encore en heure d'hiver : le décalage change à 2 h.
+    expect(startOfDayInParis('2026-03-29')).toBe(Date.parse('2026-03-28T23:00:00Z'));
+    expect(startOfDayInParis('2026-03-30')).toBe(Date.parse('2026-03-29T22:00:00Z'));
+    // Le 25 octobre 2026 commence encore en heure d'été.
+    expect(startOfDayInParis('2026-10-25')).toBe(Date.parse('2026-10-24T22:00:00Z'));
+    expect(startOfDayInParis('2026-10-26')).toBe(Date.parse('2026-10-25T23:00:00Z'));
+  });
+
+  it('donne le premier instant de la journée à Paris, la milliseconde d’avant appartenant à la veille', () => {
+    const dates = ['2026-01-15', '2026-03-29', '2026-07-15', '2026-10-25', '2028-02-29'];
+    for (const date of dates) {
+      const start = startOfDayInParis(date);
+      expect(parisDateOf(new Date(start))).toBe(date);
+      expect(parisDateOf(new Date(start - 1))).toBe(addCalendarDays(date, -1));
+    }
+  });
+
+  it('rejette une date mal formée ou inexistante', () => {
+    expect(() => startOfDayInParis('2026-02-29')).toThrow(RangeError);
+    expect(() => startOfDayInParis('15/01/2026')).toThrow(RangeError);
   });
 });
 
