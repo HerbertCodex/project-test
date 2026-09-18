@@ -133,7 +133,8 @@
       "passEnv": [],
       "dependsOn": [],
       "resources": [
-        "project-checks"
+        "project-checks",
+        "svelte-kit"
       ],
       "outputs": [],
       "paths": [],
@@ -188,7 +189,10 @@
       "passEnv": [
         "HOME"
       ],
-      "cacheTtlMs": 0
+      "cacheTtlMs": 0,
+      "resources": [
+        "svelte-kit"
+      ]
     },
     {
       "id": "e2e",
@@ -211,6 +215,9 @@
       "cacheTtlMs": 0,
       "testPaths": [
         "e2e/**/*.spec.ts"
+      ],
+      "resources": [
+        "svelte-kit"
       ]
     }
   ],
