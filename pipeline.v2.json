@@ -149,6 +149,32 @@
       ]
     },
     {
+      "id": "deadcode",
+      "command": [
+        "npm",
+        "run",
+        "deadcode"
+      ],
+      "timeoutMs": 180000,
+      "passEnv": [
+        "HOME"
+      ],
+      "dependsOn": [],
+      "resources": [
+        "project-checks",
+        "svelte-kit"
+      ],
+      "outputs": [],
+      "paths": [],
+      "lanes": [
+        "standard",
+        "high"
+      ],
+      "mandatory": false,
+      "cacheTtlMs": 0,
+      "covers": []
+    },
+    {
       "id": "integration",
       "covers": [
         "integration"

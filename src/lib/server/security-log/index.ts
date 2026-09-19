@@ -53,7 +53,7 @@ export const SECURITY_EVENT_LABELS: Readonly<Record<SecurityEventType, string>> 
 };
 
 /** Garde d'exécution : la liste fermée du type TypeScript, vérifiée à l'appel. */
-export function isSecurityEventType(value: unknown): value is SecurityEventType {
+function isSecurityEventType(value: unknown): value is SecurityEventType {
   return typeof value === 'string' && (SECURITY_EVENT_TYPES as readonly string[]).includes(value);
 }
 

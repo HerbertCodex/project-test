@@ -30,7 +30,7 @@ import { DEFAULT_PAGE_SIZE, pageWindow } from '../pagination';
 // ---------------------------------------------------------------------------
 
 /** Borne technique d'une vente ou d'un réassort : de 1 à 1 000 exemplaires. */
-export const SALE_QUANTITY_MIN = 1;
+const SALE_QUANTITY_MIN = 1;
 export const SALE_QUANTITY_MAX = 1_000;
 
 export const QUANTITY_INVALID_MESSAGE =

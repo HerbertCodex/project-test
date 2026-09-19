@@ -93,6 +93,28 @@ describe('listActiveLoans', () => {
     expect(seenIds).toEqual([...ids]);
   });
 
+  it('compte tous les retards, y compris ceux des pages suivantes', () => {
+    const borrower = createUser('lecteur@example.fr');
+    // Trente prêts en cours : les dix premiers échus la veille, les vingt autres à venir.
+    // Le comptoir n'affiche que vingt-cinq lignes, donc cinq retards sont hors de la première page.
+    for (let index = 0; index < 10; index++) {
+      insertLoan(createBook(`Retard ${index}`), borrower.id, '2026-04-01', '2026-05-19');
+    }
+    for (let index = 0; index < 20; index++) {
+      insertLoan(createBook(`À jour ${index}`), borrower.id, '2026-05-01', '2026-06-30');
+    }
+
+    const firstPage = listActiveLoans(db, 1, '2026-05-20');
+    const secondPage = listActiveLoans(db, 2, '2026-05-20');
+
+    expect(firstPage.items).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(firstPage.overdueCount).toBe(10);
+    expect(secondPage.overdueCount).toBe(10);
+    // Le compteur ne se confond pas avec les retards visibles sur la page courante.
+    expect(firstPage.items.filter((loan) => loan.overdue)).toHaveLength(10);
+    expect(secondPage.items.filter((loan) => loan.overdue)).toHaveLength(0);
+  });
+
   it('borne silencieusement une page hors bornes à la dernière page connue', () => {
     const borrower = createUser('lecteur@example.fr');
     insertManyActiveLoans(borrower.id, 3);

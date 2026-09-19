@@ -81,31 +81,12 @@ type CatalogueRow = {
   on_sale: number;
 };
 
-const frenchCollator = new Intl.Collator('fr', { sensitivity: 'base', numeric: true });
-
-/**
- * Ordre d'affichage des livres, partagé par le catalogue et l'écran de vente :
- * titre puis auteur selon la collation française (sans casse ni accents,
- * nombres dans l'ordre numérique), puis identifiant pour un ordre stable.
- */
-export function compareBooksByTitle(
-  a: { id: number; title: string; author: string },
-  b: { id: number; title: string; author: string }
-): number {
-  return (
-    frenchCollator.compare(a.title, b.title) ||
-    frenchCollator.compare(a.author, b.author) ||
-    a.id - b.id
-  );
-}
-
 /**
  * Pliage du texte pour la recherche et le tri : minuscules, sans diacritiques,
- * ligatures développées, comme la comparaison de base de frenchCollator.
- * Exportée pour être réutilisée par l'écran de vente, qui partage le même
- * ordre SQL que le catalogue public.
+ * ligatures développées. C'est la forme que la fonction SQL `catalogue_fold`
+ * applique, si bien que la recherche et l'ordre suivent la même règle.
  */
-export function foldText(value: string): string {
+function foldText(value: string): string {
   return value
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
