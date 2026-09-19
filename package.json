@@ -16,7 +16,8 @@
     "test": "vitest run",
     "libraire:creer": "node --experimental-strip-types scripts/libraire-creer.ts",
     "test:e2e": "playwright test",
-    "test:integration": "vitest run src/routes"
+    "test:integration": "vitest run src/routes",
+    "deadcode": "svelte-kit sync && knip"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
@@ -24,6 +25,7 @@
     "@sveltejs/kit": "^2.22.0",
     "@sveltejs/vite-plugin-svelte": "^6.0.0",
     "@types/better-sqlite3": "^9.6.0",
+    "knip": "^5.88.1",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "typescript": "^5.0.0",

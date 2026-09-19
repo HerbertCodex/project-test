@@ -11,7 +11,7 @@ export const EXIT_OK = 0;
 export const EXIT_FAILURE = 1;
 export const EXIT_USAGE = 2;
 
-export const USAGE = [
+const USAGE = [
   'Usage : npm run libraire:creer -- --email <e-mail> --nom <nom affiché>',
   "Le mot de passe est lu sur l'entrée standard ou demandé en invite, jamais en argument."
 ].join('\n');
@@ -90,7 +90,7 @@ export async function readFirstLine(input: AsyncIterable<string | Uint8Array>): 
   return line.endsWith('\r') ? line.slice(0, -1) : line;
 }
 
-export class PasswordInputError extends Error {}
+class PasswordInputError extends Error {}
 
 /** Invite masquée sur un terminal : aucun caractère saisi n'est affiché. */
 function promptHidden(

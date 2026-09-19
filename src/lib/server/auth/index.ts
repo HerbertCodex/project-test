@@ -60,9 +60,9 @@ function findUserRowByEmail(db: Db, email: string): UserRow | undefined {
 // Validation
 // ---------------------------------------------------------------------------
 
-export const EMAIL_MAX_LENGTH = 254;
-export const DISPLAY_NAME_MAX_LENGTH = 80;
-export const PASSWORD_MIN_LENGTH = 12;
+const EMAIL_MAX_LENGTH = 254;
+const DISPLAY_NAME_MAX_LENGTH = 80;
+const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 256;
 
 export type AccountField = 'email' | 'displayName' | 'password';
@@ -155,7 +155,7 @@ export function validateAccount(input: AccountInput): AccountValidation {
 // ---------------------------------------------------------------------------
 
 /** Minimum OWASP pour Argon2id : m = 19 456 KiB, t = 2, p = 1. */
-export const ARGON2_OPTIONS: Readonly<HashOptions> = {
+const ARGON2_OPTIONS: Readonly<HashOptions> = {
   type: argon2id,
   memoryCost: 19_456,
   timeCost: 2,
@@ -266,13 +266,13 @@ export function createBorrower(
 // ---------------------------------------------------------------------------
 
 export const SESSION_COOKIE_NAME = 'session';
-export const SESSION_DURATION_SECONDS = 7 * 24 * 60 * 60;
+const SESSION_DURATION_SECONDS = 7 * 24 * 60 * 60;
 const SESSION_DURATION_MS = SESSION_DURATION_SECONDS * 1000;
 const SESSION_TOKEN_BYTES = 32;
 /** 32 octets en base64url sans remplissage. */
 const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
-export const SESSION_COOKIE_OPTIONS = {
+const SESSION_COOKIE_OPTIONS = {
   path: '/',
   httpOnly: true,
   secure: true,
@@ -385,7 +385,7 @@ export function recordLoginFailure(db: Db, email: string, clock: Clock = current
   ).run({ email: normalizeEmail(email), now: clock().getTime(), window: LOGIN_FAILURE_WINDOW_MS });
 }
 
-export function clearLoginFailures(db: Db, email: string): void {
+function clearLoginFailures(db: Db, email: string): void {
   db.prepare('DELETE FROM login_failures WHERE email = ?').run(normalizeEmail(email));
 }
 
