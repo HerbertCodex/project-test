@@ -1,4 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { addBook } from '../src/lib/server/catalogue';
+import { openDatabase } from '../src/lib/server/db';
+
+// Même chemin que `webServer.env.LIBRAIRIE_DB_PATH` dans playwright.config.ts.
+const CATALOGUE_DB_PATH = 'data/e2e.db';
+const CATALOGUE_PAGE_SIZE = 25;
 
 /**
  * Parcours public minimal : ce que voit un visiteur avant toute donnée. Il vérifie que les pages
@@ -26,4 +32,32 @@ test("l'inscription crée un compte et renvoie vers la connexion", async ({ page
   await page.getByRole('button', { name: /Créer/ }).click();
   await expect(page).toHaveURL(/\/connexion/);
   await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible();
+});
+
+test('la pagination du catalogue public mène à la page suivante', async ({ page }) => {
+  const db = openDatabase(CATALOGUE_DB_PATH);
+  try {
+    for (let index = 1; index <= CATALOGUE_PAGE_SIZE + 1; index += 1) {
+      const created = addBook(db, {
+        title: `Pagination essai ${String(index).padStart(2, '0')}`,
+        author: 'Auteur de test'
+      });
+      if (!created.ok) throw new Error('Livre de test non créé.');
+    }
+  } finally {
+    db.close();
+  }
+
+  await page.goto('/');
+  const firstPageTitle = await page.locator('.book__title').first().innerText();
+  await expect(page.locator('.pagination__position')).toContainText(/1–25 sur \d+/);
+
+  const nextLink = page.getByRole('link', { name: 'Suivant' });
+  await expect(nextLink).toBeVisible();
+  await nextLink.click();
+
+  await expect(page).toHaveURL(/\?page=2/);
+  const secondPageTitle = await page.locator('.book__title').first().innerText();
+  expect(secondPageTitle).not.toBe(firstPageTitle);
+  await expect(page.locator('.pagination__position')).toContainText(/26–\d+ sur \d+/);
 });

@@ -7,6 +7,7 @@ import {
 } from '$lib/server/catalogue';
 import { getDb } from '$lib/server/db';
 import { BOOK_NOT_FOUND_MESSAGE, parseRecordId } from '$lib/server/loans';
+import { parsePageParam } from '$lib/server/pagination';
 import {
   listSaleCounter,
   recordSale,
@@ -71,15 +72,29 @@ function invalidBookId(action: CounterAction) {
   return fail(400, { counterError });
 }
 
-/** Tous les livres, avec ou sans prix, et leur stock chiffré (réservé au libraire). */
-export const load: PageServerLoad = ({ locals }) => {
+/**
+ * Une page des livres du comptoir, avec ou sans prix, et leur stock chiffré
+ * (réservé au libraire). `page` est bornée silencieusement : jamais d'erreur
+ * pour une valeur invalide ou hors bornes.
+ */
+export const load: PageServerLoad = ({ locals, url }) => {
   requireBookseller(locals.user);
-  const books = listSaleCounter(getDb()).map((book) => ({
+  const page = parsePageParam(url?.searchParams.get('page') ?? null);
+  const counter = listSaleCounter(getDb(), page);
+  const books = counter.items.map((book) => ({
     ...book,
     priceLabel: book.priceCents === null ? null : formatPrice(book.priceCents),
     priceInput: book.priceCents === null ? '' : formatPriceInput(book.priceCents)
   }));
-  return { books };
+  return {
+    books,
+    page: counter.page,
+    pageSize: counter.pageSize,
+    totalItems: counter.totalItems,
+    totalPages: counter.totalPages,
+    onSaleCount: counter.onSaleCount,
+    noPriceCount: counter.noPriceCount
+  };
 };
 
 export const actions: Actions = {

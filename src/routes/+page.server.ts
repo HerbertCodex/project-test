@@ -14,7 +14,8 @@ import {
   parseRecordId,
   requireBorrower
 } from '$lib/server/loans';
-import { runRetentionPurges } from '$lib/server/retention';
+import { parsePageParam } from '$lib/server/pagination';
+import { runRetentionPurgesSafely } from '$lib/server/retention';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -22,31 +23,34 @@ import type { Actions, PageServerLoad } from './$types';
  * prix et état de vente, jamais de stock chiffré. Les filtres GET sont validés et
  * normalisés par le module catalogue ; seules leurs valeurs retenues sont renvoyées.
  * Sans URL (appel direct du load, par exemple depuis un test), aucun filtre n'est appliqué.
+ * `page` est bornée silencieusement : jamais d'erreur pour une valeur invalide ou hors bornes.
  */
 export const load: PageServerLoad = ({ url }) => {
-  const filters = catalogueFiltersFromSearchParams(url?.searchParams ?? new URLSearchParams());
+  const searchParams = url?.searchParams ?? new URLSearchParams();
+  const filters = catalogueFiltersFromSearchParams(searchParams);
+  const page = parsePageParam(searchParams.get('page'));
+  const catalogue = listCatalogue(getDb(), filters, page);
+
+  // Filtres à reconduire dans les liens de pagination : tout paramètre déjà
+  // présent hors `page`, jamais devinés depuis CATALOGUE_FILTER_PARAMS (non
+  // importable côté client).
+  const pageQuery = new URLSearchParams(searchParams);
+  pageQuery.delete('page');
+
   return {
-    books: listCatalogue(getDb(), filters),
+    books: catalogue.items,
+    page: catalogue.page,
+    pageSize: catalogue.pageSize,
+    totalItems: catalogue.totalItems,
+    totalPages: catalogue.totalPages,
+    pageQuery: pageQuery.toString(),
     filters,
     searchMaxLength: BOOK_TEXT_MAX_LENGTH
   };
 };
 
-/**
- * Relance les purges de rétention après un emprunt enregistré.
- *
- * Le prêt est déjà écrit quand la purge s'exécute : un échec de purge ne doit pas
- * transformer un emprunt réussi en erreur, la purge étant retentée au prochain
- * emprunt, au prochain retour ou au démarrage suivant. L'erreur est donc contenue
- * et signalée par un message générique, sans SQL ni pile.
- */
-function purgeAfterBorrow(): void {
-  try {
-    runRetentionPurges(getDb());
-  } catch {
-    console.error("Purges de rétention : échec après un emprunt, la base n'a pas été purgée.");
-  }
-}
+const PURGE_AFTER_BORROW_FAILURE_MESSAGE =
+  "Purges de rétention : échec après un emprunt, la base n'a pas été purgée.";
 
 export const actions: Actions = {
   emprunter: async ({ request, locals }) => {
@@ -67,7 +71,7 @@ export const actions: Actions = {
     }
 
     // Emprunt réussi : occasion de purger, un emprunt refusé ne purge rien.
-    purgeAfterBorrow();
+    runRetentionPurgesSafely(getDb(), PURGE_AFTER_BORROW_FAILURE_MESSAGE);
 
     return { borrowed: { title: result.loan.title, dueOn: loanDate(result.loan.dueOn) } };
   }

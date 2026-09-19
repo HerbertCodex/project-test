@@ -2,11 +2,10 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import Pagination from '$lib/components/Pagination.svelte';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
-
-  const overdueCount = $derived(data.loans.filter((loan) => loan.overdue).length);
 
   /** Prêts dont le retour est en cours d'envoi ; un second envoi de la même ligne est ignoré. */
   let pendingLoanIds: string[] = $state([]);
@@ -36,10 +35,10 @@
 
   <ul class="tally">
     <li class="tally__item">
-      <span class="tally__value">{data.loans.length}</span> en cours
+      <span class="tally__value">{data.totalItems}</span> en cours
     </li>
-    <li class="tally__item" class:tally__item--alert={overdueCount > 0}>
-      <span class="tally__value">{overdueCount}</span> en retard
+    <li class="tally__item" class:tally__item--alert={data.overdueCount > 0}>
+      <span class="tally__value">{data.overdueCount}</span> en retard
     </li>
   </ul>
 
@@ -104,6 +103,13 @@
         {/each}
       </tbody>
     </table>
+    <Pagination
+      page={data.page}
+      totalPages={data.totalPages}
+      totalItems={data.totalItems}
+      itemCount={data.loans.length}
+      pageSize={data.pageSize}
+    />
   {/if}
 </div>
 
@@ -112,4 +118,5 @@
   .col-action .btn {
     white-space: nowrap;
   }
+
 </style>

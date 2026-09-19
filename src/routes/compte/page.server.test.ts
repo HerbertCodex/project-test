@@ -141,7 +141,7 @@ function loadFor(user: AuthUser | null, path = '/compte') {
 }
 
 function renderPage(
-  data: { displayName: string; role: string; hasActiveLoan: boolean },
+  data: { displayName: string; role: string; activeLoanCount: number; hasActiveLoan: boolean },
   form: unknown = null
 ): string {
   return render(ComptePage, { props: { data, form } as never }).body;
@@ -157,16 +157,58 @@ describe('load /compte', () => {
     const reader = await borrower();
     const seller = await bookseller();
     addLoan(reader.id, null);
+    addLoan(reader.id, null);
 
     const readerData = await loadFor(reader);
     const sellerData = await loadFor(seller);
 
-    expect(readerData).toEqual({ displayName: 'Lecteur', role: 'borrower', hasActiveLoan: true });
-    expect(sellerData).toEqual({ displayName: 'Jeanne', role: 'bookseller', hasActiveLoan: false });
+    expect(readerData).toEqual({
+      displayName: 'Lecteur',
+      role: 'borrower',
+      activeLoanCount: 2,
+      hasActiveLoan: true
+    });
+    expect(sellerData).toEqual({
+      displayName: 'Jeanne',
+      role: 'bookseller',
+      activeLoanCount: 0,
+      hasActiveLoan: false
+    });
     const serialized = JSON.stringify([readerData, sellerData]);
     expect(serialized).not.toContain(BORROWER_EMAIL);
     expect(serialized).not.toContain('libraire@example.fr');
     expect(serialized).not.toContain(`"id"`);
+  });
+
+  it('affiche le nombre exact de prêts en cours pour un, puis plusieurs', async () => {
+    const reader = await borrower();
+
+    const noLoan = await loadFor(reader);
+    expect(noLoan).toEqual({
+      displayName: 'Lecteur',
+      role: 'borrower',
+      activeLoanCount: 0,
+      hasActiveLoan: false
+    });
+
+    addLoan(reader.id, null);
+    const oneLoan = await loadFor(reader);
+    expect(oneLoan).toEqual({
+      displayName: 'Lecteur',
+      role: 'borrower',
+      activeLoanCount: 1,
+      hasActiveLoan: true
+    });
+
+    addLoan(reader.id, null);
+    addLoan(reader.id, null);
+    const threeLoans = await loadFor(reader);
+    expect(threeLoans).toEqual({
+      displayName: 'Lecteur',
+      role: 'borrower',
+      activeLoanCount: 3,
+      hasActiveLoan: true
+    });
   });
 
   it('redirige un visiteur anonyme en 303 vers /connexion', async () => {
@@ -184,7 +226,12 @@ describe('load /compte', () => {
       `/compte?supprimer=1&password=${encodeURIComponent(PASSWORD)}&confirm=oui`
     );
 
-    expect(data).toEqual({ displayName: 'Lecteur', role: 'borrower', hasActiveLoan: false });
+    expect(data).toEqual({
+      displayName: 'Lecteur',
+      role: 'borrower',
+      activeLoanCount: 0,
+      hasActiveLoan: false
+    });
     expect(userRow(reader.id)).toEqual(before);
     expect(countOf('SELECT count(*) AS n FROM security_events')).toBe(0);
   });
@@ -349,7 +396,12 @@ describe('action ?/supprimer : suppression', () => {
 
 describe('rendu de /compte', () => {
   it('rend un nom affiché hostile comme du texte et sépare l’action irréversible', () => {
-    const body = renderPage({ displayName: HOSTILE_NAME, role: 'borrower', hasActiveLoan: false });
+    const body = renderPage({
+      displayName: HOSTILE_NAME,
+      role: 'borrower',
+      activeLoanCount: 0,
+      hasActiveLoan: false
+    });
 
     expect(body).not.toContain('<script');
     expect(body).toMatch(/&lt;script(>|&gt;)alert\(1\)&lt;\/script(>|&gt;)/);
@@ -366,7 +418,7 @@ describe('rendu de /compte', () => {
 
   it('relie le message d’erreur 400 au champ mot de passe', () => {
     const body = renderPage(
-      { displayName: 'Lecteur', role: 'borrower', hasActiveLoan: false },
+      { displayName: 'Lecteur', role: 'borrower', activeLoanCount: 0, hasActiveLoan: false },
       { message: LOGIN_FAILED_MESSAGE, passwordError: true }
     );
 
@@ -380,7 +432,7 @@ describe('rendu de /compte', () => {
 
   it('n’attribue pas l’erreur au champ pour un refus 409 ou 429', () => {
     const refused = renderPage(
-      { displayName: 'Lecteur', role: 'borrower', hasActiveLoan: true },
+      { displayName: 'Lecteur', role: 'borrower', activeLoanCount: 1, hasActiveLoan: true },
       { message: ACTIVE_LOAN_MESSAGE, passwordError: false }
     );
     expect(refused).toContain('notice--error');
@@ -392,7 +444,7 @@ describe('rendu de /compte', () => {
     expect(refused).not.toMatch(/<button[^>]*\sdisabled/);
 
     const locked = renderPage(
-      { displayName: 'Lecteur', role: 'borrower', hasActiveLoan: false },
+      { displayName: 'Lecteur', role: 'borrower', activeLoanCount: 0, hasActiveLoan: false },
       { message: 'Trop de tentatives. Réessayez à partir de 14 h 15.', passwordError: false }
     );
     expect(locked).toContain('Réessayez à partir de 14 h 15.');
@@ -400,10 +452,46 @@ describe('rendu de /compte', () => {
   });
 
   it('annonce au libraire que ses ventes sont conservées', () => {
-    const body = renderPage({ displayName: 'Jeanne', role: 'bookseller', hasActiveLoan: false });
+    const body = renderPage({
+      displayName: 'Jeanne',
+      role: 'bookseller',
+      activeLoanCount: 0,
+      hasActiveLoan: false
+    });
 
     expect(body).toContain('Libraire');
     expect(body).toContain('les ventes que vous avez enregistrées');
     expect(body).toContain('Supprimer définitivement mon compte');
+  });
+
+  it('affiche « Aucun » à 0 prêt, le nombre exact à 1 et à plusieurs prêts en cours', () => {
+    const none = renderPage({
+      displayName: 'Lecteur',
+      role: 'borrower',
+      activeLoanCount: 0,
+      hasActiveLoan: false
+    });
+    expect(none).toContain('Aucun');
+    expect(none).not.toContain('voir mes prêts');
+
+    const one = renderPage({
+      displayName: 'Lecteur',
+      role: 'borrower',
+      activeLoanCount: 1,
+      hasActiveLoan: true
+    });
+    expect(one).toMatch(/\b1\s*—/);
+    expect(one).toContain('voir mes prêts');
+    expect(one).not.toContain('Au moins un');
+
+    const many = renderPage({
+      displayName: 'Lecteur',
+      role: 'borrower',
+      activeLoanCount: 3,
+      hasActiveLoan: true
+    });
+    expect(many).toMatch(/\b3\s*—/);
+    expect(many).toContain('voir mes prêts');
+    expect(many).not.toContain('Au moins un');
   });
 });

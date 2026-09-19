@@ -3,6 +3,7 @@
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import CatalogueTable from '$lib/components/CatalogueTable.svelte';
+  import Pagination from '$lib/components/Pagination.svelte';
   import type { CatalogueEntry } from '$lib/server/catalogue';
   import type { PageProps } from './$types';
 
@@ -17,9 +18,7 @@
       data.filters.availableForSale === true
   );
   const resultLabel = $derived(
-    data.books.length === 1
-      ? '1 livre correspond.'
-      : `${data.books.length} livres correspondent.`
+    data.totalItems === 1 ? '1 livre correspond.' : `${data.totalItems} livres correspondent.`
   );
 
   /** Livre dont l'emprunt est en cours d'envoi ; un second envoi est ignoré. */
@@ -156,6 +155,14 @@
     empty={noMatch}
     action={isBorrower ? borrowAction : undefined}
   />
+  <Pagination
+    page={data.page}
+    totalPages={data.totalPages}
+    totalItems={data.totalItems}
+    itemCount={data.books.length}
+    pageSize={data.pageSize}
+    searchParams={new URLSearchParams(data.pageQuery)}
+  />
 {/if}
 
 <style>
@@ -167,4 +174,5 @@
   .borrow .btn {
     white-space: nowrap;
   }
+
 </style>

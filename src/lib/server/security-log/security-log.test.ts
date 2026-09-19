@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startOfDayInParis, type Clock } from '../dates';
 import { IN_MEMORY_DATABASE_PATH, openDatabase, type Db } from '../db';
+import { DEFAULT_PAGE_SIZE } from '../pagination';
 import {
   SECURITY_EVENT_LABELS,
-  SECURITY_EVENT_LIST_LIMIT,
   SECURITY_EVENT_TYPES,
   SECURITY_SUBJECT_MAX_LENGTH,
   listRecentSecurityEvents,
@@ -175,31 +175,76 @@ describe('listRecentSecurityEvents', () => {
     recordSecurityEvent(db, { type: 'lockout_started', subject: 'un@example.fr' }, clockAt(NOW + 2));
     recordSecurityEvent(db, { type: 'signup', subject: 'deux@example.fr' }, clockAt(NOW + 1));
 
-    expect(listRecentSecurityEvents(db).map((event) => event.type)).toEqual([
+    expect(listRecentSecurityEvents(db).items.map((event) => event.type)).toEqual([
       'lockout_started',
       'signup',
       'login_failure'
     ]);
   });
 
-  it('borne la liste à SECURITY_EVENT_LIST_LIMIT événements, les plus récents', () => {
-    const total = SECURITY_EVENT_LIST_LIMIT + 5;
+  it('pagine à DEFAULT_PAGE_SIZE événements par page, sans limite fixe totale', () => {
+    const total = DEFAULT_PAGE_SIZE * 4 + 5;
     for (let index = 0; index < total; index++) {
       recordSecurityEvent(db, { type: 'login_failure', subject: `n${index}` }, clockAt(NOW + index));
     }
 
-    const events = listRecentSecurityEvents(db);
-    expect(events).toHaveLength(SECURITY_EVENT_LIST_LIMIT);
-    expect(events[0].subject).toBe(`n${total - 1}`);
-    expect(events[events.length - 1].subject).toBe(`n${total - SECURITY_EVENT_LIST_LIMIT}`);
+    const firstPage = listRecentSecurityEvents(db, 1);
+    expect(firstPage.items).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(firstPage.items[0].subject).toBe(`n${total - 1}`);
+    expect(firstPage.totalItems).toBe(total);
+    expect(firstPage.totalPages).toBe(Math.ceil(total / DEFAULT_PAGE_SIZE));
+
+    // Au-delà de l'ancienne limite fixe de 100 : la page 5 (indices 100-104) reste accessible.
+    const lastPage = listRecentSecurityEvents(db, firstPage.totalPages);
+    expect(lastPage.items).toHaveLength(5);
+    expect(lastPage.items[lastPage.items.length - 1].subject).toBe('n0');
     expect(storedEvents()).toHaveLength(total);
+  });
+
+  it('garde un ordre total et stable entre pages : aucun id partagé, id en départage à égalité de created_at', () => {
+    const total = DEFAULT_PAGE_SIZE * 2 + 5;
+    // Deux événements partagent exactement le même created_at : seul l'id (DESC) les départage.
+    for (let index = 0; index < total; index++) {
+      const instant = index < 2 ? NOW : NOW + index;
+      recordSecurityEvent(db, { type: 'login_failure', subject: `n${index}` }, clockAt(instant));
+    }
+
+    const first = listRecentSecurityEvents(db, 1);
+    const second = listRecentSecurityEvents(db, 2);
+    const third = listRecentSecurityEvents(db, 3);
+
+    expect(first.items).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(second.items).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(third.items).toHaveLength(5);
+
+    const seenIds = [...first.items, ...second.items, ...third.items].map((event) => event.id);
+    expect(new Set(seenIds).size).toBe(total);
+    expect(seenIds.sort((a, b) => a - b)).toEqual(
+      Array.from({ length: total }, (_, index) => index + 1)
+    );
+
+    // Les deux événements de même created_at (index 0 et 1) tombent sur la dernière page,
+    // triés par id décroissant : l'id le plus grand (inséré en dernier) apparaît en premier.
+    expect(third.items[third.items.length - 2].subject).toBe('n1');
+    expect(third.items[third.items.length - 1].subject).toBe('n0');
+  });
+
+  it('borne silencieusement une page invalide ou hors bornes', () => {
+    for (let index = 0; index < DEFAULT_PAGE_SIZE + 5; index++) {
+      recordSecurityEvent(db, { type: 'login_failure', subject: `n${index}` }, clockAt(NOW + index));
+    }
+
+    expect(listRecentSecurityEvents(db, 0).page).toBe(1);
+    expect(listRecentSecurityEvents(db, -1).page).toBe(1);
+    expect(listRecentSecurityEvents(db, 1.5).page).toBe(1);
+    expect(listRecentSecurityEvents(db, 999).page).toBe(2);
   });
 
   it('joint le nom affiché du compte et le libellé français du type', () => {
     const userId = createUser('lea@example.fr', 'Léa Moreau');
     recordSecurityEvent(db, { type: 'login_success', userId, subject: 'lea@example.fr' }, clock);
 
-    expect(listRecentSecurityEvents(db)).toEqual([
+    expect(listRecentSecurityEvents(db).items).toEqual([
       {
         id: expect.any(Number),
         createdAt: NOW,
@@ -215,7 +260,7 @@ describe('listRecentSecurityEvents', () => {
   it('rend un événement sans compte avec un nom affiché nul', () => {
     recordSecurityEvent(db, { type: 'login_failure', subject: 'inconnu@example.fr' }, clock);
 
-    const [event] = listRecentSecurityEvents(db);
+    const [event] = listRecentSecurityEvents(db).items;
     expect(event.userId).toBeNull();
     expect(event.userName).toBeNull();
     expect(event.subject).toBe('inconnu@example.fr');
@@ -227,7 +272,7 @@ describe('listRecentSecurityEvents', () => {
 
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
-    const events = listRecentSecurityEvents(db);
+    const events = listRecentSecurityEvents(db).items;
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe('login_success');
     expect(events[0].userId).toBeNull();
@@ -236,7 +281,7 @@ describe('listRecentSecurityEvents', () => {
   });
 
   it('ne rend rien tant qu’aucun événement n’est journalisé', () => {
-    expect(listRecentSecurityEvents(db)).toEqual([]);
+    expect(listRecentSecurityEvents(db).items).toEqual([]);
   });
 });
 

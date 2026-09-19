@@ -1,31 +1,25 @@
-import type { Handle, RequestEvent } from '@sveltejs/kit';
+import type { Handle, RequestEvent, ServerInit } from '@sveltejs/kit';
 import { SESSION_COOKIE_NAME, deleteSessionCookie, validateSessionToken } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
-import { runRetentionPurges } from '$lib/server/retention';
+import { runRetentionPurgesSafely } from '$lib/server/retention';
 import { recordSecurityEvent } from '$lib/server/security-log';
 
 /**
- * Exécute les purges de rétention à l'ouverture de la base par l'application.
+ * Exécute les purges de rétention au démarrage réel du serveur.
  *
- * L'appel a lieu au chargement du module, donc une seule fois par processus :
- * c'est ici que l'application ouvre sa base, `getDb()` la créant et la migrant
- * au premier appel. Le déclenchement n'est volontairement pas placé dans
- * `$lib/server/db`, que la commande locale `libraire:creer` charge sous Node
- * sans Vite : y importer le module de rétention casserait la commande.
- *
- * Un échec de purge ne doit pas empêcher le serveur de répondre : l'erreur est
- * contenue et signalée par un message générique, sans SQL ni pile, la purge
- * étant retentée au démarrage suivant.
+ * `init` est appelé par SvelteKit une seule fois par processus, au démarrage
+ * du serveur, jamais à la simple évaluation du module : c'est ici que
+ * l'application ouvre sa base, `getDb()` la créant et la migrant au premier
+ * appel. Le déclenchement n'est volontairement pas placé dans `$lib/server/db`,
+ * que la commande locale `libraire:creer` charge sous Node sans Vite : y
+ * importer le module de rétention casserait la commande.
  */
-function purgeOnStartup(): void {
-  try {
-    runRetentionPurges(getDb());
-  } catch {
-    console.error("Purges de rétention : échec au démarrage, la base n'a pas été purgée.");
-  }
-}
-
-purgeOnStartup();
+export const init: ServerInit = () => {
+  runRetentionPurgesSafely(
+    getDb(),
+    "Purges de rétention : échec au démarrage, la base n'a pas été purgée."
+  );
+};
 
 const SECURITY_HEADERS: Record<string, string> = {
   'x-content-type-options': 'nosniff',

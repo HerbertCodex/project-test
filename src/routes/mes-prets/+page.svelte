@@ -1,9 +1,9 @@
 <script lang="ts">
+  import Pagination from '$lib/components/Pagination.svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
 
-  const overdueCount = $derived(data.active.filter((loan) => loan.overdue).length);
   // Retards d'abord, puis échéance la plus proche (ordre du serveur conservé).
   const activeLoans = $derived([
     ...data.active.filter((loan) => loan.overdue),
@@ -21,10 +21,10 @@
 
 <ul class="tally">
   <li class="tally__item">
-    <span class="tally__value">{data.active.length}</span> en cours
+    <span class="tally__value">{data.activePageInfo.totalItems}</span> en cours
   </li>
-  <li class="tally__item" class:tally__item--alert={overdueCount > 0}>
-    <span class="tally__value">{overdueCount}</span> en retard
+  <li class="tally__item" class:tally__item--alert={data.activeOverdueCount > 0}>
+    <span class="tally__value">{data.activeOverdueCount}</span> en retard
   </li>
 </ul>
 
@@ -71,6 +71,15 @@
         {/each}
       </tbody>
     </table>
+    <Pagination
+      page={data.activePageInfo.page}
+      totalPages={data.activePageInfo.totalPages}
+      totalItems={data.activePageInfo.totalItems}
+      itemCount={activeLoans.length}
+      pageSize={data.activePageInfo.pageSize}
+      searchParams={new URLSearchParams(data.activePageQuery)}
+      pageParam="pageActifs"
+    />
   {/if}
 </section>
 
@@ -105,6 +114,15 @@
         {/each}
       </tbody>
     </table>
+    <Pagination
+      page={data.returnedPageInfo.page}
+      totalPages={data.returnedPageInfo.totalPages}
+      totalItems={data.returnedPageInfo.totalItems}
+      itemCount={data.returned.length}
+      pageSize={data.returnedPageInfo.pageSize}
+      searchParams={new URLSearchParams(data.returnedPageQuery)}
+      pageParam="pageRendus"
+    />
   {/if}
 </section>
 

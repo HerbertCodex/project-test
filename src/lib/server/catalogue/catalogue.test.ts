@@ -73,6 +73,11 @@ function titles(entries: CatalogueEntry[]): string[] {
   return entries.map((entry) => entry.title);
 }
 
+/** Livres de la page (page 1 par défaut), filtres compris. */
+function books(filters: Parameters<typeof listCatalogue>[1] = {}, page = 1): CatalogueEntry[] {
+  return listCatalogue(db, filters, page).items;
+}
+
 function tableNames(): string[] {
   return (
     db.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name").all() as {
@@ -95,9 +100,9 @@ describe('listCatalogue : forme des lignes', () => {
     borrow(onSale);
 
     for (const filters of [{}, { availableForSale: true }, { text: 'zola' }]) {
-      const books = listCatalogue(db, filters);
+      const found = books(filters);
 
-      expect(books).toEqual([
+      expect(found).toEqual([
         {
           id: onSale,
           title: 'Germinal',
@@ -107,7 +112,7 @@ describe('listCatalogue : forme des lignes', () => {
           saleStatus: 'on-sale'
         }
       ]);
-      expect(Object.keys(books[0]).sort()).toEqual([
+      expect(Object.keys(found[0]).sort()).toEqual([
         'author',
         'id',
         'priceCents',
@@ -115,13 +120,13 @@ describe('listCatalogue : forme des lignes', () => {
         'status',
         'title'
       ]);
-      const serialized = JSON.stringify(books);
+      const serialized = JSON.stringify(found);
       expect(serialized).not.toContain(String(DISTINCTIVE_STOCK));
       expect(serialized).not.toMatch(/stock|lecteur|Lecteur Secret|2026-10-01|2026-09-01/i);
     }
   });
 
-  it('ne sélectionne pas sale_stock parmi les colonnes renvoyées par la requête', () => {
+  it('ne sélectionne pas sale_stock parmi les colonnes renvoyées par la requête de lecture', () => {
     createBook('Germinal', 'Émile Zola', { price: '12', saleStock: String(DISTINCTIVE_STOCK) });
     const prepare = vi.spyOn(db, 'prepare');
 
@@ -130,8 +135,10 @@ describe('listCatalogue : forme des lignes', () => {
     const statements = prepare.mock.results.map(
       (result) => result.value as unknown as Database.Statement
     );
-    expect(statements).not.toHaveLength(0);
-    for (const statement of statements) {
+    // La requête COUNT(*) n'a qu'une colonne ; seule la requête de lecture importe ici.
+    const readStatements = statements.filter((statement) => statement.columns().length > 1);
+    expect(readStatements).not.toHaveLength(0);
+    for (const statement of readStatements) {
       const columns = statement.columns().map((column) => column.name);
       expect(columns).toEqual(['id', 'title', 'author', 'price_cents', 'borrowed', 'on_sale']);
       expect(columns.join(' ')).not.toMatch(/stock/);
@@ -145,7 +152,7 @@ describe('listCatalogue : forme des lignes', () => {
     createBook('D ni prix ni stock', 'Auteur');
 
     expect(
-      listCatalogue(db).map(({ title, priceCents, saleStatus }) => ({ title, priceCents, saleStatus }))
+      books().map(({ title, priceCents, saleStatus }) => ({ title, priceCents, saleStatus }))
     ).toEqual([
       { title: 'A prix et stock', priceCents: 990, saleStatus: 'on-sale' },
       { title: 'B prix sans stock', priceCents: 990, saleStatus: 'sold-out' },
@@ -158,7 +165,7 @@ describe('listCatalogue : forme des lignes', () => {
     const id = createBook('Nana', 'Émile Zola', { price: '8', saleStock: '2' });
     borrow(id);
 
-    expect(listCatalogue(db)[0]).toMatchObject({ status: 'borrowed', saleStatus: 'on-sale' });
+    expect(books()[0]).toMatchObject({ status: 'borrowed', saleStatus: 'on-sale' });
   });
 });
 
@@ -175,27 +182,27 @@ describe('listCatalogue : filtres', () => {
   });
 
   it('sans filtre, renvoie tout le catalogue trié par titre puis auteur', () => {
-    expect(titles(listCatalogue(db))).toEqual(['Candide', 'Germinal', 'L’Étranger', 'Nana']);
+    expect(titles(books())).toEqual(['Candide', 'Germinal', 'L’Étranger', 'Nana']);
   });
 
   it('cherche dans le titre et l’auteur, sans tenir compte de la casse ni des accents', () => {
-    expect(titles(listCatalogue(db, { text: 'emile' }))).toEqual(['Germinal', 'Nana']);
-    expect(titles(listCatalogue(db, { text: 'ZOLA' }))).toEqual(['Germinal', 'Nana']);
-    expect(titles(listCatalogue(db, { text: 'étranger' }))).toEqual(['L’Étranger']);
-    expect(titles(listCatalogue(db, { text: 'ETRANGER' }))).toEqual(['L’Étranger']);
-    expect(titles(listCatalogue(db, { text: 'cand' }))).toEqual(['Candide']);
-    expect(titles(listCatalogue(db, { text: '  camus  ' }))).toEqual(['L’Étranger']);
+    expect(titles(books({ text: 'emile' }))).toEqual(['Germinal', 'Nana']);
+    expect(titles(books({ text: 'ZOLA' }))).toEqual(['Germinal', 'Nana']);
+    expect(titles(books({ text: 'étranger' }))).toEqual(['L’Étranger']);
+    expect(titles(books({ text: 'ETRANGER' }))).toEqual(['L’Étranger']);
+    expect(titles(books({ text: 'cand' }))).toEqual(['Candide']);
+    expect(titles(books({ text: '  camus  ' }))).toEqual(['L’Étranger']);
   });
 
   it('développe les ligatures comme la collation française', () => {
     createBook('Œuvres complètes', 'Anonyme');
 
-    expect(titles(listCatalogue(db, { text: 'oeuvres' }))).toEqual(['Œuvres complètes']);
-    expect(titles(listCatalogue(db, { text: 'ŒUVRES' }))).toEqual(['Œuvres complètes']);
+    expect(titles(books({ text: 'oeuvres' }))).toEqual(['Œuvres complètes']);
+    expect(titles(books({ text: 'ŒUVRES' }))).toEqual(['Œuvres complètes']);
   });
 
   it('filtre les livres disponibles au prêt (un prêt rendu ne compte plus)', () => {
-    expect(titles(listCatalogue(db, { availableForLoan: true }))).toEqual([
+    expect(titles(books({ availableForLoan: true }))).toEqual([
       'Candide',
       'L’Étranger',
       'Nana'
@@ -203,22 +210,22 @@ describe('listCatalogue : filtres', () => {
   });
 
   it('filtre les livres disponibles à la vente', () => {
-    expect(titles(listCatalogue(db, { availableForSale: true }))).toEqual(['Candide', 'Germinal']);
+    expect(titles(books({ availableForSale: true }))).toEqual(['Candide', 'Germinal']);
   });
 
   it('combine les filtres par ET', () => {
     expect(
-      titles(listCatalogue(db, { text: 'zola', availableForLoan: true, availableForSale: true }))
+      titles(books({ text: 'zola', availableForLoan: true, availableForSale: true }))
     ).toEqual([]);
-    expect(titles(listCatalogue(db, { text: 'zola', availableForSale: true }))).toEqual(['Germinal']);
-    expect(titles(listCatalogue(db, { text: 'zola', availableForLoan: true }))).toEqual(['Nana']);
-    expect(titles(listCatalogue(db, { availableForLoan: true, availableForSale: true }))).toEqual([
+    expect(titles(books({ text: 'zola', availableForSale: true }))).toEqual(['Germinal']);
+    expect(titles(books({ text: 'zola', availableForLoan: true }))).toEqual(['Nana']);
+    expect(titles(books({ availableForLoan: true, availableForSale: true }))).toEqual([
       'Candide'
     ]);
   });
 
   it('renvoie une liste vide quand rien ne correspond', () => {
-    expect(listCatalogue(db, { text: 'introuvable' })).toEqual([]);
+    expect(books({ text: 'introuvable' })).toEqual([]);
   });
 
   const ignoredValues: [string, unknown][] = [
@@ -238,7 +245,7 @@ describe('listCatalogue : filtres', () => {
   for (const [label, value] of ignoredValues) {
     it(`ignore une valeur de disponibilité ${label} et renvoie tout le catalogue`, () => {
       expect(
-        titles(listCatalogue(db, { availableForLoan: value, availableForSale: value }))
+        titles(books({ availableForLoan: value, availableForSale: value }))
       ).toEqual(['Candide', 'Germinal', 'L’Étranger', 'Nana']);
     });
   }
@@ -252,13 +259,13 @@ describe('listCatalogue : filtres', () => {
     ['nul', null]
   ] as [string, unknown][]) {
     it(`ignore un texte de recherche ${label}`, () => {
-      expect(listCatalogue(db, { text })).toHaveLength(4);
+      expect(books({ text })).toHaveLength(4);
     });
   }
 
   it('accepte les valeurs d’activation « on », « 1 » et true', () => {
     for (const value of ['on', '1', true]) {
-      expect(titles(listCatalogue(db, { availableForSale: value }))).toEqual(['Candide', 'Germinal']);
+      expect(titles(books({ availableForSale: value }))).toEqual(['Candide', 'Germinal']);
     }
   });
 });
@@ -273,23 +280,23 @@ describe('listCatalogue : valeurs hostiles', () => {
   });
 
   it('traite les jokers % et _ littéralement', () => {
-    expect(titles(listCatalogue(db, { text: '%' }))).toEqual(['100% Nature']);
-    expect(titles(listCatalogue(db, { text: '_' }))).toEqual(['A_B']);
-    expect(titles(listCatalogue(db, { text: '0%N' }))).toEqual([]);
-    expect(titles(listCatalogue(db, { text: 'A%B' }))).toEqual([]);
-    expect(titles(listCatalogue(db, { text: 'C_ndide' }))).toEqual([]);
+    expect(titles(books({ text: '%' }))).toEqual(['100% Nature']);
+    expect(titles(books({ text: '_' }))).toEqual(['A_B']);
+    expect(titles(books({ text: '0%N' }))).toEqual([]);
+    expect(titles(books({ text: 'A%B' }))).toEqual([]);
+    expect(titles(books({ text: 'C_ndide' }))).toEqual([]);
   });
 
   it('traite la barre oblique inverse littéralement', () => {
-    expect(titles(listCatalogue(db, { text: '\\' }))).toEqual(['Chemin\\Fichier']);
-    expect(titles(listCatalogue(db, { text: '\\%' }))).toEqual([]);
+    expect(titles(books({ text: '\\' }))).toEqual(['Chemin\\Fichier']);
+    expect(titles(books({ text: '\\%' }))).toEqual([]);
   });
 
   it('recherche une charge utile SQL littéralement, tables intactes', () => {
     const before = tableNames();
 
-    expect(titles(listCatalogue(db, { text: SQL_PAYLOAD }))).toEqual([SQL_PAYLOAD]);
-    expect(titles(listCatalogue(db, { text: "' OR 1=1 --" }))).toEqual([]);
+    expect(titles(books({ text: SQL_PAYLOAD }))).toEqual([SQL_PAYLOAD]);
+    expect(titles(books({ text: "' OR 1=1 --" }))).toEqual([]);
     expect(tableNames()).toEqual(before);
     expect(tableNames()).toEqual(EXPECTED_TABLES);
   });
@@ -298,17 +305,100 @@ describe('listCatalogue : valeurs hostiles', () => {
     const longest = 'x'.repeat(BOOK_TEXT_MAX_LENGTH);
     createBook(longest, 'Auteur');
 
-    expect(titles(listCatalogue(db, { text: `${longest}yyyy` }))).toEqual([longest]);
+    expect(titles(books({ text: `${longest}yyyy` }))).toEqual([longest]);
     expect(normalizeCatalogueFilters({ text: 'z'.repeat(100_000) }).text).toHaveLength(
       BOOK_TEXT_MAX_LENGTH
     );
-    expect(listCatalogue(db, { text: 'z'.repeat(100_000) })).toEqual([]);
+    expect(books({ text: 'z'.repeat(100_000) })).toEqual([]);
   });
 
   it('remplace les caractères de contrôle par des espaces', () => {
     expect(normalizeCatalogueFilters({ text: ' Candide' })).toEqual({ text: 'Candide' });
     expect(normalizeCatalogueFilters({ text: 'Can dide' })).toEqual({ text: 'Can dide' });
-    expect(titles(listCatalogue(db, { text: 'Cand ide' }))).toEqual([]);
+    expect(titles(books({ text: 'Cand ide' }))).toEqual([]);
+  });
+});
+
+describe('listCatalogue : pagination', () => {
+  function seedBooks(count: number): void {
+    for (let i = 0; i < count; i += 1) {
+      createBook(`Livre ${String(i).padStart(4, '0')}`, 'Auteur');
+    }
+  }
+
+  it('trie en SQL par titre puis auteur (catalogue_fold)', () => {
+    createBook('candide', 'Zorro');
+    createBook('Candide', 'Adèle');
+    createBook('Abîme', 'Auteur');
+
+    const page = listCatalogue(db);
+
+    // « candide » et « Candide » plient au même titre ; l'auteur les départage.
+    expect(page.items.map((book) => book.title)).toEqual(['Abîme', 'Candide', 'candide']);
+    expect(page.items.map((book) => book.author)).toEqual(['Auteur', 'Adèle', 'Zorro']);
+  });
+
+  it('départage par id un même titre et un même auteur (pliage identique)', () => {
+    const first = createBook('candide', 'adèle');
+    const second = createBook('Candide', 'Adèle');
+
+    const page = listCatalogue(db);
+
+    expect(page.items.map((book) => book.id)).toEqual([first, second]);
+  });
+
+  it('ne renvoie jamais plus de 25 lignes et expose le total séparément', () => {
+    seedBooks(60);
+
+    const page = listCatalogue(db, {}, 1);
+
+    expect(page.items).toHaveLength(25);
+    expect(page.totalItems).toBe(60);
+    expect(page.totalPages).toBe(3);
+    expect(page.pageSize).toBe(25);
+    expect(page.page).toBe(1);
+  });
+
+  it('le total et la pagination tiennent compte des filtres', () => {
+    seedBooks(30);
+    createBook('Zola en vente', 'Émile Zola', { price: '5', saleStock: '1' });
+
+    const page = listCatalogue(db, { availableForSale: true }, 1);
+
+    expect(page.totalItems).toBe(1);
+    expect(page.totalPages).toBe(1);
+    expect(page.items).toHaveLength(1);
+  });
+
+  it('deux pages consécutives ne partagent aucun identifiant et couvrent tout', () => {
+    seedBooks(40);
+
+    const first = listCatalogue(db, {}, 1);
+    const second = listCatalogue(db, {}, 2);
+
+    const firstIds = first.items.map((book) => book.id);
+    const secondIds = second.items.map((book) => book.id);
+    expect(new Set(firstIds).size).toBe(firstIds.length);
+    expect(firstIds.some((id) => secondIds.includes(id))).toBe(false);
+    expect(firstIds).toHaveLength(25);
+    expect(secondIds).toHaveLength(15);
+  });
+
+  it('borne silencieusement une page invalide ou hors bornes, sans erreur', () => {
+    seedBooks(30);
+
+    expect(listCatalogue(db, {}, 0).page).toBe(1);
+    expect(listCatalogue(db, {}, -1).page).toBe(1);
+    expect(listCatalogue(db, {}, 1.5).page).toBe(1);
+    expect(listCatalogue(db, {}, Number.NaN).page).toBe(1);
+    expect(listCatalogue(db, {}, 999).page).toBe(2);
+    expect(listCatalogue(db, {}, 999).items.length).toBeGreaterThan(0);
+  });
+
+  it('une base vide renvoie une page vide sur la page 1, sans erreur', () => {
+    const page = listCatalogue(db, {}, 5);
+
+    expect(page).toEqual({ items: [], page: 1, pageSize: 25, totalItems: 0, totalPages: 1 });
   });
 });
 

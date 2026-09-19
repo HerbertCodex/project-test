@@ -120,8 +120,8 @@ function loadAs(user: AuthUser | null, search = ''): Promise<unknown> {
   return outcomeOf(() => load({ url, locals: { user } } as unknown as Parameters<typeof load>[0]));
 }
 
-async function counterBooks(user: AuthUser): Promise<CounterBook[]> {
-  return ((await loadAs(user)) as { books: CounterBook[] }).books;
+async function counterBooks(user: AuthUser, search = ''): Promise<CounterBook[]> {
+  return ((await loadAs(user, search)) as { books: CounterBook[] }).books;
 }
 
 function asFailure(outcome: unknown): { status: number; data: { counterError: CounterError } } {
@@ -153,6 +153,16 @@ describe('autorisation de /libraire/vente', () => {
 
     expectLoginRedirect(await loadAs(null));
     expectForbidden(await loadAs(reader));
+  });
+
+  it('un paramètre de page manipulé ne contourne pas le contrôle d’accès au chargement', async () => {
+    createBook('Germinal', { price: '9', saleStock: '137' });
+    const reader = borrower();
+
+    for (const search of ['?page=2', '?page=0', '?page=abc', '?page=999999']) {
+      expectLoginRedirect(await loadAs(null, search));
+      expectForbidden(await loadAs(reader, search));
+    }
   });
 
   const writes: [ActionName, Record<string, string>][] = [
@@ -259,8 +269,16 @@ describe('load /libraire/vente', () => {
     // Livre ajouté avant l'incrément 2 : ni prix ni stock.
     const legacy = createBook('Nana');
 
-    const books = await counterBooks(seller);
+    const outcome = (await loadAs(seller)) as {
+      books: CounterBook[];
+      page: number;
+      pageSize: number;
+      totalItems: number;
+      totalPages: number;
+    };
+    const books = outcome.books;
 
+    expect(outcome).toMatchObject({ page: 1, pageSize: 25, totalItems: 3, totalPages: 1 });
     expect(books.map((book) => book.id)).toEqual([soldOut, onSale, legacy]);
     expect(books[1]).toEqual({
       id: onSale,
@@ -315,7 +333,10 @@ describe('load /libraire/vente', () => {
 
   it('affiche l’état vide, une erreur rattachée au champ et une saisie hostile échappée', () => {
     const empty = render(SalePage, {
-      props: { data: { books: [], user: null }, form: null } as never
+      props: {
+        data: { books: [], user: null, page: 1, pageSize: 25, totalItems: 0, totalPages: 1 },
+        form: null
+      } as never
     });
     expect(empty.body).toMatch(/class="empty[\s"]/);
     expect(empty.body).toContain('Aucun livre au catalogue.');
@@ -332,7 +353,7 @@ describe('load /libraire/vente', () => {
     };
     const flagged = render(SalePage, {
       props: {
-        data: { books: [book], user: null },
+        data: { books: [book], user: null, page: 1, pageSize: 25, totalItems: 1, totalPages: 1 },
         form: {
           counterError: {
             action: 'prix',
@@ -351,7 +372,7 @@ describe('load /libraire/vente', () => {
 
     const done = render(SalePage, {
       props: {
-        data: { books: [book], user: null },
+        data: { books: [book], user: null, page: 1, pageSize: 25, totalItems: 1, totalPages: 1 },
         form: {
           sold: { bookId: 7, title: 'Les Fourmis', quantity: 2, totalLabel: '23,80 €', remainingStock: 3 }
         }
@@ -360,6 +381,41 @@ describe('load /libraire/vente', () => {
     expect(done.body).toContain('notice--success');
     expect(done.body).toContain('Stock restant : 3.');
   });
+});
+
+describe('pagination de /libraire/vente', () => {
+  it('pagine à 25 lignes avec un ordre total et stable entre deux pages', async () => {
+    const seller = bookseller();
+    for (let i = 0; i < 30; i++) {
+      createBook(`Livre ${String(i).padStart(2, '0')}`, { price: '5', saleStock: '1' });
+    }
+
+    const first = (await loadAs(seller, '?page=1')) as { books: CounterBook[]; totalPages: number };
+    const second = (await loadAs(seller, '?page=2')) as { books: CounterBook[]; totalPages: number };
+
+    expect(first.books).toHaveLength(25);
+    expect(second.books).toHaveLength(5);
+    expect(first.totalPages).toBe(2);
+    const firstIds = first.books.map((book) => book.id);
+    const secondIds = second.books.map((book) => book.id);
+    expect(firstIds.filter((id) => secondIds.includes(id))).toEqual([]);
+  });
+
+  it.each(['0', '999', 'abc', '1.5'])(
+    '?page=%s répond avec un contenu borné, sans erreur',
+    async (page) => {
+      const seller = bookseller();
+      createBook('Germinal', { price: '9', saleStock: '1' });
+
+      const outcome = (await loadAs(seller, `?page=${page}`)) as {
+        books: CounterBook[];
+        page: number;
+      };
+
+      expect(outcome.page).toBe(1);
+      expect(outcome.books).toHaveLength(1);
+    }
+  );
 });
 
 describe('action ?/vendre', () => {
@@ -504,7 +560,7 @@ describe('action ?/reassortir', () => {
 
     expect(outcome).toEqual({ restocked: { bookId, title: 'Germinal', saleStock: 6 } });
     expect(bookState(bookId)).toEqual({ price_cents: 900, sale_stock: 6 });
-    expect(listCatalogue(getDb())[0].saleStatus).toBe('on-sale');
+    expect(listCatalogue(getDb()).items[0].saleStatus).toBe('on-sale');
   });
 
   it('réassortit un livre sans prix, qui reste « Épuisé »', async () => {
@@ -514,7 +570,7 @@ describe('action ?/reassortir', () => {
     await postAs('reassortir', seller, { bookId: String(bookId), quantity: '2' });
 
     expect(bookState(bookId)).toEqual({ price_cents: null, sale_stock: 2 });
-    expect(listCatalogue(getDb())[0].saleStatus).toBe('sold-out');
+    expect(listCatalogue(getDb()).items[0].saleStatus).toBe('sold-out');
   });
 
   const badRestocks: [string, string][] = [
@@ -592,7 +648,7 @@ describe('action ?/prix', () => {
     expect(outcome).toEqual({ priced: { bookId, title: 'Germinal', priceLabel: null } });
     expect(bookState(bookId)).toEqual({ price_cents: null, sale_stock: 2 });
     expect(salesRows()).toEqual(salesBefore);
-    expect(listCatalogue(getDb())[0].saleStatus).toBe('sold-out');
+    expect(listCatalogue(getDb()).items[0].saleStatus).toBe('sold-out');
   });
 
   const badPrices: [string, string, string][] = [

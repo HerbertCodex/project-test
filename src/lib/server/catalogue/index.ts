@@ -7,6 +7,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { AuthUser, Validation } from '../auth';
 import type { Db } from '../db';
+import { DEFAULT_PAGE_SIZE, pageWindow } from '../pagination';
 
 // ---------------------------------------------------------------------------
 // Contrôle d'accès
@@ -99,10 +100,12 @@ export function compareBooksByTitle(
 }
 
 /**
- * Pliage du texte pour la recherche : minuscules, sans diacritiques, ligatures
- * développées, comme la comparaison de base de frenchCollator.
+ * Pliage du texte pour la recherche et le tri : minuscules, sans diacritiques,
+ * ligatures développées, comme la comparaison de base de frenchCollator.
+ * Exportée pour être réutilisée par l'écran de vente, qui partage le même
+ * ordre SQL que le catalogue public.
  */
-function foldText(value: string): string {
+export function foldText(value: string): string {
   return value
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
@@ -111,11 +114,15 @@ function foldText(value: string): string {
     .replace(/æ/g, 'ae');
 }
 
-const FOLD_FUNCTION = 'catalogue_fold';
+export const FOLD_FUNCTION = 'catalogue_fold';
 const foldRegistered = new WeakSet<Db>();
 
-/** Déclare une fois par connexion la fonction SQL de pliage utilisée par la recherche. */
-function ensureFoldFunction(db: Db): void {
+/**
+ * Déclare une fois par connexion la fonction SQL de pliage utilisée par la
+ * recherche et le tri. Exportée pour être réutilisée par l'écran de vente sur
+ * la même connexion, sans réenregistrement concurrent de `catalogue_fold`.
+ */
+export function ensureFoldFunction(db: Db): void {
   if (foldRegistered.has(db)) return;
   db.function(FOLD_FUNCTION, { deterministic: true }, (value: unknown) =>
     typeof value === 'string' ? foldText(value) : null
@@ -165,19 +172,33 @@ const ACTIVE_LOAN_EXISTS = `EXISTS (
 // sale_stock sert uniquement à dériver on_sale : sa valeur n'est jamais renvoyée.
 const ON_SALE = '(books.price_cents IS NOT NULL AND books.sale_stock > 0)';
 
+/** Page d'un catalogue paginé : les lignes de la page demandée et le total réel. */
+export type CataloguePage = {
+  items: CatalogueEntry[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
 /**
- * Livres du catalogue, triés par titre puis auteur, avec leur statut de prêt,
- * leur prix et leur disponibilité à la vente. Les filtres sont normalisés ici
- * aussi, puis appliqués en SQL à paramètres liés.
+ * Page de livres du catalogue, triée en SQL par titre puis auteur (pliage
+ * partagé avec la recherche), puis identifiant pour un ordre total et stable
+ * entre deux pages. Les filtres sont normalisés ici aussi, puis appliqués en
+ * SQL à paramètres liés ; le total renvoyé porte sur les mêmes conditions.
  */
-export function listCatalogue(db: Db, rawFilters: CatalogueFilterInput = {}): CatalogueEntry[] {
+export function listCatalogue(
+  db: Db,
+  rawFilters: CatalogueFilterInput = {},
+  page = 1
+): CataloguePage {
   const filters = normalizeCatalogueFilters(rawFilters);
+  ensureFoldFunction(db);
   // Fragments SQL constants uniquement ; les valeurs passent par `params`.
   const conditions: string[] = [];
   const params: string[] = [];
 
   if (filters.text !== undefined) {
-    ensureFoldFunction(db);
     const pattern = `%${escapeLike(foldText(filters.text))}%`;
     conditions.push(
       `(${FOLD_FUNCTION}(books.title) LIKE ? ESCAPE '\\' OR ${FOLD_FUNCTION}(books.author) LIKE ? ESCAPE '\\')`
@@ -188,28 +209,36 @@ export function listCatalogue(db: Db, rawFilters: CatalogueFilterInput = {}): Ca
   if (filters.availableForSale) conditions.push(ON_SALE);
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const { count } = db.prepare(`SELECT COUNT(*) AS count FROM books ${where}`).get(...params) as {
+    count: number;
+  };
+  const { page: clampedPage, totalPages, offset } = pageWindow(page, count);
+
   const rows = db
     .prepare(
       `SELECT books.id, books.title, books.author, books.price_cents,
          ${ACTIVE_LOAN_EXISTS} AS borrowed,
          ${ON_SALE} AS on_sale
        FROM books
-       ${where}`
+       ${where}
+       ORDER BY ${FOLD_FUNCTION}(books.title), ${FOLD_FUNCTION}(books.author), books.id
+       LIMIT ? OFFSET ?`
     )
-    .all(...params) as CatalogueRow[];
+    .all(...params, DEFAULT_PAGE_SIZE, offset) as CatalogueRow[];
 
-  return rows
-    .map(
-      (row): CatalogueEntry => ({
-        id: row.id,
-        title: row.title,
-        author: row.author,
-        status: row.borrowed ? 'borrowed' : 'available',
-        priceCents: row.price_cents,
-        saleStatus: row.on_sale ? 'on-sale' : 'sold-out'
-      })
-    )
-    .sort(compareBooksByTitle);
+  const items = rows.map(
+    (row): CatalogueEntry => ({
+      id: row.id,
+      title: row.title,
+      author: row.author,
+      status: row.borrowed ? 'borrowed' : 'available',
+      priceCents: row.price_cents,
+      saleStatus: row.on_sale ? 'on-sale' : 'sold-out'
+    })
+  );
+
+  return { items, page: clampedPage, pageSize: DEFAULT_PAGE_SIZE, totalItems: count, totalPages };
 }
 
 // ---------------------------------------------------------------------------

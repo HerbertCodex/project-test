@@ -2,14 +2,12 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import Pagination from '$lib/components/Pagination.svelte';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
 
   type CounterAction = 'prix' | 'vendre' | 'reassortir';
-
-  const onSaleCount = $derived(data.books.filter((book) => book.saleStatus === 'on-sale').length);
-  const noPriceCount = $derived(data.books.filter((book) => book.priceCents === null).length);
 
   const counterError = $derived(form?.counterError ?? null);
   const errorBookId = $derived(counterError?.bookId ?? null);
@@ -78,10 +76,10 @@
 
 <ul class="tally">
   <li class="tally__item">
-    <span class="tally__value">{onSaleCount}</span> en vente
+    <span class="tally__value">{data.onSaleCount}</span> en vente
   </li>
   <li class="tally__item">
-    <span class="tally__value">{noPriceCount}</span> sans prix
+    <span class="tally__value">{data.noPriceCount}</span> sans prix
   </li>
 </ul>
 
@@ -281,6 +279,13 @@
       {/each}
     </tbody>
   </table>
+  <Pagination
+    page={data.page}
+    totalPages={data.totalPages}
+    totalItems={data.totalItems}
+    itemCount={data.books.length}
+    pageSize={data.pageSize}
+  />
 {/if}
 
 <style>

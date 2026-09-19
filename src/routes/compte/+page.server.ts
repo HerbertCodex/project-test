@@ -3,7 +3,7 @@ import { deleteOwnAccount } from '$lib/server/account';
 import { LOGIN_FAILED_MESSAGE, deleteSessionCookie, type AuthUser } from '$lib/server/auth';
 import { LIBRARY_TIME_ZONE } from '$lib/server/dates';
 import { getDb } from '$lib/server/db';
-import { hasActiveLoan } from '$lib/server/loans';
+import { countActiveLoans } from '$lib/server/loans';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -44,10 +44,12 @@ function lockoutMessage(lockedUntil: number): string {
  */
 export const load: PageServerLoad = ({ locals }) => {
   const user = requireUser(locals.user);
+  const activeLoanCount = countActiveLoans(getDb(), user.id);
   return {
     displayName: user.displayName,
     role: user.role,
-    hasActiveLoan: hasActiveLoan(getDb(), user.id)
+    activeLoanCount,
+    hasActiveLoan: activeLoanCount > 0
   };
 };
 

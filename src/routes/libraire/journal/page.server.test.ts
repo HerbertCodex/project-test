@@ -7,9 +7,9 @@ import type { AuthUser, Role } from '$lib/server/auth';
 import { BOOKSELLER_ONLY_MESSAGE } from '$lib/server/catalogue';
 import type { Clock } from '$lib/server/dates';
 import { closeDb, getDb } from '$lib/server/db';
+import { DEFAULT_PAGE_SIZE } from '$lib/server/pagination';
 import {
   SECURITY_EVENT_LABELS,
-  SECURITY_EVENT_LIST_LIMIT,
   recordSecurityEvent,
   type SecurityEventInput
 } from '$lib/server/security-log';
@@ -25,7 +25,13 @@ type JournalEntry = {
   userName: string | null;
   subject: string | null;
 };
-type JournalData = { events: JournalEntry[]; limit: number };
+type JournalData = {
+  events: JournalEntry[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
 
 const HOSTILE_SUBJECT = '<script>alert(1)</script>@example.com';
 const HOSTILE_DISPLAY_NAME = '"><img src=x onerror=alert(1)>';
@@ -129,7 +135,7 @@ describe('autorisation de /libraire/journal', () => {
     expect(source).not.toMatch(/export\s+const\s+actions/);
   });
 
-  it('ignore les paramètres d’URL et n’écrit rien', async () => {
+  it('ignore les paramètres d’URL autres que la page, et n’écrit rien', async () => {
     const seller = bookseller();
     logEvent({ type: 'login_success', userId: seller.id, subject: seller.email }, SUMMER);
     logEvent({ type: 'login_failure', subject: 'inconnu@example.fr' }, WINTER);
@@ -137,12 +143,30 @@ describe('autorisation de /libraire/journal', () => {
     const plain = await journalData(seller);
     const filtered = await journalData(
       seller,
-      `?limit=1&type=login_success&userId=${seller.id}&q=Camille`
+      `?type=login_success&userId=${seller.id}&q=Camille`
     );
 
     expect(filtered).toEqual(plain);
     expect(filtered.events).toHaveLength(2);
     expect(eventCount()).toBe(2);
+  });
+
+  it('refuse un emprunteur même avec un paramètre de page manipulé (403 inchangé)', async () => {
+    const reader = borrower();
+
+    const outcome = await loadAs(reader, '?page=2');
+
+    if (!isHttpError(outcome)) throw new Error('Erreur HTTP attendue.');
+    expect(outcome.status).toBe(403);
+    expect(outcome.body.message).toBe(BOOKSELLER_ONLY_MESSAGE);
+  });
+
+  it('redirige un anonyme avec un paramètre de page manipulé (303 inchangé)', async () => {
+    const outcome = await loadAs(null, '?page=999');
+
+    if (!isRedirect(outcome)) throw new Error('Redirection attendue.');
+    expect(outcome.status).toBe(303);
+    expect(outcome.location).toBe('/connexion');
   });
 });
 
@@ -154,7 +178,10 @@ describe('load /libraire/journal', () => {
 
     const data = await journalData(seller);
 
-    expect(data.limit).toBe(SECURITY_EVENT_LIST_LIMIT);
+    expect(data.page).toBe(1);
+    expect(data.pageSize).toBe(DEFAULT_PAGE_SIZE);
+    expect(data.totalItems).toBe(2);
+    expect(data.totalPages).toBe(1);
     expect(data.events).toEqual([
       {
         id: expect.any(Number),
@@ -184,6 +211,47 @@ describe('load /libraire/journal', () => {
   });
 });
 
+describe('pagination de /libraire/journal', () => {
+  it('pagine à DEFAULT_PAGE_SIZE événements, au-delà de l’ancienne limite fixe de 100', async () => {
+    const seller = bookseller();
+    const total = DEFAULT_PAGE_SIZE * 4 + 5;
+    for (let index = 0; index < total; index++) {
+      logEvent({ type: 'login_failure', subject: `n${index}` }, WINTER + index);
+    }
+
+    const firstPage = await journalData(seller, '?page=1');
+    expect(firstPage.events).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(firstPage.totalItems).toBe(total);
+    expect(firstPage.totalPages).toBe(Math.ceil(total / DEFAULT_PAGE_SIZE));
+    expect(firstPage.events[0].subject).toBe(`n${total - 1}`);
+
+    // Page 5 : événements 100 à 104, inaccessibles avec l'ancienne limite fixe.
+    const lastPage = await journalData(seller, `?page=${firstPage.totalPages}`);
+    expect(lastPage.events).toHaveLength(5);
+    expect(lastPage.events[lastPage.events.length - 1].subject).toBe('n0');
+    expect(eventCount()).toBe(total);
+  });
+
+  it('borne silencieusement une page invalide ou hors bornes, sans erreur serveur', async () => {
+    const seller = bookseller();
+    for (let index = 0; index < DEFAULT_PAGE_SIZE + 5; index++) {
+      logEvent({ type: 'login_failure', subject: `n${index}` }, WINTER + index);
+    }
+
+    const zero = await journalData(seller, '?page=0');
+    expect(zero.page).toBe(1);
+
+    const huge = await journalData(seller, '?page=999');
+    expect(huge.page).toBe(2);
+
+    const nonNumeric = await journalData(seller, '?page=abc');
+    expect(nonNumeric.page).toBe(1);
+
+    const floating = await journalData(seller, '?page=1.5');
+    expect(floating.page).toBe(1);
+  });
+});
+
 describe('rendu de /libraire/journal', () => {
   it('affiche les lignes dans la table .data, sans jamais interpréter le contenu stocké', async () => {
     const seller = bookseller();
@@ -196,7 +264,7 @@ describe('rendu de /libraire/journal', () => {
     const body = renderJournal(data);
 
     expect(body).toContain('Journal de sécurité');
-    expect(body).toContain(`Les ${SECURITY_EVENT_LIST_LIMIT} derniers événements`);
+    expect(body).toContain(`1–${data.events.length} sur ${data.totalItems}`);
     expect(body).toMatch(/class="data data--stack journal[^"]*"/);
     expect(body).toContain(SECURITY_EVENT_LABELS.access_denied);
     expect(body).toContain(SECURITY_EVENT_LABELS.login_failure);
@@ -217,7 +285,7 @@ describe('rendu de /libraire/journal', () => {
   });
 
   it('affiche l’état vide .empty plutôt qu’une table sans ligne', () => {
-    const body = renderJournal({ events: [], limit: SECURITY_EVENT_LIST_LIMIT });
+    const body = renderJournal({ events: [], page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 0, totalPages: 1 });
 
     expect(body).toMatch(/class="empty[\s"]/);
     expect(body).toContain('Aucun événement enregistré.');

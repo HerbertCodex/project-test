@@ -10,11 +10,12 @@
 import type { AuthUser, Validation } from '../auth';
 import {
   BOOKSELLER_ONLY_MESSAGE,
+  ensureFoldFunction,
+  FOLD_FUNCTION,
   NEGATIVE_NUMBER,
   PRICE_NOT_POSITIVE_MESSAGE,
   SALE_STOCK_MAX,
   SALE_STOCK_TOO_HIGH_MESSAGE,
-  compareBooksByTitle,
   formatInteger,
   validatePrice,
   type BookSaleStatus
@@ -22,6 +23,7 @@ import {
 import { systemClock, todayInParis, type Clock } from '../dates';
 import type { Db } from '../db';
 import { BOOK_NOT_FOUND_MESSAGE, parseRecordId } from '../loans';
+import { DEFAULT_PAGE_SIZE, pageWindow } from '../pagination';
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -117,24 +119,67 @@ type SaleCounterRow = {
   sale_stock: number;
 };
 
-/** Tous les livres du catalogue, avec ou sans prix, triés par titre puis auteur. */
-export function listSaleCounter(db: Db): SaleCounterEntry[] {
-  const rows = db
-    .prepare('SELECT id, title, author, price_cents, sale_stock FROM books')
-    .all() as SaleCounterRow[];
+/**
+ * Page du comptoir de vente : les lignes de la page demandée et le total réel,
+ * ainsi que les deux comptes affichés en tête d'écran (toutes pages confondues).
+ */
+export type SaleCounterPage = {
+  items: SaleCounterEntry[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  onSaleCount: number;
+  noPriceCount: number;
+};
 
-  return rows
-    .map(
-      (row): SaleCounterEntry => ({
-        id: row.id,
-        title: row.title,
-        author: row.author,
-        priceCents: row.price_cents,
-        saleStock: row.sale_stock,
-        saleStatus: row.price_cents !== null && row.sale_stock > 0 ? 'on-sale' : 'sold-out'
-      })
+/**
+ * Page de livres du comptoir de vente, triée en SQL par titre puis auteur
+ * (pliage partagé avec le catalogue), puis identifiant pour un ordre total et
+ * stable entre deux pages. `page` est bornée silencieusement au total réel.
+ */
+export function listSaleCounter(db: Db, page = 1): SaleCounterPage {
+  ensureFoldFunction(db);
+
+  const { count } = db.prepare('SELECT COUNT(*) AS count FROM books').get() as { count: number };
+  const { onSaleCount, noPriceCount } = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN price_cents IS NOT NULL AND sale_stock > 0 THEN 1 ELSE 0 END) AS onSaleCount,
+         SUM(CASE WHEN price_cents IS NULL THEN 1 ELSE 0 END) AS noPriceCount
+       FROM books`
     )
-    .sort(compareBooksByTitle);
+    .get() as { onSaleCount: number | null; noPriceCount: number | null };
+  const { page: clampedPage, totalPages, offset } = pageWindow(page, count);
+
+  const rows = db
+    .prepare(
+      `SELECT id, title, author, price_cents, sale_stock FROM books
+       ORDER BY ${FOLD_FUNCTION}(title), ${FOLD_FUNCTION}(author), id
+       LIMIT ? OFFSET ?`
+    )
+    .all(DEFAULT_PAGE_SIZE, offset) as SaleCounterRow[];
+
+  const items = rows.map(
+    (row): SaleCounterEntry => ({
+      id: row.id,
+      title: row.title,
+      author: row.author,
+      priceCents: row.price_cents,
+      saleStock: row.sale_stock,
+      saleStatus: row.price_cents !== null && row.sale_stock > 0 ? 'on-sale' : 'sold-out'
+    })
+  );
+
+  return {
+    items,
+    page: clampedPage,
+    pageSize: DEFAULT_PAGE_SIZE,
+    totalItems: count,
+    totalPages,
+    onSaleCount: onSaleCount ?? 0,
+    noPriceCount: noPriceCount ?? 0
+  };
 }
 
 // ---------------------------------------------------------------------------

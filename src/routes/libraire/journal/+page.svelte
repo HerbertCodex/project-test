@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Pagination from '$lib/components/Pagination.svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -11,8 +12,8 @@
 <h1>Journal de sécurité</h1>
 
 <p class="lead">
-  Les {data.limit} derniers événements de connexion et d’accès, du plus récent au plus ancien. Page
-  en lecture seule ; les événements de plus d’un an sont effacés.
+  Les événements de connexion et d’accès, du plus récent au plus ancien. Page en lecture seule ;
+  les événements de plus d’un an sont effacés.
 </p>
 
 {#if data.events.length === 0}
@@ -65,6 +66,13 @@
       {/each}
     </tbody>
   </table>
+  <Pagination
+    page={data.page}
+    totalPages={data.totalPages}
+    totalItems={data.totalItems}
+    itemCount={data.events.length}
+    pageSize={data.pageSize}
+  />
 {/if}
 
 <style>
@@ -93,4 +101,5 @@
       grid-column: 1 / -1;
     }
   }
+
 </style>

@@ -102,11 +102,11 @@ function tableNames(): string[] {
 }
 
 function loanStatus(bookId: number) {
-  return listCatalogue(db).find((entry) => entry.id === bookId)?.status;
+  return listCatalogue(db).items.find((entry) => entry.id === bookId)?.status;
 }
 
 function saleStatus(bookId: number) {
-  return listCatalogue(db).find((entry) => entry.id === bookId)?.saleStatus;
+  return listCatalogue(db).items.find((entry) => entry.id === bookId)?.saleStatus;
 }
 
 function sell(bookId: number | string, quantity: string, extra: Record<string, unknown> = {}) {
@@ -161,12 +161,15 @@ describe('validateQuantity', () => {
 });
 
 describe('listSaleCounter', () => {
-  it('liste tous les livres, avec ou sans prix, avec leur stock chiffré', () => {
+  it('liste tous les livres, avec ou sans prix, avec leur stock chiffré, triés par titre puis auteur', () => {
     const priced = createBook({ price: '12,50', saleStock: '3' }, 'Zadig');
     const unpriced = createBook({ saleStock: '4' }, 'Alcools');
     const soldOut = createBook({ price: '8' }, 'Émaux et camées');
 
-    expect(listSaleCounter(db)).toEqual([
+    const page = listSaleCounter(db);
+
+    expect(page).toMatchObject({ page: 1, pageSize: 25, totalItems: 3, totalPages: 1 });
+    expect(page.items).toEqual([
       {
         id: unpriced,
         title: 'Alcools',
@@ -195,7 +198,41 @@ describe('listSaleCounter', () => {
   });
 
   it('renvoie une liste vide sans livre', () => {
-    expect(listSaleCounter(db)).toEqual([]);
+    expect(listSaleCounter(db)).toEqual({
+      items: [],
+      page: 1,
+      pageSize: 25,
+      totalItems: 0,
+      totalPages: 1,
+      onSaleCount: 0,
+      noPriceCount: 0
+    });
+  });
+
+  it('pagine à 25 lignes, avec un ordre total et stable entre deux pages', () => {
+    const ids: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      ids.push(createBook({}, `Livre ${String(i).padStart(2, '0')}`));
+    }
+
+    const first = listSaleCounter(db, 1);
+    const second = listSaleCounter(db, 2);
+    const third = listSaleCounter(db, 3);
+
+    expect(first.items).toHaveLength(25);
+    expect(second.items).toHaveLength(25);
+    expect(third.items).toHaveLength(10);
+    expect(first).toMatchObject({ page: 1, pageSize: 25, totalItems: 60, totalPages: 3 });
+
+    const seenIds = [...first.items, ...second.items, ...third.items].map((book) => book.id);
+    expect(new Set(seenIds).size).toBe(60);
+    expect(seenIds.sort((a, b) => a - b)).toEqual([...ids].sort((a, b) => a - b));
+  });
+
+  it.each([0, 999, NaN, 1.5])('borne silencieusement une page invalide ou hors bornes (%j)', (page) => {
+    createBook({}, 'Un seul livre');
+
+    expect(listSaleCounter(db, page)).toMatchObject({ page: 1, totalPages: 1 });
   });
 });
 
@@ -470,7 +507,7 @@ describe('prix : fixer, modifier, retirer', () => {
     bookseller = createUser('libraire@example.fr', 'bookseller');
 
     expect(bookState(bookId)).toEqual({ price_cents: null, sale_stock: 0 });
-    expect(listSaleCounter(db).map((entry) => entry.id)).toEqual([bookId]);
+    expect(listSaleCounter(db).items.map((entry) => entry.id)).toEqual([bookId]);
 
     expect(setBookPrice(db, { bookId: String(bookId), price: '6,90' })).toEqual({
       ok: true,
@@ -514,7 +551,7 @@ describe('prix : fixer, modifier, retirer', () => {
     expect(bookState(bookId)).toEqual({ price_cents: null, sale_stock: 3 });
     expect(salesRows()).toEqual(before);
     expect(saleStatus(bookId)).toBe('sold-out');
-    expect(listSaleCounter(db)).toEqual([
+    expect(listSaleCounter(db).items).toEqual([
       expect.objectContaining({ id: bookId, priceCents: null, saleStock: 3 })
     ]);
     expect(sell(bookId, '1')).toMatchObject({ ok: false, reason: 'no-price' });
@@ -610,7 +647,7 @@ describe('injection SQL', () => {
   it('une charge utile dans le titre est listée littéralement et le livre vendu normalement', () => {
     const bookId = createBook({ price: '3', saleStock: '1' }, SQL_PAYLOAD);
 
-    expect(listSaleCounter(db)).toEqual([
+    expect(listSaleCounter(db).items).toEqual([
       expect.objectContaining({ id: bookId, title: SQL_PAYLOAD })
     ]);
     const sale = sell(bookId, '1');

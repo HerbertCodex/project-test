@@ -15,6 +15,7 @@ import {
 } from '$lib/server/catalogue';
 import { addCalendarDays, formatDateFr, todayInParis } from '$lib/server/dates';
 import { closeDb, getDb } from '$lib/server/db';
+import { DEFAULT_PAGE_SIZE } from '$lib/server/pagination';
 import {
   BOOK_NOT_FOUND_MESSAGE,
   BOOK_UNAVAILABLE_MESSAGE,
@@ -22,12 +23,13 @@ import {
   LOAN_DURATION_DAYS,
   LOAN_NOT_RETURNABLE_MESSAGE,
   borrowBook,
-  listBorrowerLoans,
+  listBorrowerReturnedLoans,
   parseRecordId,
   recordReturn,
   returnedLoanRetentionStart,
   type ActiveLoan,
-  type BorrowerLoans
+  type BorrowerActiveLoan,
+  type BorrowerReturnedLoan
 } from '$lib/server/loans';
 import { actions as catalogueActions, load } from './+page.server';
 import CataloguePage from './+page.svelte';
@@ -38,10 +40,26 @@ import MyLoansPage from './mes-prets/+page.svelte';
 const SQL_PAYLOAD = "'; DROP TABLE books;--";
 const HOSTILE_TITLE = '<script>alert(1)</script>';
 
+type LoanPageInfo = { page: number; pageSize: number; totalItems: number; totalPages: number };
+type MyLoansData = {
+  active: BorrowerActiveLoan[];
+  activeOverdueCount: number;
+  activePageInfo: LoanPageInfo;
+  activePageQuery: string;
+  returned: BorrowerReturnedLoan[];
+  returnedPageInfo: LoanPageInfo;
+  returnedPageQuery: string;
+};
+
 type LoadEvent = Parameters<typeof load>[0];
 
 type CatalogueData = {
   books: CatalogueEntry[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  pageQuery: string;
   filters: CatalogueFilters;
   searchMaxLength: number;
 };
@@ -501,6 +519,108 @@ describe('load / avec filtres d’URL', () => {
   });
 });
 
+describe('load / pagination du catalogue', () => {
+  function query(params: Record<string, string>): string {
+    return `?${new URLSearchParams(params)}`;
+  }
+
+  function seedBooks(count: number): void {
+    for (let i = 0; i < count; i += 1) {
+      createBook(`Livre ${String(i).padStart(4, '0')}`, 'Auteur');
+    }
+  }
+
+  it('page 1 par défaut, avec le total, la taille de page et le nombre de pages', async () => {
+    seedBooks(60);
+
+    const data = await catalogueAt('');
+
+    expect(data.books).toHaveLength(25);
+    expect(data.page).toBe(1);
+    expect(data.pageSize).toBe(25);
+    expect(data.totalItems).toBe(60);
+    expect(data.totalPages).toBe(3);
+  });
+
+  it('la première page d’une base d’au moins 200 livres ne renvoie jamais plus de 25 lignes', async () => {
+    seedBooks(200);
+
+    const data = await catalogueAt('');
+
+    // Rapport avant/après : un catalogue complet de 200 livres rendrait environ
+    // 200 lignes de HTML (de l'ordre de 150 à 200 Ko selon le gabarit) ; seule la
+    // page demandée (25 lignes, quelques dizaines de Ko) est lue et renvoyée ici.
+    expect(data.books).toHaveLength(25);
+    expect(data.totalItems).toBe(200);
+    expect(data.totalPages).toBe(8);
+  });
+
+  it('change de page avec ?page=2, filtres conservés dans pageQuery', async () => {
+    seedBooks(30);
+
+    const data = await catalogueAt(query({ page: '2', pret: '1' }));
+
+    expect(data.page).toBe(2);
+    expect(data.books).toHaveLength(5);
+    expect(data.pageQuery).toBe('pret=1');
+  });
+
+  for (const raw of ['0', '999', 'abc', '1.5', '-3']) {
+    it(`borne silencieusement ?page=${raw} sans erreur serveur`, async () => {
+      seedBooks(30);
+
+      const data = await catalogueAt(query({ page: raw }));
+
+      expect(data.page).toBeGreaterThanOrEqual(1);
+      expect(data.page).toBeLessThanOrEqual(data.totalPages);
+      expect(data.books.length).toBeGreaterThan(0);
+    });
+  }
+
+  it('changer de filtre revient à la page 1 même avec un ancien numéro de page hors bornes', async () => {
+    seedBooks(30);
+    createBook('Zola en vente', 'Émile Zola', { price: '5', saleStock: '1' });
+
+    // Page 2 valide pour la liste complète, mais hors bornes une fois le filtre appliqué.
+    const data = await catalogueAt(query({ page: '2', vente: '1' }));
+
+    expect(data.page).toBe(1);
+    expect(data.totalItems).toBe(1);
+    expect(data.books).toHaveLength(1);
+  });
+
+  it('un paramètre de page manipulé dans l’URL ne contourne pas le contrôle d’accès de l’emprunt', async () => {
+    const bookseller = insertUser('libraire@example.fr', 'Libraire', 'bookseller');
+    const bookId = createBook('Candide', 'Voltaire');
+
+    const asBookseller = {
+      ...postForm('/?/emprunter&page=999', { bookId: String(bookId) }),
+      locals: { user: bookseller }
+    };
+    expectForbidden(
+      await outcomeOf(() =>
+        catalogueActions.emprunter(
+          asBookseller as unknown as Parameters<typeof catalogueActions.emprunter>[0]
+        )
+      ),
+      BORROWER_ONLY_MESSAGE
+    );
+
+    const asAnonymous = {
+      ...postForm('/?/emprunter&page=abc', { bookId: String(bookId) }),
+      locals: { user: null }
+    };
+    expectLoginRedirect(
+      await outcomeOf(() =>
+        catalogueActions.emprunter(
+          asAnonymous as unknown as Parameters<typeof catalogueActions.emprunter>[0]
+        )
+      )
+    );
+    expect(loanRows()).toEqual([]);
+  });
+});
+
 describe('CatalogueTable', () => {
   const books: CatalogueEntry[] = [
     {
@@ -608,8 +728,20 @@ describe('page / (catalogue public)', () => {
   };
 
   function renderPage(data: Partial<PageData>): string {
+    const books = data.books ?? [];
     const props = {
-      data: { user: null, books: [], filters: {}, searchMaxLength: BOOK_TEXT_MAX_LENGTH, ...data },
+      data: {
+        user: null,
+        books,
+        page: 1,
+        pageSize: DEFAULT_PAGE_SIZE,
+        totalItems: books.length,
+        totalPages: 1,
+        pageQuery: '',
+        filters: {},
+        searchMaxLength: BOOK_TEXT_MAX_LENGTH,
+        ...data
+      },
       form: null
     };
     return render(CataloguePage, { props: props as never }).body;
@@ -671,6 +803,27 @@ describe('page / (catalogue public)', () => {
     expect(body).toContain('Le catalogue ne contient encore aucun livre.');
     expect(body).not.toContain('Aucun livre ne correspond');
     expect(body).not.toContain('<form class="filters"');
+  });
+
+  it('affiche la position et le total, et les liens Précédent/Suivant', () => {
+    const body = renderPage({
+      books: [onSale, { ...onSale, id: 2, title: 'Nana' }],
+      page: 2,
+      totalPages: 3,
+      totalItems: 60,
+      pageQuery: 'pret=1'
+    });
+
+    expect(body).toContain('26–27 sur 60');
+    expect(body).toMatch(/<a[^>]*href="\?pret=1"[^>]*>\s*Précédent\s*<\/a>/);
+    expect(body).toMatch(/<a[^>]*href="\?pret=1&amp;page=3"[^>]*>\s*Suivant\s*<\/a>/);
+  });
+
+  it('n’affiche pas la position ni la pagination pour une liste vide', () => {
+    const body = renderPage({ books: [], totalItems: 0, totalPages: 1 });
+
+    expect(body).not.toContain('pagination__position');
+    expect(body).not.toContain('Suivant');
   });
 
   it('rend un terme de recherche et un titre hostiles comme du texte', () => {
@@ -1049,7 +1202,7 @@ describe('load /mes-prets', () => {
     );
     setNow('2026-05-02T12:00:00Z');
 
-    const data = (await myLoansAs(b, `?userId=${a.id}&user=${a.id}`)) as BorrowerLoans;
+    const data = (await myLoansAs(b, `?userId=${a.id}&user=${a.id}`)) as MyLoansData;
 
     expect(data).toEqual({
       active: [
@@ -1061,6 +1214,9 @@ describe('load /mes-prets', () => {
           overdue: false
         }
       ],
+      activeOverdueCount: 0,
+      activePageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
+      activePageQuery: `userId=${a.id}&user=${a.id}`,
       returned: [
         {
           id: bReturned,
@@ -1068,7 +1224,9 @@ describe('load /mes-prets', () => {
           borrowedOn: { iso: '2026-03-01', label: '1 mars 2026' },
           returnedOn: { iso: '2026-03-15', label: '15 mars 2026' }
         }
-      ]
+      ],
+      returnedPageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
+      returnedPageQuery: `userId=${a.id}&user=${a.id}`
     });
     expect(JSON.stringify(data)).not.toMatch(/Livre de A|a@example\.fr|Emprunteur A/);
   });
@@ -1078,10 +1236,10 @@ describe('load /mes-prets', () => {
     insertLoan(createBook('Nana', 'Émile Zola'), borrower.id, '2026-04-01', '2026-05-01');
 
     setNow('2026-05-01T21:59:59Z');
-    expect(((await myLoansAs(borrower)) as BorrowerLoans).active[0].overdue).toBe(false);
+    expect(((await myLoansAs(borrower)) as MyLoansData).active[0].overdue).toBe(false);
 
     setNow('2026-05-01T22:00:00Z');
-    expect(((await myLoansAs(borrower)) as BorrowerLoans).active[0].overdue).toBe(true);
+    expect(((await myLoansAs(borrower)) as MyLoansData).active[0].overdue).toBe(true);
   });
 
   it('redirige un anonyme vers /connexion et refuse le libraire (403)', async () => {
@@ -1096,13 +1254,13 @@ describe('load /mes-prets', () => {
     insertLoan(createBook('Ancien', 'Auteur'), borrower.id, '2026-01-01', '2026-01-31', '2026-01-10');
     insertLoan(createBook('Récent', 'Auteur'), borrower.id, '2026-02-01', '2026-03-03', '2026-02-10');
 
-    const { returned } = listBorrowerLoans(getDb(), borrower.id, '2026-03-01');
+    const { items: returned } = listBorrowerReturnedLoans(getDb(), borrower.id, 1);
 
     expect(returned.map((loan) => loan.title)).toEqual(['Récent', 'Ancien']);
   });
 
   it('affiche le badge « En retard » et un titre hostile comme du texte', () => {
-    const data: BorrowerLoans = {
+    const data: MyLoansData = {
       active: [
         {
           id: 1,
@@ -1112,7 +1270,12 @@ describe('load /mes-prets', () => {
           overdue: true
         }
       ],
-      returned: []
+      activeOverdueCount: 1,
+      activePageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
+      activePageQuery: '',
+      returned: [],
+      returnedPageInfo: { page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 0, totalPages: 1 },
+      returnedPageQuery: ''
     };
 
     const { body } = render(MyLoansPage, {
