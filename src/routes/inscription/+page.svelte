@@ -78,7 +78,7 @@
         autocomplete="email"
         required
         maxlength="254"
-        value={form?.email ?? ''}
+        defaultValue={form?.email ?? ''}
         aria-invalid={errors.email ? 'true' : undefined}
         aria-describedby={describedBy(errors.email && 'email-error')}
       />
@@ -97,7 +97,7 @@
         autocomplete="name"
         required
         maxlength="80"
-        value={form?.displayName ?? ''}
+        defaultValue={form?.displayName ?? ''}
         aria-invalid={errors.displayName ? 'true' : undefined}
         aria-describedby={describedBy('displayName-hint', errors.displayName && 'displayName-error')}
       />

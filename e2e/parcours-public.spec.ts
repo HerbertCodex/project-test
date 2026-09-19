@@ -34,6 +34,33 @@ test("l'inscription crée un compte et renvoie vers la connexion", async ({ page
   await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible();
 });
 
+/**
+ * Une saisie faite avant l'hydratation doit survivre. Le serveur rend les champs préremplis par
+ * une soumission refusée ; si le client réappliquait cette valeur au démarrage, il effacerait ce
+ * qu'un gestionnaire de mots de passe ou un visiteur rapide vient de taper, et le formulaire
+ * partirait vide. Le test retient le JavaScript de l'application pour rendre la course certaine.
+ */
+test("une saisie faite avant l'hydratation n'est pas effacée", async ({ page }) => {
+  const email = `pressé-${Date.now()}@exemple.test`;
+  let releaseScripts = () => {};
+  const hydrated = new Promise<void>((resolve) => {
+    releaseScripts = resolve;
+  });
+  await page.route('**/_app/immutable/entry/*.js', async (route) => {
+    await hydrated;
+    await route.continue();
+  });
+
+  await page.goto('/inscription');
+  await page.getByLabel('Adresse e-mail').fill(email);
+  await page.getByLabel('Nom affiché').fill('Visiteur pressé');
+  releaseScripts();
+  await page.waitForLoadState('networkidle');
+
+  await expect(page.getByLabel('Adresse e-mail')).toHaveValue(email);
+  await expect(page.getByLabel('Nom affiché')).toHaveValue('Visiteur pressé');
+});
+
 test('la pagination du catalogue public mène à la page suivante', async ({ page }) => {
   const db = openDatabase(CATALOGUE_DB_PATH);
   try {

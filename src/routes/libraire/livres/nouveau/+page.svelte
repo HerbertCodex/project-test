@@ -81,7 +81,7 @@
         maxlength="200"
         autocomplete="off"
         bind:this={titleInput}
-        value={form?.title ?? ''}
+        defaultValue={form?.title ?? ''}
         aria-invalid={errors.title ? 'true' : undefined}
         aria-describedby={describedBy('title-hint', errors.title && 'title-error')}
       />
@@ -100,7 +100,7 @@
         required
         maxlength="200"
         autocomplete="off"
-        value={form?.author ?? ''}
+        defaultValue={form?.author ?? ''}
         aria-invalid={errors.author ? 'true' : undefined}
         aria-describedby={describedBy('author-hint', errors.author && 'author-error')}
       />
@@ -122,7 +122,7 @@
             type="text"
             inputmode="decimal"
             autocomplete="off"
-            value={form?.price ?? ''}
+            defaultValue={form?.price ?? ''}
             aria-invalid={errors.price ? 'true' : undefined}
             aria-describedby={describedBy('price-hint', errors.price && 'price-error')}
           />
@@ -142,7 +142,7 @@
           type="text"
           inputmode="numeric"
           autocomplete="off"
-          value={form?.saleStock ?? ''}
+          defaultValue={form?.saleStock ?? ''}
           aria-invalid={errors.saleStock ? 'true' : undefined}
           aria-describedby={describedBy('saleStock-hint', errors.saleStock && 'saleStock-error')}
         />

@@ -61,7 +61,7 @@
         autocomplete="username"
         required
         maxlength="254"
-        value={form?.email ?? ''}
+        defaultValue={form?.email ?? ''}
       />
     </div>
 
