@@ -1,14 +1,17 @@
 <script lang="ts">
   /**
    * Pagination partagée par les listes paginées (catalogue, vente, retours,
-   * mes prêts, journal) : liens Précédent/Suivant en <a>, sans JavaScript
-   * requis. Tout paramètre de recherche déjà présent dans `searchParams` est
-   * conservé dans les liens ; seul `pageParam` y est modifié ou retiré.
+   * mes prêts, journal) : position dans la liste (« 26–50 sur 5 000 ») et
+   * liens Précédent/Suivant en <a>, sans JavaScript requis. Tout paramètre de
+   * recherche déjà présent dans `searchParams` est conservé dans les liens ;
+   * seul `pageParam` y est modifié ou retiré.
    */
   type Props = {
     page: number;
     totalPages: number;
     totalItems: number;
+    itemCount: number;
+    pageSize?: number;
     searchParams?: URLSearchParams;
     pageParam?: string;
   };
@@ -17,12 +20,16 @@
     page,
     totalPages,
     totalItems,
+    itemCount,
+    pageSize = 25,
     searchParams = new URLSearchParams(),
     pageParam = 'page'
   }: Props = $props();
 
   const hasPrevious = $derived(page > 1);
   const hasNext = $derived(page < totalPages);
+  const firstItem = $derived(itemCount === 0 ? 0 : (page - 1) * pageSize + 1);
+  const lastItem = $derived((page - 1) * pageSize + itemCount);
 
   /** Lien vers `target`, filtres conservés ; page 1 omet le paramètre pour une URL plus courte. */
   function hrefFor(target: number): string {
@@ -36,6 +43,10 @@
     return query ? `?${query}` : '?';
   }
 </script>
+
+{#if itemCount > 0}
+  <p class="pagination__position">{firstItem}–{lastItem} sur {totalItems}</p>
+{/if}
 
 {#if totalPages > 1}
   <nav class="pagination" aria-label="Pagination">
@@ -65,6 +76,12 @@
 
   .pagination__status {
     color: var(--ink-2);
+  }
+
+  .pagination__position {
+    margin-block-start: 1rem;
+    color: var(--ink-2);
+    text-align: center;
   }
 
   .pagination__link--disabled {

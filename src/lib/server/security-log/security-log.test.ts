@@ -201,6 +201,34 @@ describe('listRecentSecurityEvents', () => {
     expect(storedEvents()).toHaveLength(total);
   });
 
+  it('garde un ordre total et stable entre pages : aucun id partagé, id en départage à égalité de created_at', () => {
+    const total = DEFAULT_PAGE_SIZE * 2 + 5;
+    // Deux événements partagent exactement le même created_at : seul l'id (DESC) les départage.
+    for (let index = 0; index < total; index++) {
+      const instant = index < 2 ? NOW : NOW + index;
+      recordSecurityEvent(db, { type: 'login_failure', subject: `n${index}` }, clockAt(instant));
+    }
+
+    const first = listRecentSecurityEvents(db, 1);
+    const second = listRecentSecurityEvents(db, 2);
+    const third = listRecentSecurityEvents(db, 3);
+
+    expect(first.items).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(second.items).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(third.items).toHaveLength(5);
+
+    const seenIds = [...first.items, ...second.items, ...third.items].map((event) => event.id);
+    expect(new Set(seenIds).size).toBe(total);
+    expect(seenIds.sort((a, b) => a - b)).toEqual(
+      Array.from({ length: total }, (_, index) => index + 1)
+    );
+
+    // Les deux événements de même created_at (index 0 et 1) tombent sur la dernière page,
+    // triés par id décroissant : l'id le plus grand (inséré en dernier) apparaît en premier.
+    expect(third.items[third.items.length - 2].subject).toBe('n1');
+    expect(third.items[third.items.length - 1].subject).toBe('n0');
+  });
+
   it('borne silencieusement une page invalide ou hors bornes', () => {
     for (let index = 0; index < DEFAULT_PAGE_SIZE + 5; index++) {
       recordSecurityEvent(db, { type: 'login_failure', subject: `n${index}` }, clockAt(NOW + index));

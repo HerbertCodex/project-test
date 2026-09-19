@@ -7,21 +7,18 @@ export const DEFAULT_PAGE_SIZE = 25;
 
 /**
  * Borne un paramètre `page` brut lu dans l'URL à un entier valide.
- * Absent, vide, non numérique, non entier ou < 1 devient 1. Une fois
- * `pageCount` connu, le résultat est aussi borné à `pageCount`.
+ * Absent, vide, non numérique, non entier ou < 1 devient 1. Le bornage à
+ * `pageCount` (une fois le total connu) est appliqué séparément par
+ * `pageWindow`, une fois le total lu en base.
  */
-export function parsePageParam(raw: string | null, pageCount?: number): number {
-  let page = 1;
+export function parsePageParam(raw: string | null): number {
   if (raw !== null && raw.trim() !== '') {
     const parsed = Number(raw);
     if (Number.isInteger(parsed) && parsed >= 1) {
-      page = parsed;
+      return parsed;
     }
   }
-  if (pageCount !== undefined) {
-    page = Math.min(page, pageCount);
-  }
-  return page;
+  return 1;
 }
 
 /**

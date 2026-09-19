@@ -21,10 +21,6 @@
     data.totalItems === 1 ? '1 livre correspond.' : `${data.totalItems} livres correspondent.`
   );
 
-  /** Position affichée de la page courante dans le total, par exemple « 26–50 sur 5 000 ». */
-  const firstItem = $derived(data.books.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
-  const lastItem = $derived((data.page - 1) * data.pageSize + data.books.length);
-
   /** Livre dont l'emprunt est en cours d'envoi ; un second envoi est ignoré. */
   let pendingBookId: string | null = $state(null);
 
@@ -159,13 +155,12 @@
     empty={noMatch}
     action={isBorrower ? borrowAction : undefined}
   />
-  {#if data.books.length > 0}
-    <p class="catalogue-position">{firstItem}–{lastItem} sur {data.totalItems}</p>
-  {/if}
   <Pagination
     page={data.page}
     totalPages={data.totalPages}
     totalItems={data.totalItems}
+    itemCount={data.books.length}
+    pageSize={data.pageSize}
     searchParams={new URLSearchParams(data.pageQuery)}
   />
 {/if}
@@ -180,9 +175,4 @@
     white-space: nowrap;
   }
 
-  .catalogue-position {
-    margin-block-start: 1rem;
-    color: var(--ink-2);
-    text-align: center;
-  }
 </style>

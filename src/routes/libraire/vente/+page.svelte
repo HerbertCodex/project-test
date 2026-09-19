@@ -9,10 +9,6 @@
 
   type CounterAction = 'prix' | 'vendre' | 'reassortir';
 
-  /** Position affichée de la page courante dans le total, par exemple « 26–50 sur 137 ». */
-  const firstItem = $derived(data.books.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
-  const lastItem = $derived((data.page - 1) * data.pageSize + data.books.length);
-
   const counterError = $derived(form?.counterError ?? null);
   const errorBookId = $derived(counterError?.bookId ?? null);
   const errorBook = $derived(data.books.find((book) => book.id === errorBookId));
@@ -283,8 +279,13 @@
       {/each}
     </tbody>
   </table>
-  <p class="ledger-position">{firstItem}–{lastItem} sur {data.totalItems}</p>
-  <Pagination page={data.page} totalPages={data.totalPages} totalItems={data.totalItems} />
+  <Pagination
+    page={data.page}
+    totalPages={data.totalPages}
+    totalItems={data.totalItems}
+    itemCount={data.books.length}
+    pageSize={data.pageSize}
+  />
 {/if}
 
 <style>
@@ -295,12 +296,6 @@
 
   .ledger td {
     vertical-align: top;
-  }
-
-  .ledger-position {
-    margin-block-start: 1rem;
-    color: var(--ink-2);
-    text-align: center;
   }
 
   .ledger tr.is-flagged {

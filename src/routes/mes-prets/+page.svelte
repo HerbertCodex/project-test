@@ -9,14 +9,6 @@
     ...data.active.filter((loan) => loan.overdue),
     ...data.active.filter((loan) => !loan.overdue)
   ]);
-
-  /** Position affichée de la page courante dans le total d'une section. */
-  function firstItem(page: number, pageSize: number, count: number): number {
-    return count === 0 ? 0 : (page - 1) * pageSize + 1;
-  }
-  function lastItem(page: number, pageSize: number, count: number): number {
-    return (page - 1) * pageSize + count;
-  }
 </script>
 
 <svelte:head>
@@ -79,17 +71,12 @@
         {/each}
       </tbody>
     </table>
-    <p class="section-position">
-      {firstItem(data.activePageInfo.page, data.activePageInfo.pageSize, activeLoans.length)}–{lastItem(
-        data.activePageInfo.page,
-        data.activePageInfo.pageSize,
-        activeLoans.length
-      )} sur {data.activePageInfo.totalItems}
-    </p>
     <Pagination
       page={data.activePageInfo.page}
       totalPages={data.activePageInfo.totalPages}
       totalItems={data.activePageInfo.totalItems}
+      itemCount={activeLoans.length}
+      pageSize={data.activePageInfo.pageSize}
       searchParams={new URLSearchParams(data.activePageQuery)}
       pageParam="pageActifs"
     />
@@ -127,17 +114,12 @@
         {/each}
       </tbody>
     </table>
-    <p class="section-position">
-      {firstItem(data.returnedPageInfo.page, data.returnedPageInfo.pageSize, data.returned.length)}–{lastItem(
-        data.returnedPageInfo.page,
-        data.returnedPageInfo.pageSize,
-        data.returned.length
-      )} sur {data.returnedPageInfo.totalItems}
-    </p>
     <Pagination
       page={data.returnedPageInfo.page}
       totalPages={data.returnedPageInfo.totalPages}
       totalItems={data.returnedPageInfo.totalItems}
+      itemCount={data.returned.length}
+      pageSize={data.returnedPageInfo.pageSize}
       searchParams={new URLSearchParams(data.returnedPageQuery)}
       pageParam="pageRendus"
     />
@@ -158,11 +140,5 @@
   /* État vide des prêts rendus : phrase simple en gris bleuté. */
   h2 + p {
     color: var(--ink-2);
-  }
-
-  .section-position {
-    margin-block-start: 1rem;
-    color: var(--ink-2);
-    text-align: center;
   }
 </style>

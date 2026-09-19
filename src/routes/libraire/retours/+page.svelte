@@ -7,10 +7,6 @@
 
   let { data, form }: PageProps = $props();
 
-  /** Position affichée de la page courante dans le total, par exemple « 26–50 sur 137 ». */
-  const firstItem = $derived(data.loans.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
-  const lastItem = $derived((data.page - 1) * data.pageSize + data.loans.length);
-
   /** Prêts dont le retour est en cours d'envoi ; un second envoi de la même ligne est ignoré. */
   let pendingLoanIds: string[] = $state([]);
 
@@ -107,8 +103,13 @@
         {/each}
       </tbody>
     </table>
-    <p class="counter-position">{firstItem}–{lastItem} sur {data.totalItems}</p>
-    <Pagination page={data.page} totalPages={data.totalPages} totalItems={data.totalItems} />
+    <Pagination
+      page={data.page}
+      totalPages={data.totalPages}
+      totalItems={data.totalItems}
+      itemCount={data.loans.length}
+      pageSize={data.pageSize}
+    />
   {/if}
 </div>
 
@@ -118,9 +119,4 @@
     white-space: nowrap;
   }
 
-  .counter-position {
-    margin-block-start: 1rem;
-    color: var(--ink-2);
-    text-align: center;
-  }
 </style>

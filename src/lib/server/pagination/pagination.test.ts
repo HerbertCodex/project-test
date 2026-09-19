@@ -40,18 +40,8 @@ describe('parsePageParam', () => {
     expect(parsePageParam('3')).toBe(3);
   });
 
-  it('accepte une valeur démesurée quand pageCount est inconnu', () => {
+  it('accepte une valeur démesurée telle quelle, avant le bornage par pageWindow', () => {
     expect(parsePageParam('9999999999999999')).toBe(9999999999999999);
-  });
-
-  it('borne à pageCount une fois celui-ci connu', () => {
-    expect(parsePageParam('999', 4)).toBe(4);
-    expect(parsePageParam('9999999999999999', 4)).toBe(4);
-  });
-
-  it('ne remonte pas une page invalide au-dessus de 1 même avec pageCount connu', () => {
-    expect(parsePageParam('abc', 4)).toBe(1);
-    expect(parsePageParam('0', 4)).toBe(1);
   });
 });
 
@@ -96,5 +86,18 @@ describe('pageWindow', () => {
 
   it('utilise DEFAULT_PAGE_SIZE quand pageSize est omis', () => {
     expect(pageWindow(1, 30)).toEqual({ page: 1, totalPages: 2, offset: 0 });
+  });
+
+  it('ramène une page démesurée (au-delà de Number.MAX_SAFE_INTEGER) sur une liste peuplée à la dernière page', () => {
+    expect(pageWindow(Number.MAX_SAFE_INTEGER + 1, 100, 25)).toEqual({
+      page: 4,
+      totalPages: 4,
+      offset: 75
+    });
+  });
+
+  it('borne sur le chemin de production réel : parsePageParam(raw) puis pageWindow', () => {
+    const page = parsePageParam('9999999999999999999999');
+    expect(pageWindow(page, 100, 25)).toEqual({ page: 4, totalPages: 4, offset: 75 });
   });
 });

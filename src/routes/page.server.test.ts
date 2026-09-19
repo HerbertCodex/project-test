@@ -822,7 +822,7 @@ describe('page / (catalogue public)', () => {
   it('n’affiche pas la position ni la pagination pour une liste vide', () => {
     const body = renderPage({ books: [], totalItems: 0, totalPages: 1 });
 
-    expect(body).not.toContain('catalogue-position');
+    expect(body).not.toContain('pagination__position');
     expect(body).not.toContain('Suivant');
   });
 

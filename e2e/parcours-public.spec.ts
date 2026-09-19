@@ -50,7 +50,7 @@ test('la pagination du catalogue public mène à la page suivante', async ({ pag
 
   await page.goto('/');
   const firstPageTitle = await page.locator('.book__title').first().innerText();
-  await expect(page.locator('.catalogue-position')).toContainText(/1–25 sur \d+/);
+  await expect(page.locator('.pagination__position')).toContainText(/1–25 sur \d+/);
 
   const nextLink = page.getByRole('link', { name: 'Suivant' });
   await expect(nextLink).toBeVisible();
@@ -59,5 +59,5 @@ test('la pagination du catalogue public mène à la page suivante', async ({ pag
   await expect(page).toHaveURL(/\?page=2/);
   const secondPageTitle = await page.locator('.book__title').first().innerText();
   expect(secondPageTitle).not.toBe(firstPageTitle);
-  await expect(page.locator('.catalogue-position')).toContainText(/26–\d+ sur \d+/);
+  await expect(page.locator('.pagination__position')).toContainText(/26–\d+ sur \d+/);
 });
