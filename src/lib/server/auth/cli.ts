@@ -114,10 +114,10 @@ function promptHidden(
     const onData = (chunk: Buffer | string) => {
       for (const char of chunk.toString()) {
         if (char === '\r' || char === '\n') return finish();
-        if (char === '' || char === '') {
+        if (char === '\u0003' || char === '\u0004') {
           return finish(new PasswordInputError('Saisie interrompue : aucun compte créé.'));
         }
-        if (char === '' || char === '\b') {
+        if (char === '\u007f' || char === '\b') {
           answer = Array.from(answer).slice(0, -1).join('');
         } else if (char >= ' ' && answer.length <= MAX_PASSWORD_INPUT_LENGTH) {
           answer += char;
