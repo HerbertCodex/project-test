@@ -498,7 +498,7 @@ describe('load / avec filtres d’URL', () => {
     expect(long.filters.text).toHaveLength(BOOK_TEXT_MAX_LENGTH);
     expect(long.books).toEqual([]);
 
-    const controlled = await catalogueAt(query({ q: 'Nana ' }));
+    const controlled = await catalogueAt(query({ q: 'Nana\u0000\u0007' }));
     expect(controlled.filters.text).toBe('Nana');
     expect(controlled.filters.text).not.toMatch(/\p{Cc}/u);
     expect(titles(controlled)).toEqual(['Nana']);

@@ -254,7 +254,7 @@ describe('listCatalogue : filtres', () => {
   for (const [label, text] of [
     ['vide', ''],
     ['fait d’espaces', '   '],
-    ['fait de caractères de contrôle', ' \n'],
+    ['fait de caractères de contrôle', '\u0000\u0007\n'],
     ['non textuel', 42],
     ['tableau', ['zola']],
     ['nul', null]
@@ -314,9 +314,9 @@ describe('listCatalogue : valeurs hostiles', () => {
   });
 
   it('remplace les caractères de contrôle par des espaces', () => {
-    expect(normalizeCatalogueFilters({ text: ' Candide' })).toEqual({ text: 'Candide' });
-    expect(normalizeCatalogueFilters({ text: 'Can dide' })).toEqual({ text: 'Can dide' });
-    expect(titles(books({ text: 'Cand ide' }))).toEqual([]);
+    expect(normalizeCatalogueFilters({ text: '\u0000Candide\u0007' })).toEqual({ text: 'Candide' });
+    expect(normalizeCatalogueFilters({ text: 'Can\u0000dide' })).toEqual({ text: 'Can dide' });
+    expect(titles(books({ text: 'Cand\u0000ide' }))).toEqual([]);
   });
 });
 
@@ -472,7 +472,7 @@ describe('prix', () => {
     ['avec séparateur final', '12,', PRICE_INVALID_MESSAGE],
     ['avec espace interne', '12 50', PRICE_INVALID_MESSAGE],
     ['en chiffres non ASCII', '١٢', PRICE_INVALID_MESSAGE],
-    ['avec caractère de contrôle', '12 ', PRICE_INVALID_MESSAGE],
+    ['avec caractère de contrôle', '12\u0000', PRICE_INVALID_MESSAGE],
     ['avec charge SQL', SQL_PAYLOAD, PRICE_INVALID_MESSAGE],
     ['avec charge SQL après un nombre', '12; DROP TABLE books;--', PRICE_INVALID_MESSAGE],
     ['de type nombre', 12, PRICE_INVALID_MESSAGE],
