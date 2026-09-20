@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { addBook } from '../src/lib/server/catalogue';
 import { openDatabase } from '../src/lib/server/db';
+import { DEFAULT_PAGE_SIZE } from '../src/lib/server/pagination';
 
 // Même chemin que `webServer.env.LIBRAIRIE_DB_PATH` dans playwright.config.ts.
 const CATALOGUE_DB_PATH = 'data/e2e.db';
-const CATALOGUE_PAGE_SIZE = 25;
 
 /**
  * Parcours public minimal : ce que voit un visiteur avant toute donnée. Il vérifie que les pages
@@ -64,7 +64,7 @@ test("une saisie faite avant l'hydratation n'est pas effacée", async ({ page })
 test('la pagination du catalogue public mène à la page suivante', async ({ page }) => {
   const db = openDatabase(CATALOGUE_DB_PATH);
   try {
-    for (let index = 1; index <= CATALOGUE_PAGE_SIZE + 1; index += 1) {
+    for (let index = 1; index <= DEFAULT_PAGE_SIZE + 1; index += 1) {
       const created = addBook(db, {
         title: `Pagination essai ${String(index).padStart(2, '0')}`,
         author: 'Auteur de test'
@@ -77,7 +77,9 @@ test('la pagination du catalogue public mène à la page suivante', async ({ pag
 
   await page.goto('/');
   const firstPageTitle = await page.locator('.book__title').first().innerText();
-  await expect(page.locator('.pagination__position')).toContainText(/1–25 sur \d+/);
+  await expect(page.locator('.pagination__position')).toContainText(
+    new RegExp(`1–${DEFAULT_PAGE_SIZE} sur \\d+`)
+  );
 
   const nextLink = page.getByRole('link', { name: 'Suivant' });
   await expect(nextLink).toBeVisible();
@@ -86,5 +88,7 @@ test('la pagination du catalogue public mène à la page suivante', async ({ pag
   await expect(page).toHaveURL(/\?page=2/);
   const secondPageTitle = await page.locator('.book__title').first().innerText();
   expect(secondPageTitle).not.toBe(firstPageTitle);
-  await expect(page.locator('.pagination__position')).toContainText(/26–\d+ sur \d+/);
+  await expect(page.locator('.pagination__position')).toContainText(
+    new RegExp(`${DEFAULT_PAGE_SIZE + 1}–\\d+ sur \\d+`)
+  );
 });

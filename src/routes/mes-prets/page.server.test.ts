@@ -1,4 +1,5 @@
 import { isHttpError, isRedirect } from '@sveltejs/kit';
+import { DEFAULT_PAGE_SIZE } from '$lib/server/pagination';
 import { render } from 'svelte/server';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AuthUser, Role } from '$lib/server/auth';
@@ -109,10 +110,11 @@ afterEach(() => {
 describe('pagination indépendante de /mes-prets', () => {
   it('pagine séparément les prêts en cours et les prêts rendus, sans se gêner l’un l’autre', async () => {
     const reader = borrower();
-    for (let i = 0; i < 30; i++) {
+    const total = DEFAULT_PAGE_SIZE + 5;
+    for (let i = 0; i < total; i++) {
       insertActiveLoan(reader.id, `Actif ${String(i).padStart(2, '0')}`, `2026-06-${String(1 + (i % 28)).padStart(2, '0')}`);
     }
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < total; i++) {
       insertReturnedLoan(reader.id, `Rendu ${String(i).padStart(2, '0')}`, `2025-0${1 + (i % 9)}-01`);
     }
 
@@ -120,10 +122,10 @@ describe('pagination indépendante de /mes-prets', () => {
     const secondActive = (await loadAs(reader, '?pageActifs=2&pageRendus=1')) as LoadData;
     const secondReturned = (await loadAs(reader, '?pageActifs=1&pageRendus=2')) as LoadData;
 
-    expect(first.active).toHaveLength(25);
-    expect(first.returned).toHaveLength(25);
-    expect(first.activePageInfo).toMatchObject({ page: 1, totalItems: 30, totalPages: 2 });
-    expect(first.returnedPageInfo).toMatchObject({ page: 1, totalItems: 30, totalPages: 2 });
+    expect(first.active).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(first.returned).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(first.activePageInfo).toMatchObject({ page: 1, totalItems: total, totalPages: 2 });
+    expect(first.returnedPageInfo).toMatchObject({ page: 1, totalItems: total, totalPages: 2 });
 
     // Changer pageActifs ne modifie pas la page rendue de pageRendus.
     expect(secondActive.active).toHaveLength(5);

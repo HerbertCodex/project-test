@@ -11,7 +11,7 @@
     totalPages: number;
     totalItems: number;
     itemCount: number;
-    pageSize?: number;
+    pageSize: number;
     searchParams?: URLSearchParams;
     pageParam?: string;
   };
@@ -21,7 +21,7 @@
     totalPages,
     totalItems,
     itemCount,
-    pageSize = 25,
+    pageSize,
     searchParams = new URLSearchParams(),
     pageParam = 'page'
   }: Props = $props();

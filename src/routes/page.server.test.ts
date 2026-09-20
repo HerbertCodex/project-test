@@ -535,28 +535,28 @@ describe('load / pagination du catalogue', () => {
 
     const data = await catalogueAt('');
 
-    expect(data.books).toHaveLength(25);
+    expect(data.books).toHaveLength(DEFAULT_PAGE_SIZE);
     expect(data.page).toBe(1);
-    expect(data.pageSize).toBe(25);
+    expect(data.pageSize).toBe(DEFAULT_PAGE_SIZE);
     expect(data.totalItems).toBe(60);
-    expect(data.totalPages).toBe(3);
+    expect(data.totalPages).toBe(Math.ceil(60 / DEFAULT_PAGE_SIZE));
   });
 
-  it('la première page d’une base d’au moins 200 livres ne renvoie jamais plus de 25 lignes', async () => {
+  it('la première page d’une base d’au moins 200 livres ne dépasse jamais une page de lignes', async () => {
     seedBooks(200);
 
     const data = await catalogueAt('');
 
     // Rapport avant/après : un catalogue complet de 200 livres rendrait environ
     // 200 lignes de HTML (de l'ordre de 150 à 200 Ko selon le gabarit) ; seule la
-    // page demandée (25 lignes, quelques dizaines de Ko) est lue et renvoyée ici.
-    expect(data.books).toHaveLength(25);
+    // page demandée est lue et renvoyée ici, soit DEFAULT_PAGE_SIZE lignes.
+    expect(data.books).toHaveLength(DEFAULT_PAGE_SIZE);
     expect(data.totalItems).toBe(200);
-    expect(data.totalPages).toBe(8);
+    expect(data.totalPages).toBe(Math.ceil(200 / DEFAULT_PAGE_SIZE));
   });
 
   it('change de page avec ?page=2, filtres conservés dans pageQuery', async () => {
-    seedBooks(30);
+    seedBooks(DEFAULT_PAGE_SIZE + 5);
 
     const data = await catalogueAt(query({ page: '2', pret: '1' }));
 
@@ -814,7 +814,7 @@ describe('page / (catalogue public)', () => {
       pageQuery: 'pret=1'
     });
 
-    expect(body).toContain('26–27 sur 60');
+    expect(body).toContain(`${DEFAULT_PAGE_SIZE + 1}–${DEFAULT_PAGE_SIZE + 2} sur 60`);
     expect(body).toMatch(/<a[^>]*href="\?pret=1"[^>]*>\s*Précédent\s*<\/a>/);
     expect(body).toMatch(/<a[^>]*href="\?pret=1&amp;page=3"[^>]*>\s*Suivant\s*<\/a>/);
   });

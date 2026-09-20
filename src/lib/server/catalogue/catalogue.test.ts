@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IN_MEMORY_DATABASE_PATH, openDatabase, type Db } from '../db';
+import { DEFAULT_PAGE_SIZE } from '../pagination';
 import {
   BOOK_TEXT_MAX_LENGTH,
   CATALOGUE_FILTER_PARAMS,
@@ -347,15 +348,15 @@ describe('listCatalogue : pagination', () => {
     expect(page.items.map((book) => book.id)).toEqual([first, second]);
   });
 
-  it('ne renvoie jamais plus de 25 lignes et expose le total séparément', () => {
+  it('ne renvoie jamais plus d’une page de lignes et expose le total séparément', () => {
     seedBooks(60);
 
     const page = listCatalogue(db, {}, 1);
 
-    expect(page.items).toHaveLength(25);
+    expect(page.items).toHaveLength(DEFAULT_PAGE_SIZE);
     expect(page.totalItems).toBe(60);
-    expect(page.totalPages).toBe(3);
-    expect(page.pageSize).toBe(25);
+    expect(page.totalPages).toBe(Math.ceil(60 / DEFAULT_PAGE_SIZE));
+    expect(page.pageSize).toBe(DEFAULT_PAGE_SIZE);
     expect(page.page).toBe(1);
   });
 
@@ -371,7 +372,7 @@ describe('listCatalogue : pagination', () => {
   });
 
   it('deux pages consécutives ne partagent aucun identifiant et couvrent tout', () => {
-    seedBooks(40);
+    seedBooks(DEFAULT_PAGE_SIZE + 5);
 
     const first = listCatalogue(db, {}, 1);
     const second = listCatalogue(db, {}, 2);
@@ -380,8 +381,8 @@ describe('listCatalogue : pagination', () => {
     const secondIds = second.items.map((book) => book.id);
     expect(new Set(firstIds).size).toBe(firstIds.length);
     expect(firstIds.some((id) => secondIds.includes(id))).toBe(false);
-    expect(firstIds).toHaveLength(25);
-    expect(secondIds).toHaveLength(15);
+    expect(firstIds).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(secondIds).toHaveLength(5);
   });
 
   it('borne silencieusement une page invalide ou hors bornes, sans erreur', () => {
@@ -391,14 +392,20 @@ describe('listCatalogue : pagination', () => {
     expect(listCatalogue(db, {}, -1).page).toBe(1);
     expect(listCatalogue(db, {}, 1.5).page).toBe(1);
     expect(listCatalogue(db, {}, Number.NaN).page).toBe(1);
-    expect(listCatalogue(db, {}, 999).page).toBe(2);
+    expect(listCatalogue(db, {}, 999).page).toBe(Math.ceil(30 / DEFAULT_PAGE_SIZE));
     expect(listCatalogue(db, {}, 999).items.length).toBeGreaterThan(0);
   });
 
   it('une base vide renvoie une page vide sur la page 1, sans erreur', () => {
     const page = listCatalogue(db, {}, 5);
 
-    expect(page).toEqual({ items: [], page: 1, pageSize: 25, totalItems: 0, totalPages: 1 });
+    expect(page).toEqual({
+      items: [],
+      page: 1,
+      pageSize: DEFAULT_PAGE_SIZE,
+      totalItems: 0,
+      totalPages: 1
+    });
   });
 });
 

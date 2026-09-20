@@ -72,31 +72,32 @@ afterEach(() => {
 });
 
 describe('listActiveLoans', () => {
-  it('pagine à 25 lignes et calcule le total réel', () => {
+  it('pagine à la taille de page et calcule le total réel', () => {
     const bookseller = createUser('libraire@example.fr', 'bookseller');
     const borrower = createUser('lecteur@example.fr');
-    const ids = insertManyActiveLoans(borrower.id, 30);
+    const total = DEFAULT_PAGE_SIZE + 5;
+    const ids = insertManyActiveLoans(borrower.id, total);
     void bookseller;
 
     const firstPage = listActiveLoans(db, 1, '2026-05-20');
     const secondPage = listActiveLoans(db, 2, '2026-05-20');
 
     expect(firstPage.items).toHaveLength(DEFAULT_PAGE_SIZE);
-    expect(firstPage.totalItems).toBe(30);
+    expect(firstPage.totalItems).toBe(total);
     expect(firstPage.totalPages).toBe(2);
     expect(secondPage.items).toHaveLength(5);
     expect(secondPage.page).toBe(2);
 
     // Même échéance pour tous : l'id départage, sans recouvrement ni oubli entre les pages.
     const seenIds = [...firstPage.items, ...secondPage.items].map((loan) => loan.id);
-    expect(new Set(seenIds).size).toBe(30);
+    expect(new Set(seenIds).size).toBe(total);
     expect(seenIds).toEqual([...ids]);
   });
 
   it('compte tous les retards, y compris ceux des pages suivantes', () => {
     const borrower = createUser('lecteur@example.fr');
-    // Trente prêts en cours : les dix premiers échus la veille, les vingt autres à venir.
-    // Le comptoir n'affiche que vingt-cinq lignes, donc cinq retards sont hors de la première page.
+    // Dix prêts échus la veille puis vingt à venir : le tri par échéance met les retards
+    // en tête, donc la page suivante n'en montre aucun alors que le compteur les connaît tous.
     for (let index = 0; index < 10; index++) {
       insertLoan(createBook(`Retard ${index}`), borrower.id, '2026-04-01', '2026-05-19');
     }
@@ -143,13 +144,14 @@ describe('listBorrowerActiveLoans', () => {
   it('pagine indépendamment par utilisateur, triée par échéance puis id', () => {
     const a = createUser('a@example.fr');
     const b = createUser('b@example.fr');
-    const idsA = insertManyActiveLoans(a.id, 27);
+    const total = DEFAULT_PAGE_SIZE + 2;
+    const idsA = insertManyActiveLoans(a.id, total);
     insertManyActiveLoans(b.id, 2);
 
     const firstPage = listBorrowerActiveLoans(db, a.id, 1, '2026-05-20');
     const secondPage = listBorrowerActiveLoans(db, a.id, 2, '2026-05-20');
 
-    expect(firstPage.totalItems).toBe(27);
+    expect(firstPage.totalItems).toBe(total);
     expect(firstPage.items).toHaveLength(DEFAULT_PAGE_SIZE);
     expect(secondPage.items).toHaveLength(2);
     const seenIds = [...firstPage.items, ...secondPage.items].map((loan) => loan.id);
@@ -183,19 +185,20 @@ describe('listBorrowerReturnedLoans', () => {
     expect(page.items.map((loan) => loan.id)).toEqual([sameDaySecond, sameDayFirst, older]);
   });
 
-  it('pagine à 25 lignes sans recouvrement ni omission entre deux pages', () => {
+  it('pagine à la taille de page sans recouvrement ni omission entre deux pages', () => {
     const borrower = createUser('lecteur@example.fr');
-    const ids = insertManyReturnedLoans(borrower.id, 40);
+    const total = DEFAULT_PAGE_SIZE + 5;
+    const ids = insertManyReturnedLoans(borrower.id, total);
     // Insérés du plus ancien id au plus récent ; le tri id DESC les renvoie donc à l'envers.
     const expectedOrder = [...ids].reverse();
 
     const firstPage = listBorrowerReturnedLoans(db, borrower.id, 1);
     const secondPage = listBorrowerReturnedLoans(db, borrower.id, 2);
 
-    expect(firstPage.totalItems).toBe(40);
+    expect(firstPage.totalItems).toBe(total);
     expect(firstPage.totalPages).toBe(2);
     expect(firstPage.items).toHaveLength(DEFAULT_PAGE_SIZE);
-    expect(secondPage.items).toHaveLength(15);
+    expect(secondPage.items).toHaveLength(5);
     const seenIds = [...firstPage.items, ...secondPage.items].map((loan) => loan.id);
     expect(seenIds).toEqual(expectedOrder);
   });
