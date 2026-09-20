@@ -8,8 +8,8 @@ import {
 } from './index';
 
 describe('DEFAULT_PAGE_SIZE', () => {
-  it('vaut 25', () => {
-    expect(DEFAULT_PAGE_SIZE).toBe(25);
+  it('vaut 10', () => {
+    expect(DEFAULT_PAGE_SIZE).toBe(10);
   });
 });
 
@@ -85,7 +85,7 @@ describe('pageWindow', () => {
   });
 
   it('utilise DEFAULT_PAGE_SIZE quand pageSize est omis', () => {
-    expect(pageWindow(1, 30)).toEqual({ page: 1, totalPages: 2, offset: 0 });
+    expect(pageWindow(1, 30)).toEqual({ page: 1, totalPages: 3, offset: 0 });
   });
 
   it('ramène une page démesurée (au-delà de Number.MAX_SAFE_INTEGER) sur une liste peuplée à la dernière page', () => {

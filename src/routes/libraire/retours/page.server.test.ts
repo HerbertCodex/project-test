@@ -1,4 +1,5 @@
 import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
+import { DEFAULT_PAGE_SIZE } from '$lib/server/pagination';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AuthUser, Role } from '$lib/server/auth';
 import { BOOKSELLER_ONLY_MESSAGE, addBook } from '$lib/server/catalogue';
@@ -98,10 +99,11 @@ afterEach(() => {
 });
 
 describe('pagination de /libraire/retours', () => {
-  it('pagine à 25 lignes avec un ordre total et stable entre deux pages', async () => {
+  it('pagine à la taille de page avec un ordre total et stable entre deux pages', async () => {
     const seller = bookseller();
     const reader = borrower();
-    for (let i = 0; i < 30; i++) {
+    const total = DEFAULT_PAGE_SIZE + 5;
+    for (let i = 0; i < total; i++) {
       const bookId = createBook(`Livre ${String(i).padStart(2, '0')}`);
       const month = String(2 + Math.floor(i / 20)).padStart(2, '0');
       const day = String(1 + (i % 20)).padStart(2, '0');
@@ -111,9 +113,9 @@ describe('pagination de /libraire/retours', () => {
     const first = (await loadAs(seller, '?page=1')) as LoadData;
     const second = (await loadAs(seller, '?page=2')) as LoadData;
 
-    expect(first.loans).toHaveLength(25);
+    expect(first.loans).toHaveLength(DEFAULT_PAGE_SIZE);
     expect(second.loans).toHaveLength(5);
-    expect(first.totalItems).toBe(30);
+    expect(first.totalItems).toBe(total);
     expect(first.totalPages).toBe(2);
     const firstIds = first.loans.map((loan) => loan.id);
     const secondIds = second.loans.map((loan) => loan.id);

@@ -1,4 +1,5 @@
 import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
+import { DEFAULT_PAGE_SIZE } from '$lib/server/pagination';
 import { render } from 'svelte/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AuthUser, Role } from '$lib/server/auth';
@@ -278,7 +279,12 @@ describe('load /libraire/vente', () => {
     };
     const books = outcome.books;
 
-    expect(outcome).toMatchObject({ page: 1, pageSize: 25, totalItems: 3, totalPages: 1 });
+    expect(outcome).toMatchObject({
+      page: 1,
+      pageSize: DEFAULT_PAGE_SIZE,
+      totalItems: 3,
+      totalPages: 1
+    });
     expect(books.map((book) => book.id)).toEqual([soldOut, onSale, legacy]);
     expect(books[1]).toEqual({
       id: onSale,
@@ -334,7 +340,7 @@ describe('load /libraire/vente', () => {
   it('affiche l’état vide, une erreur rattachée au champ et une saisie hostile échappée', () => {
     const empty = render(SalePage, {
       props: {
-        data: { books: [], user: null, page: 1, pageSize: 25, totalItems: 0, totalPages: 1 },
+        data: { books: [], user: null, page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 0, totalPages: 1 },
         form: null
       } as never
     });
@@ -353,7 +359,7 @@ describe('load /libraire/vente', () => {
     };
     const flagged = render(SalePage, {
       props: {
-        data: { books: [book], user: null, page: 1, pageSize: 25, totalItems: 1, totalPages: 1 },
+        data: { books: [book], user: null, page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
         form: {
           counterError: {
             action: 'prix',
@@ -372,7 +378,7 @@ describe('load /libraire/vente', () => {
 
     const done = render(SalePage, {
       props: {
-        data: { books: [book], user: null, page: 1, pageSize: 25, totalItems: 1, totalPages: 1 },
+        data: { books: [book], user: null, page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 1, totalPages: 1 },
         form: {
           sold: { bookId: 7, title: 'Les Fourmis', quantity: 2, totalLabel: '23,80 €', remainingStock: 3 }
         }
@@ -384,16 +390,17 @@ describe('load /libraire/vente', () => {
 });
 
 describe('pagination de /libraire/vente', () => {
-  it('pagine à 25 lignes avec un ordre total et stable entre deux pages', async () => {
+  it('pagine à la taille de page avec un ordre total et stable entre deux pages', async () => {
     const seller = bookseller();
-    for (let i = 0; i < 30; i++) {
+    const total = DEFAULT_PAGE_SIZE + 5;
+    for (let i = 0; i < total; i++) {
       createBook(`Livre ${String(i).padStart(2, '0')}`, { price: '5', saleStock: '1' });
     }
 
     const first = (await loadAs(seller, '?page=1')) as { books: CounterBook[]; totalPages: number };
     const second = (await loadAs(seller, '?page=2')) as { books: CounterBook[]; totalPages: number };
 
-    expect(first.books).toHaveLength(25);
+    expect(first.books).toHaveLength(DEFAULT_PAGE_SIZE);
     expect(second.books).toHaveLength(5);
     expect(first.totalPages).toBe(2);
     const firstIds = first.books.map((book) => book.id);

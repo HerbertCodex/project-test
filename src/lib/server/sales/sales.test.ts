@@ -17,6 +17,7 @@ import {
 } from '../catalogue';
 import type { Clock } from '../dates';
 import { IN_MEMORY_DATABASE_PATH, MIGRATIONS, migrate, openDatabase, type Db } from '../db';
+import { DEFAULT_PAGE_SIZE } from '../pagination';
 import { BOOK_NOT_FOUND_MESSAGE, borrowBook, recordReturn } from '../loans';
 import {
   QUANTITY_INVALID_MESSAGE,
@@ -168,7 +169,7 @@ describe('listSaleCounter', () => {
 
     const page = listSaleCounter(db);
 
-    expect(page).toMatchObject({ page: 1, pageSize: 25, totalItems: 3, totalPages: 1 });
+    expect(page).toMatchObject({ page: 1, pageSize: DEFAULT_PAGE_SIZE, totalItems: 3, totalPages: 1 });
     expect(page.items).toEqual([
       {
         id: unpriced,
@@ -201,7 +202,7 @@ describe('listSaleCounter', () => {
     expect(listSaleCounter(db)).toEqual({
       items: [],
       page: 1,
-      pageSize: 25,
+      pageSize: DEFAULT_PAGE_SIZE,
       totalItems: 0,
       totalPages: 1,
       onSaleCount: 0,
@@ -209,9 +210,10 @@ describe('listSaleCounter', () => {
     });
   });
 
-  it('pagine à 25 lignes, avec un ordre total et stable entre deux pages', () => {
+  it('pagine à la taille de page, avec un ordre total et stable entre deux pages', () => {
+    const total = DEFAULT_PAGE_SIZE * 2 + 10;
     const ids: number[] = [];
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < total; i++) {
       ids.push(createBook({}, `Livre ${String(i).padStart(2, '0')}`));
     }
 
@@ -219,13 +221,18 @@ describe('listSaleCounter', () => {
     const second = listSaleCounter(db, 2);
     const third = listSaleCounter(db, 3);
 
-    expect(first.items).toHaveLength(25);
-    expect(second.items).toHaveLength(25);
+    expect(first.items).toHaveLength(DEFAULT_PAGE_SIZE);
+    expect(second.items).toHaveLength(DEFAULT_PAGE_SIZE);
     expect(third.items).toHaveLength(10);
-    expect(first).toMatchObject({ page: 1, pageSize: 25, totalItems: 60, totalPages: 3 });
+    expect(first).toMatchObject({
+      page: 1,
+      pageSize: DEFAULT_PAGE_SIZE,
+      totalItems: total,
+      totalPages: Math.ceil(total / DEFAULT_PAGE_SIZE)
+    });
 
     const seenIds = [...first.items, ...second.items, ...third.items].map((book) => book.id);
-    expect(new Set(seenIds).size).toBe(60);
+    expect(new Set(seenIds).size).toBe(total);
     expect(seenIds.sort((a, b) => a - b)).toEqual([...ids].sort((a, b) => a - b));
   });
 

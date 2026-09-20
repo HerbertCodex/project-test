@@ -3,7 +3,7 @@
  * les cinq listes paginées. Ne connaît ni Db ni SQL : chaque domaine garde son
  * propre COUNT(*) et son propre SELECT ... LIMIT ? OFFSET ? à paramètres liés.
  */
-export const DEFAULT_PAGE_SIZE = 25;
+export const DEFAULT_PAGE_SIZE = 10;
 
 /**
  * Borne un paramètre `page` brut lu dans l'URL à un entier valide.
